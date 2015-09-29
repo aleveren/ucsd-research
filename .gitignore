@@ -1,0 +1,6 @@
+.*.sw?
+*.aux
+*.pdf
+*.log
+*.pyc
+.DS_Store
