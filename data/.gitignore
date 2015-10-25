@@ -1,3 +1,6 @@
 *.csv
 *.CSV
+*.bz2
+*.gz
+*.zip
 .~lock*
