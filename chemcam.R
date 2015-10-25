@@ -116,6 +116,5 @@ for (f in mocFiles) {
     toDownload <- paste0(baseUrl, "/data/moc/", f)
     download.file(toDownload, localFile)
   }
-  #df <- read.csv(localFile, skip = 6)
-  #print(nrow(df))
+  mocData <- read.csv(localFile, skip = 7)
 }
