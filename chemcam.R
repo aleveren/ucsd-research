@@ -34,16 +34,18 @@ for (detailType in c("RDR", "CCS")) {
     stringsAsFactors = FALSE)
   accumData <- data.frame()
 
-  initIndex <- 1
-  for (rowIndex in initIndex:N) {
-    if (rowIndex > initIndex && (rowIndex-1) %% batchSize == 0) {
+  prevIndex <- 0
+  downloadIndices <- 1:N
+  for (rowIndex in downloadIndices) {
+    if (nrow(accumData) > 0 && prevIndex %% batchSize == 0) {
       # Write batch to disk and start a new one
       accumFile <- paste0("data/accumData", detailType, "_batch",
-          rowIndex-1, ".csv.bz2")
+          prevIndex, ".csv.bz2")
       write.csv(accumData, file = pipe(paste0("bzip2 -c > ", accumFile)),
           row.names = FALSE)
       accumData <- data.frame()
     }
+    prevIndex <- rowIndex
 
     cat(paste0("Row ", rowIndex, " of ", N, "\n"))
 
@@ -112,7 +114,8 @@ for (detailType in c("RDR", "CCS")) {
 
   if (nrow(accumData) > 0) {
     # If there's a final partial batch, write it to disk
-    accumFile <- paste0("data/accumData", detailType, "_batch", N, ".csv.bz2")
+    accumFile <- paste0("data/accumData", detailType, "_batch",
+        prevIndex, ".csv.bz2")
     write.csv(accumData, file = pipe(paste0("bzip2 -c > ", accumFile)),
         row.names = FALSE)
     # NOTE: to view this file, use a command like the following:
