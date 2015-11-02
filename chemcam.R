@@ -20,7 +20,7 @@ print(nrow(summaryData))
 batchSize <- 50
 
 # Download both RDR and CCS data file
-for (detailType in c("RDR", "CCS") {
+for (detailType in c("RDR", "CCS")) {
   N <- nrow(summaryData)
 
   downloadResults <- data.frame(
