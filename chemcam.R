@@ -49,7 +49,7 @@ for (detailType in c("RDR", "CCS") {
 
     row <- summaryData[rowIndex, ]
 
-    detailFilename <- gsub("M1.DAT", "P3.CSV",
+    detailFilename <- gsub("M\\d.DAT", "P3.CSV",
         gsub("EDR", detailType, row$EDR.Filename))
     paddedSol <- sprintf("%05d", row$Sol)
     toDownload <- paste0(baseUrl, "/data/sol", paddedSol, "/", detailFilename)
