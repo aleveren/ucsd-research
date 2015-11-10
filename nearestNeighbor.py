@@ -91,7 +91,7 @@ def makeTree(data, n0, distanceFunction):
   leftTree = makeTree(data[leftSelections], n0, distanceFunction)
   rightTree = makeTree(data[np.logical_not(leftSelections)], n0,
       distanceFunction)
-  return Split(rule, leftTree, rightTree)
+  return Node(rule, leftTree, rightTree)
 
 def chooseRule(data):
   ncols = len(data[0, :])
@@ -99,7 +99,16 @@ def chooseRule(data):
   beta = np.random.uniform(0.25, 0.75)
   proj = np.apply_along_axis(lambda x: np.dot(u, x), 1, data)
   split = selectQuantile(proj, beta)
-  return lambda x: np.dot(u, x) <= split
+  return Rule(u, split)
+
+class Rule(object):
+  def __init__(self, direction, threshold):
+    self.direction = direction
+    self.threshold = threshold
+
+  def __call__(self, row):
+    '''Apply this rule to a row of data'''
+    return np.dot(self.direction, row) <= self.threshold
 
 class Leaf(object):
   def __init__(self, data, distanceFunction):
@@ -113,7 +122,7 @@ class Leaf(object):
     return linearScanNearestNeighbor(
         query, self.data, self.distanceFunction)
 
-class Split(object):
+class Node(object):
   def __init__(self, rule, leftTree, rightTree):
     self.rule = rule
     self.leftTree = leftTree
