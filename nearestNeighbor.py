@@ -17,7 +17,8 @@ def main():
   print("v = {}, with norm {}".format(v, np.linalg.norm(v)))
 
   data = np.random.uniform(0, 1, [1000, 100])
-  forest = makeForest(data, n0 = 100, numTrees = 10)
+  forest = makeForest(data, n0 = 100, numTrees = 10,
+      distanceFunction = euclidean)
   query = np.random.uniform(0, 1, 100)
   result = forest.nearestNeighbor(query)
   print("Nearest to {}: {}".format(query, result))
@@ -35,7 +36,8 @@ def main():
       data = np.vstack((data, np.array([[r1, r2, M]])))
   print(data)
   print("Building trees")
-  forest = makeForest(data, n0 = 100, numTrees = 10)
+  forest = makeForest(data, n0 = 100, numTrees = 10,
+      distanceFunction = euclidean)
   print("Finished building trees")
   print("Running query")
   query = np.array([0.0, 0.0, 0.0])
@@ -66,11 +68,11 @@ def selectRank(values, rank):
 def euclidean(a, b):
   return np.linalg.norm(a - b)
 
-def linearScanNearestNeighbor(query, data):
+def linearScanNearestNeighbor(query, data, distanceFunction):
   nearest = None
   minDistance = None
   for row in data:
-    currentDistance = euclidean(query, row)
+    currentDistance = distanceFunction(query, row)
     if minDistance == None or currentDistance < minDistance:
       minDistance = currentDistance
       nearest = row
@@ -81,13 +83,14 @@ def randomUnitVector(n):
   unit = v / np.linalg.norm(v)
   return unit
 
-def makeTree(data, n0):
+def makeTree(data, n0, distanceFunction):
   if len(data) < n0:
-    return Leaf(data)
+    return Leaf(data, distanceFunction)
   rule = chooseRule(data)
   leftSelections = np.apply_along_axis(rule, 1, data)
-  leftTree = makeTree(data[leftSelections], n0)
-  rightTree = makeTree(data[np.logical_not(leftSelections)], n0)
+  leftTree = makeTree(data[leftSelections], n0, distanceFunction)
+  rightTree = makeTree(data[np.logical_not(leftSelections)], n0,
+      distanceFunction)
   return Split(rule, leftTree, rightTree)
 
 def chooseRule(data):
@@ -99,14 +102,16 @@ def chooseRule(data):
   return lambda x: np.dot(u, x) <= split
 
 class Leaf(object):
-  def __init__(self, data):
+  def __init__(self, data, distanceFunction):
     self.data = data
+    self.distanceFunction = distanceFunction
 
   def getLeaf(self, row):
     return self
 
   def nearestNeighbor(self, query):
-    return linearScanNearestNeighbor(query, self.data)
+    return linearScanNearestNeighbor(
+        query, self.data, self.distanceFunction)
 
 class Split(object):
   def __init__(self, rule, leftTree, rightTree):
@@ -124,17 +129,18 @@ class Split(object):
     leaf = self.getLeaf(query)
     return leaf.nearestNeighbor(query)
 
-def makeForest(data, n0, numTrees):
-  trees = [makeTree(data, n0) for i in range(numTrees)]
-  return NearestNeighborForest(trees)
+def makeForest(data, n0, numTrees, distanceFunction):
+  trees = [makeTree(data, n0, distanceFunction) for i in range(numTrees)]
+  return NearestNeighborForest(trees, distanceFunction)
 
 class NearestNeighborForest(object):
-  def __init__(self, trees):
+  def __init__(self, trees, distanceFunction):
     self.trees = trees
+    self.distanceFunction = distanceFunction
 
   def nearestNeighbor(self, query):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
-    return linearScanNearestNeighbor(query, results)
+    return linearScanNearestNeighbor(query, results, self.distanceFunction)
 
 if __name__ == "__main__":
   main()
