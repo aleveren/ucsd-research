@@ -2,48 +2,6 @@
 
 import numpy as np
 
-def main():
-  np.random.seed(1)
-  alpha = 1/4.0
-  a = np.arange(0, 100, 10)
-  np.random.shuffle(a)
-  
-  for x in a: print(x)
-  for i, x in enumerate(sorted(a)): print("{}, {}".format(i, x))
-  for i in range(-1, len(a) + 1):
-    print("Select {} = {}".format(i, selectRank(a, i)))
-
-  v = randomUnitVector(7000)
-  print("v = {}, with norm {}".format(v, np.linalg.norm(v)))
-
-  data = np.random.uniform(0, 1, [1000, 100])
-  forest = makeForest(data, n0 = 100, numTrees = 10,
-      distanceFunction = euclidean)
-  query = np.random.uniform(0, 1, 100)
-  result = forest.nearestNeighbor(query)
-  print("Nearest to {}: {}".format(query, result))
-
-  dims = 5
-  M = np.sqrt(dims) + 0.001
-  nrows = dims * 100
-  data = np.ones((1, dims))
-  for i in range(nrows):
-    row = np.random.uniform(0, 1, [1, dims])
-    row[0, i % dims] = M
-    data = np.vstack((data, row))
-  print(data)
-  print("Building trees")
-  forest = makeForest(data, n0 = 100, numTrees = 10,
-      distanceFunction = euclidean)
-  print("Finished building trees")
-  print("Running query")
-  query = np.zeros(dims)
-  result = forest.nearestNeighbor(query)
-  distance = euclidean(query, result)
-  print("Nearest to {}: {}, at distance {}".format(query, result, distance))
-  print("Theoretical optimum: {}, at distance {}".format(
-      np.ones(dims), euclidean(query, np.ones(dims))))
-
 def selectQuantile(values, alpha):
   rank = round(len(values) * alpha)
   return selectRank(values, rank)
@@ -93,6 +51,10 @@ def makeTree(data, n0, distanceFunction):
       distanceFunction)
   return Node(rule, leftTree, rightTree)
 
+def makeForest(data, n0, numTrees, distanceFunction):
+  trees = [makeTree(data, n0, distanceFunction) for i in range(numTrees)]
+  return NearestNeighborForest(trees, distanceFunction)
+
 def chooseRule(data):
   ncols = len(data[0, :])
   u = randomUnitVector(ncols)
@@ -138,10 +100,6 @@ class Node(object):
     leaf = self.getLeaf(query)
     return leaf.nearestNeighbor(query)
 
-def makeForest(data, n0, numTrees, distanceFunction):
-  trees = [makeTree(data, n0, distanceFunction) for i in range(numTrees)]
-  return NearestNeighborForest(trees, distanceFunction)
-
 class NearestNeighborForest(object):
   def __init__(self, trees, distanceFunction):
     self.trees = trees
@@ -150,6 +108,3 @@ class NearestNeighborForest(object):
   def nearestNeighbor(self, query):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
     return linearScanNearestNeighbor(query, results, self.distanceFunction)
-
-if __name__ == "__main__":
-  main()
