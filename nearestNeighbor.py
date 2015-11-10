@@ -23,26 +23,26 @@ def main():
   result = forest.nearestNeighbor(query)
   print("Nearest to {}: {}".format(query, result))
 
-  M = 100
-  data = np.array([[1.0, 1.0, 1.0]])
-  for i in range(3000):
-    r1 = np.random.uniform(0, 1)
-    r2 = np.random.uniform(0, 1)
-    if i % 3 == 0:
-      data = np.vstack((data, np.array([[M, r1, r2]])))
-    elif i % 3 == 1:
-      data = np.vstack((data, np.array([[r1, M, r2]])))
-    elif i % 3 == 2:
-      data = np.vstack((data, np.array([[r1, r2, M]])))
+  dims = 5
+  M = np.sqrt(dims) + 0.001
+  nrows = dims * 100
+  data = np.ones((1, dims))
+  for i in range(nrows):
+    row = np.random.uniform(0, 1, [1, dims])
+    row[0, i % dims] = M
+    data = np.vstack((data, row))
   print(data)
   print("Building trees")
   forest = makeForest(data, n0 = 100, numTrees = 10,
       distanceFunction = euclidean)
   print("Finished building trees")
   print("Running query")
-  query = np.array([0.0, 0.0, 0.0])
+  query = np.zeros(dims)
   result = forest.nearestNeighbor(query)
-  print("Nearest to {}: {}".format(query, result))
+  distance = euclidean(query, result)
+  print("Nearest to {}: {}, at distance {}".format(query, result, distance))
+  print("Theoretical optimum: {}, at distance {}".format(
+      np.ones(dims), euclidean(query, np.ones(dims))))
 
 def selectQuantile(values, alpha):
   rank = round(len(values) * alpha)
