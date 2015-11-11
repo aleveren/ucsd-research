@@ -44,7 +44,6 @@ def randomUnitVector(n):
   return unit
 
 def makeTree(data, maxLeafSize, distanceFunction):
-  print("DEBUGGING: makeTree for {}".format(data.filename))
   if not data.numRowsExceeds(maxLeafSize):
     return LazyLeaf(data, distanceFunction)
   rule = chooseRule(data)
@@ -78,16 +77,18 @@ class Rule(object):
     return np.dot(self.direction, row) <= self.threshold
 
 class LazyLeaf(object):
-  def __init__(self, filename, distanceFunction):
-    self.filename = filename
+  def __init__(self, lazyData, distanceFunction):
+    self.lazyData = lazyData
     self.distanceFunction = distanceFunction
 
   def getLeaf(self, row):
     return self
 
   def nearestNeighbor(self, query):
-    d = pd.read_csv(self.filename)
-    return linearScanNearestNeighbor(query, d, self.distanceFunction)
+    # At leaf nodes, we assume we can read the entire set of observations
+    dataFrame = pd.read_csv(self.lazyData.filename)
+    matrix = dataFrame.iloc[:, self.lazyData.columnSlice].values
+    return linearScanNearestNeighbor(query, matrix, self.distanceFunction)
 
 class Node(object):
   def __init__(self, rule, leftTree, rightTree):
@@ -114,6 +115,8 @@ class NearestNeighborForest(object):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
     return linearScanNearestNeighbor(query, results, self.distanceFunction)
 
+MAX_CHUNKS = 3  # TODO: remove this limit
+
 class LazyDiskData(object):
   def __init__(
       self,
@@ -134,27 +137,23 @@ class LazyDiskData(object):
       yield matrix
 
   def applyToRows(self, func):
-    print("DEBUGGING: applyToRows for {}".format(self.filename))
     result = []
-    count = 0
+    chunk_index = 0
     for matrix in self.matrixGenerator():
-      if count >= 4:  # TODO: remove this
+      if MAX_CHUNKS is not None and chunk_index >= MAX_CHUNKS:
         break
       currentResult = np.apply_along_axis(func, 1, matrix)
       result.extend(currentResult)
-      print count  # TODO: remove count debugging info
-      count += 1
+      chunk_index += 1
     return np.array(result)
 
   def numActiveColumns(self):
-    print("DEBUGGING: numActiveColumns for {}".format(self.filename))
     d = self.dataRef()
     chunk = d.get_chunk(1)
     matrix = chunk.iloc[:, self.columnSlice].values
     return matrix.shape[1]
 
   def numRowsExceeds(self, targetSize):
-    print("DEBUGGING: numRowsExceeds for {}".format(self.filename))
     d = self.dataRef()
     totalRows = 0
     for chunk in d:
@@ -164,24 +163,23 @@ class LazyDiskData(object):
     return False
 
   def subset(self, mask):
-    print("DEBUGGING: subset for {}".format(self.filename))
     d = self.dataRef()
     temp = tempfile.NamedTemporaryFile()
     registerTempFile(temp)
+    tempName = temp.name
     chunk_index = 0
     for chunk in d:
-      if chunk_index >= 4:  # TODO: remove this
+      if MAX_CHUNKS is not None and chunk_index >= MAX_CHUNKS:
         break
-      print chunk_index # TODO: remove count debugging info
       if chunk_index == 0:
-        chunk.iloc[0:0, :].to_csv(temp.name, mode="w", header=True)
+        chunk.iloc[0:0, :].to_csv(tempName, mode="w", header=True, index=False)
       start = chunk_index * self.chunksize
       stop = start + self.chunksize
       submask = mask[start:stop]
       subset = chunk.iloc[submask, :]
-      subset.to_csv(temp.name, mode="a", header=False)
+      subset.to_csv(tempName, mode="a", header=False, index=False)
       chunk_index += 1
-    return LazyDiskData(temp.name, chunksize = self.chunksize,
+    return LazyDiskData(tempName, chunksize = self.chunksize,
         columnSlice = self.columnSlice)
 
 tempFiles = []
@@ -195,20 +193,21 @@ if __name__ == "__main__":
 
   exampleData = LazyDiskData("data/accumDataRDR_all.csv", 
       columnSlice = slice(3, None))
-  u = randomUnitVector(6144)
   
-  #result = exampleData.applyToRows(lambda x: np.dot(x, u))
-  #print(result)
-  #print(result.shape)
-  #
-  #print("Finding quantile")
-  #result = selectQuantile(result, 0.25)
-  #print("result = {}".format(result))
-  #
-  #rule = Rule(u, 1.0)
-  #result = exampleData.applyToRows(rule)
-  #print(result)
-  #print(result.shape)
+  u = randomUnitVector(6144)
+
+  result = exampleData.applyToRows(lambda x: np.dot(x, u))
+  print(result)
+  print(result.shape)
+  
+  print("Finding quantile")
+  quantile = selectQuantile(result, 0.25)
+  print("quantile = {}".format(quantile))
+  
+  rule = Rule(u, quantile)
+  result = exampleData.applyToRows(rule)
+  print(result)
+  print(result.shape)
 
   print("Building trees")
   forest = makeForest(exampleData, maxLeafSize = 100, numTrees = 1,
