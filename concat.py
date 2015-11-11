@@ -4,12 +4,9 @@ import os
 
 maxNum = 5666
 batchSize = 50
-fileNumbers = []
-n = batchSize
-while n <= maxNum:
-  fileNumbers.append(n)
-  n += batchSize
-fileNumbers.append(maxNum)
+fileNumbers = range(batchSize, maxNum+1, batchSize)
+if maxNum % batchSize != 0:
+  fileNumbers.append(maxNum)
 
 files = ["data/accumDataRDR_batch{}.csv.bz2".format(n) for n in fileNumbers]
 
