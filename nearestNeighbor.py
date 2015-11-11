@@ -41,18 +41,19 @@ def randomUnitVector(n):
   unit = v / np.linalg.norm(v)
   return unit
 
-def makeTree(data, n0, distanceFunction):
-  if len(data) < n0:
+def makeTree(data, maxLeafSize, distanceFunction):
+  if len(data) <= maxLeafSize:
     return Leaf(data, distanceFunction)
   rule = chooseRule(data)
   leftSelections = np.apply_along_axis(rule, 1, data)
-  leftTree = makeTree(data[leftSelections], n0, distanceFunction)
-  rightTree = makeTree(data[np.logical_not(leftSelections)], n0,
+  leftTree = makeTree(data[leftSelections], maxLeafSize, distanceFunction)
+  rightTree = makeTree(data[np.logical_not(leftSelections)], maxLeafSize,
       distanceFunction)
   return Node(rule, leftTree, rightTree)
 
-def makeForest(data, n0, numTrees, distanceFunction):
-  trees = [makeTree(data, n0, distanceFunction) for i in range(numTrees)]
+def makeForest(data, maxLeafSize, numTrees, distanceFunction):
+  trees = [makeTree(data, maxLeafSize, distanceFunction)
+      for i in range(numTrees)]
   return NearestNeighborForest(trees, distanceFunction)
 
 def chooseRule(data):

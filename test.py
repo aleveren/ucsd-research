@@ -16,7 +16,7 @@ class TestNearestNeighbor(unittest.TestCase):
       row = np.random.uniform(0, 1, [1, dims])
       row[0, i % dims] = M
       data = np.vstack((data, row))
-    forest = makeForest(data, n0 = 100, numTrees = 20,
+    forest = makeForest(data, maxLeafSize = 100, numTrees = 20,
         distanceFunction = euclidean)
     query = np.zeros(dims)
     result = forest.nearestNeighbor(query)
