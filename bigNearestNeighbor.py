@@ -319,31 +319,25 @@ def time(name = None, preannounce = True, printer = lambda x: print(x)):
 if __name__ == "__main__":
   np.random.seed(1)
 
-  with time("load"):
-    exampleData = LazyDiskData("data/accumDataRDR_all.csv", 
-        columnSlice = slice(3, None))
-  
-  u = randomUnitVector(6144)
+  import simulateData
+  simulateData.main("data/testdata.csv", seed = None)
+  exampleData = LazyDiskData("data/testdata.csv")
 
-  #with time("apply dot product"):
-  #  result = exampleData.applyToRows(lambda x: np.dot(x, u))
-  #  print(result)
-  #  print(result.shape)
+  u = np.zeros(10)
 
-  #with time("find quantile"):
-  #  quantile = selectQuantile(result, 0.25)
-  #  print("quantile = {}".format(quantile))
-
-  #with time("apply rule"):
-  #  rule = Rule(u, quantile)
-  #  result = exampleData.applyToRows(rule)
-  #  print(result)
-  #  print(result.shape)
+  with time("naive linear scan query"):
+    naiveResult = exampleData.linearScanNearestNeighbor(u,
+        distanceFunction = euclidean)
+    print(naiveResult)
+  naiveRuntime = last_elapsed_time
 
   with time("build trees"):
-    forest = makeForest(exampleData, maxLeafSize = 500, numTrees = 1,
+    forest = makeForest(exampleData, maxLeafSize = 500, numTrees = 3,
         distanceFunction = euclidean, depthPerBatch = 3)
 
   with time("run query"):
     result = forest.nearestNeighbor(u)
     print(result)
+
+  print("For comparison, naive result: {}, elapsed = {}".format(
+      naiveResult, naiveRuntime))
