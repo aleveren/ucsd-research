@@ -300,8 +300,11 @@ def registerTempFile(f):
   global tempFiles
   tempFiles.append(f)
 
+last_elapsed_time = None
+
 @contextlib.contextmanager
 def time(name = None, preannounce = True, printer = lambda x: print(x)):
+  global last_elapsed_time
   extraName = " [{}]".format(name) if name is not None else ""
   start = timeit.default_timer()
   if preannounce:
@@ -311,6 +314,7 @@ def time(name = None, preannounce = True, printer = lambda x: print(x)):
   finally:
     elapsed = timeit.default_timer() - start
     printer("Elapsed seconds{} = {}".format(extraName, elapsed))
+    last_elapsed_time = elapsed
 
 if __name__ == "__main__":
   np.random.seed(1)
