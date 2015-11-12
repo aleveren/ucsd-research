@@ -319,11 +319,12 @@ def time(name = None, preannounce = True, printer = lambda x: print(x)):
 if __name__ == "__main__":
   np.random.seed(1)
 
-  import simulateData
-  simulateData.main("data/testdata.csv", seed = None)
-  exampleData = LazyDiskData("data/testdata.csv")
+  exampleData = LazyDiskData("data/accumDataRDR_subset.csv",
+      columnSlice = slice(3, None))
 
-  u = np.zeros(10)
+  u = randomUnitVector(6144)
+
+  numTrees = 1
 
   with time("naive linear scan query"):
     naiveResult = exampleData.linearScanNearestNeighbor(u,
@@ -332,7 +333,7 @@ if __name__ == "__main__":
   naiveRuntime = last_elapsed_time
 
   with time("build trees"):
-    forest = makeForest(exampleData, maxLeafSize = 500, numTrees = 3,
+    forest = makeForest(exampleData, maxLeafSize = 500, numTrees = numTrees,
         distanceFunction = euclidean, depthPerBatch = 3)
 
   with time("run query"):
