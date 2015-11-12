@@ -195,8 +195,8 @@ class NearestNeighborForest(object):
   def nearestNeighbor(self, query):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
     def distanceCalculator(row):
-      activeColumnsOfRow = row[self.columnSlice]
-      return distanceFunction(query, activeColumnsOfRow)
+      activeColumnsOfRow = row[self.data.columnSlice]
+      return self.distanceFunction(query, activeColumnsOfRow)
     nearest = min(results, key=distanceCalculator)
     return nearest
 
@@ -285,7 +285,7 @@ class LazyDiskData(object):
     chunk_index = 0
     for chunk in self.dataRef():
       for indexAndRow in chunk.itertuples():
-        row = list(indexAndRow[1:])
+        row = np.array(indexAndRow[1:])
         activeColumnsOfRow = row[self.columnSlice]
         currentDistance = distanceFunction(query, activeColumnsOfRow)
         if minDistance == None or currentDistance < minDistance:
