@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import tempfile
 from collections import namedtuple
+import copy
 
 def selectQuantile(values, alpha):
   rank = int(len(values) * alpha) - 1
@@ -64,14 +65,23 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
   rulesTree = projectionsToRulesTree(projections, vectors, quantiles,
       maxLeafSize, columnIndex = 1)
 
-  assert isinstance(rulesTree, Node)
-
   del projections
   del indices
 
-  # TODO: partition the data
-  # TODO: build tree recursively
-  return None
+  # Partition the data
+  assert isinstance(rulesTree, Node)
+  pathsToIndices = rulesTree.mapPathsToLeaves()
+  partitionedData = partitionData(data, pathsToIndices)
+
+  # Build tree recursively
+  def replaceLeafRecursive(path, previousLeaf):
+    leafData = partitionedData[path]
+    return makeTree(leafData, maxLeafSize, distanceFunction, depthPerBatch)
+
+  return rulesTree.replaceLeaves(replaceLeafRecursive)
+
+def partitionData(data, pathsToIndices):
+  pass  # TODO
 
 def projectionsToRulesTree(
     projections, directions, quantiles, maxLeafSize, columnIndex):
@@ -150,15 +160,38 @@ class Node(namedtuple("Node", ["rule", "leftTree", "rightTree"])):
   def mapPathsToLeaves(self, pathSoFar = ""):
     pathToLeft = pathSoFar + "L"
     pathToRight = pathSoFar + "R"
+
     if isinstance(self.leftTree, Node):
       leftMap = self.leftTree.mapPathsToLeaves(pathToLeft)
     else:
       leftMap = {pathToLeft: self.leftTree}
+
     if isinstance(self.rightTree, Node):
       rightMap = self.rightTree.mapPathsToLeaves(pathToRight)
     else:
       rightMap = {pathToRight: self.rightTree}
+
     return dict(leftMap.items() + rightMap.items())
+
+  def replaceLeaves(self, replacer, pathSoFar = ""):
+    '''Creates a modified copy of this tree by replacing leaves according to
+       the given function.  The provided function should take two arguments:
+       a "path" representing the left/right sequence leading to a leaf node,
+       and the current leaf.'''
+    pathToLeft = pathSoFar + "L"
+    pathToRight = pathSoFar + "R"
+
+    if isinstance(self.leftTree, Node):
+      newLeft = self.leftTree.replaceLeaves(replacer, pathToLeft)
+    else:
+      newLeft = replacer(pathToLeft, self.leftTree)
+
+    if isinstance(self.rightTree, Node):
+      newRight = self.rightTree.replaceLeaves(replacer, pathToRight)
+    else:
+      newRight = replacer(pathToRight, self.rightTree)
+
+    return Node(copy.deepcopy(self.rule), newLeft, newRight)
 
 class NearestNeighborForest(object):
   def __init__(self, trees, distanceFunction):

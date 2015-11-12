@@ -79,6 +79,33 @@ class TestNearestNeighbor(unittest.TestCase):
     result = tree.mapPathsToLeaves()
     self.assertEqual(result, expected)
 
+  def test_replaceLeaves(self):
+    tree = Node(None, 10, 20)
+    expected = Node(None, 11, 21)
+    result = tree.replaceLeaves(lambda p, v: v+1)
+    self.assertEqual(result, expected)
+
+    tree = Node(None, Node(None, 10, 11), 20)
+    expected = Node(None, Node(None, 11, 12), 21)
+    result = tree.replaceLeaves(lambda p, v: v+1)
+    self.assertEqual(result, expected)
+
+    tree = Node(None,
+        Node(None,
+            10,
+            Node(None, 11, 12)),
+        Node(None,
+            Node(None, 20, 21),
+            22))
+    expected = Node(None,
+        Node(None,
+            "LL",
+            Node(None, "LRL", "LRR")),
+        Node(None,
+            Node(None, "RLL", "RLR"),
+            "RR"))
+    result = tree.replaceLeaves(lambda p, v: p)
+    self.assertEqual(result, expected)
 
 if __name__ == "__main__":
   unittest.main()
