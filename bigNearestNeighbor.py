@@ -285,14 +285,14 @@ class LazyDiskData(object):
     chunk_index = 0
     for chunk in self.dataRef():
       for indexAndRow in chunk.itertuples():
-        row = np.array(indexAndRow[1:])
-        activeColumnsOfRow = row[self.columnSlice]
+        row = list(indexAndRow[1:])
+        activeColumnsOfRow = np.array(row[self.columnSlice])
         currentDistance = distanceFunction(query, activeColumnsOfRow)
         if minDistance == None or currentDistance < minDistance:
           minDistance = currentDistance
           nearest = row
       chunk_index += 1
-    return nearest
+    return np.array(nearest)
 
 tempFiles = []
 def registerTempFile(f):
