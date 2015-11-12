@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import heapq
 import numpy as np
 import pandas as pd
 import tempfile
@@ -56,8 +57,9 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
   vectors = [randomUnitVector(numCols) for i in range(numVectors)]
   multiDotProduct = lambda x: [np.dot(v, x) for v in vectors]
   projections = data.applyToRows(multiDotProduct)
-  indices = np.arange(0, projections.shape[0], [projections.shape[0], 1])
-  projections = np.hstack(indices, projections)
+  numRows = projections.shape[0]
+  indices = np.arange(numRows).reshape([numRows, 1])
+  projections = np.hstack((indices, projections))
 
   quantiles = np.random.uniform(0.25, 0.75, numVectors)
 
@@ -71,7 +73,7 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
   # Partition the data
   assert isinstance(rulesTree, Node)
   pathsToIndices = rulesTree.mapPathsToLeaves()
-  partitionedData = partitionData(data, pathsToIndices)
+  partitionedData = data.partitionWithIndexMap(pathsToIndices)
 
   # Build tree recursively
   def replaceLeafRecursive(path, previousLeaf):
@@ -79,9 +81,6 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
     return makeTree(leafData, maxLeafSize, distanceFunction, depthPerBatch)
 
   return rulesTree.replaceLeaves(replaceLeafRecursive)
-
-def partitionData(data, pathsToIndices):
-  pass  # TODO
 
 def projectionsToRulesTree(
     projections, directions, quantiles, maxLeafSize, columnIndex):
@@ -249,25 +248,42 @@ class LazyDiskData(object):
         return True
     return False
 
-  def subset(self, mask):
+  def partitionWithIndexMap(self, pathsToIndices):
+    uniquePaths = pathsToIndices.keys()
+    tempFiles = {}
+    partitionedData = {}
+    toMerge = []
+
+    for path in uniquePaths:
+      temp = tempfile.NamedTemporaryFile(delete = False)
+      registerTempFile(temp)
+      tempName = temp.name
+      print("path = {}, tempName = {}".format(path, tempName))
+      tempFiles[path] = tempName
+      partitionedData[path] = LazyDiskData(tempName,
+          chunksize = self.chunksize, columnSlice = self.columnSlice)
+      toMerge.append([(i, path) for i in pathsToIndices[path]])
+
+    mergedPaths = [path for i, path in heapq.merge(*toMerge)]
+  
+    # Populate data files
     d = self.dataRef()
-    temp = tempfile.NamedTemporaryFile()
-    registerTempFile(temp)
-    tempName = temp.name
     chunk_index = 0
     for chunk in d:
       if MAX_CHUNKS is not None and chunk_index >= MAX_CHUNKS:
         break
       if chunk_index == 0:
-        chunk.iloc[0:0, :].to_csv(tempName, mode="w", header=True, index=False)
-      start = chunk_index * self.chunksize
-      stop = start + self.chunksize
-      submask = mask[start:stop]
-      subset = chunk.iloc[submask, :]
-      subset.to_csv(tempName, mode="a", header=False, index=False)
+        # Initialize each partition with a header
+        for path, temp in tempFiles.items():
+          chunk.iloc[0:0, :].to_csv(temp, mode="w", header=True, index=False)
+      for rowIndex in range(chunk.shape[0]):
+        currentPath = mergedPaths[rowIndex + chunk_index * self.chunksize]
+        currentTempFile = tempFiles[currentPath]
+        row = chunk.iloc[[rowIndex], :]
+        row.to_csv(currentTempFile, mode="a", header=False, index=False)
       chunk_index += 1
-    return LazyDiskData(tempName, chunksize = self.chunksize,
-        columnSlice = self.columnSlice)
+    
+    return partitionedData
 
 tempFiles = []
 def registerTempFile(f):
