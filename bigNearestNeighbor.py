@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import heapq
 import numpy as np
 import pandas as pd
 import tempfile
 from collections import namedtuple
 import copy
+import timeit
+import contextlib
 
 def selectQuantile(values, alpha):
   rank = int(len(values) * alpha) - 1
@@ -291,30 +294,46 @@ def registerTempFile(f):
   global tempFiles
   tempFiles.append(f)
 
+@contextlib.contextmanager
+def time(name = None, preannounce = True, printer = lambda x: print(x)):
+  extraName = " [{}]".format(name) if name is not None else ""
+  start = timeit.default_timer()
+  if preannounce:
+    printer("Starting timer{}".format(extraName))
+  try:
+    yield
+  finally:
+    elapsed = timeit.default_timer() - start
+    printer("Elapsed seconds{} = {}".format(extraName, elapsed))
+
 if __name__ == "__main__":
   np.random.seed(1)
 
-  exampleData = LazyDiskData("data/accumDataRDR_all.csv", 
-      columnSlice = slice(3, None))
+  with time("load"):
+    exampleData = LazyDiskData("data/accumDataRDR_all.csv", 
+        columnSlice = slice(3, None))
   
   u = randomUnitVector(6144)
 
-  result = exampleData.applyToRows(lambda x: np.dot(x, u))
-  print(result)
-  print(result.shape)
-  
-  print("Finding quantile")
-  quantile = selectQuantile(result, 0.25)
-  print("quantile = {}".format(quantile))
-  
-  rule = Rule(u, quantile)
-  result = exampleData.applyToRows(rule)
-  print(result)
-  print(result.shape)
+  with time("apply dot product"):
+    result = exampleData.applyToRows(lambda x: np.dot(x, u))
+    print(result)
+    print(result.shape)
 
-  print("Building trees")
-  forest = makeForest(exampleData, maxLeafSize = 1000, numTrees = 1,
-      distanceFunction = euclidean, depthPerBatch = 2)
-  print("Running query")
-  result = forest.nearestNeighbor(u)
-  print(result)
+  with time("find quantile"):
+    quantile = selectQuantile(result, 0.25)
+    print("quantile = {}".format(quantile))
+
+  with time("apply rule"):
+    rule = Rule(u, quantile)
+    result = exampleData.applyToRows(rule)
+    print(result)
+    print(result.shape)
+
+  with time("build trees"):
+    forest = makeForest(exampleData, maxLeafSize = 1000, numTrees = 1,
+        distanceFunction = euclidean, depthPerBatch = 2)
+
+  with time("run query"):
+    result = forest.nearestNeighbor(u)
+    print(result)
