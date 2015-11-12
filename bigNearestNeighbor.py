@@ -34,16 +34,6 @@ def selectRank(values, rank):
 def euclidean(a, b):
   return np.linalg.norm(a - b)
 
-def linearScanNearestNeighbor(query, data, distanceFunction):
-  nearest = None
-  minDistance = None
-  for row in data:
-    currentDistance = distanceFunction(query, row)
-    if minDistance == None or currentDistance < minDistance:
-      minDistance = currentDistance
-      nearest = row
-  return nearest
-  
 def randomUnitVector(n):
   v = np.random.normal(0.0, 1.0, n)
   unit = v / np.linalg.norm(v)
@@ -122,7 +112,7 @@ def projectionsToRulesTree(
 def makeForest(data, maxLeafSize, numTrees, distanceFunction, depthPerBatch):
   trees = [makeTree(data, maxLeafSize, distanceFunction, depthPerBatch)
       for i in range(numTrees)]
-  return NearestNeighborForest(trees, distanceFunction)
+  return NearestNeighborForest(trees, data, distanceFunction)
 
 class Rule(namedtuple("Rule", ["direction", "threshold"])):
   def __call__(self, row):
@@ -137,10 +127,8 @@ class LazyLeaf(namedtuple("LazyLeaf", ["lazyData", "distanceFunction"])):
     return self
 
   def nearestNeighbor(self, query):
-    # At leaf nodes, we assume we can read the entire set of observations
-    dataFrame = pd.read_csv(self.lazyData.filename)
-    matrix = dataFrame.iloc[:, self.lazyData.columnSlice].values
-    return linearScanNearestNeighbor(query, matrix, self.distanceFunction)
+    # At leaf nodes, we assume we can search the entire set of observations
+    return self.lazyData.linearScanNearestNeighbor(query, self.distanceFunction)
 
 class Node(namedtuple("Node", ["rule", "leftTree", "rightTree"])):
   def leafIter(self):
@@ -196,13 +184,18 @@ class Node(namedtuple("Node", ["rule", "leftTree", "rightTree"])):
     return Node(copy.deepcopy(self.rule), newLeft, newRight)
 
 class NearestNeighborForest(object):
-  def __init__(self, trees, distanceFunction):
+  def __init__(self, trees, data, distanceFunction):
     self.trees = trees
+    self.data = data
     self.distanceFunction = distanceFunction
 
   def nearestNeighbor(self, query):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
-    return linearScanNearestNeighbor(query, results, self.distanceFunction)
+    def distanceCalculator(row):
+      activeColumnsOfRow = row[self.columnSlice]
+      return distanceFunction(query, activeColumnsOfRow)
+    nearest = min(results, key=distanceCalculator)
+    return nearest
 
 class LazyDiskData(object):
   def __init__(
@@ -282,6 +275,21 @@ class LazyDiskData(object):
       chunk_index += 1
     
     return partitionedData
+
+  def linearScanNearestNeighbor(self, query, distanceFunction):
+    nearest = None
+    minDistance = None
+    chunk_index = 0
+    for chunk in self.dataRef():
+      for indexAndRow in chunk.itertuples():
+        row = list(indexAndRow[1:])
+        activeColumnsOfRow = row[self.columnSlice]
+        currentDistance = distanceFunction(query, activeColumnsOfRow)
+        if minDistance == None or currentDistance < minDistance:
+          minDistance = currentDistance
+          nearest = row
+      chunk_index += 1
+    return nearest
 
 tempFiles = []
 def registerTempFile(f):
