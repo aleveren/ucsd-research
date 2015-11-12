@@ -204,13 +204,11 @@ class NearestNeighborForest(object):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
     return linearScanNearestNeighbor(query, results, self.distanceFunction)
 
-MAX_CHUNKS = 3  # TODO: remove this limit
-
 class LazyDiskData(object):
   def __init__(
       self,
       filename,
-      chunksize = 1000,
+      chunksize = 10000,
       columnSlice = slice(None)):
     self.filename = filename
     self.chunksize = chunksize
@@ -229,8 +227,6 @@ class LazyDiskData(object):
     result = []
     chunk_index = 0
     for matrix in self.matrixGenerator():
-      if MAX_CHUNKS is not None and chunk_index >= MAX_CHUNKS:
-        break
       currentResult = np.apply_along_axis(func, 1, matrix)
       result.extend(currentResult)
       chunk_index += 1
@@ -258,7 +254,7 @@ class LazyDiskData(object):
     toMerge = []
 
     for path in uniquePaths:
-      temp = tempfile.NamedTemporaryFile(delete = False)
+      temp = tempfile.NamedTemporaryFile()
       registerTempFile(temp)
       tempName = temp.name
       print("path = {}, tempName = {}".format(path, tempName))
@@ -273,8 +269,6 @@ class LazyDiskData(object):
     d = self.dataRef()
     chunk_index = 0
     for chunk in d:
-      if MAX_CHUNKS is not None and chunk_index >= MAX_CHUNKS:
-        break
       if chunk_index == 0:
         # Initialize each partition with a header
         for path, temp in tempFiles.items():
@@ -316,24 +310,24 @@ if __name__ == "__main__":
   
   u = randomUnitVector(6144)
 
-  with time("apply dot product"):
-    result = exampleData.applyToRows(lambda x: np.dot(x, u))
-    print(result)
-    print(result.shape)
+  #with time("apply dot product"):
+  #  result = exampleData.applyToRows(lambda x: np.dot(x, u))
+  #  print(result)
+  #  print(result.shape)
 
-  with time("find quantile"):
-    quantile = selectQuantile(result, 0.25)
-    print("quantile = {}".format(quantile))
+  #with time("find quantile"):
+  #  quantile = selectQuantile(result, 0.25)
+  #  print("quantile = {}".format(quantile))
 
-  with time("apply rule"):
-    rule = Rule(u, quantile)
-    result = exampleData.applyToRows(rule)
-    print(result)
-    print(result.shape)
+  #with time("apply rule"):
+  #  rule = Rule(u, quantile)
+  #  result = exampleData.applyToRows(rule)
+  #  print(result)
+  #  print(result.shape)
 
   with time("build trees"):
-    forest = makeForest(exampleData, maxLeafSize = 1000, numTrees = 1,
-        distanceFunction = euclidean, depthPerBatch = 2)
+    forest = makeForest(exampleData, maxLeafSize = 500, numTrees = 1,
+        distanceFunction = euclidean, depthPerBatch = 3)
 
   with time("run query"):
     result = forest.nearestNeighbor(u)
