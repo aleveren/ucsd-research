@@ -279,11 +279,12 @@ class LazyDiskData(object):
         # Initialize each partition with a header
         for path, temp in tempFiles.items():
           chunk.iloc[0:0, :].to_csv(temp, mode="w", header=True, index=False)
-      for rowIndex in range(chunk.shape[0]):
-        currentPath = mergedPaths[rowIndex + chunk_index * self.chunksize]
-        currentTempFile = tempFiles[currentPath]
-        row = chunk.iloc[[rowIndex], :]
-        row.to_csv(currentTempFile, mode="a", header=False, index=False)
+      def grouper(rowIndex):
+        return mergedPaths[rowIndex + chunk_index * self.chunksize]
+      groups = chunk.groupby(grouper)
+      for path, group in groups:
+        currentTempFile = tempFiles[path]
+        group.to_csv(currentTempFile, mode="a", header=False, index=False)
       chunk_index += 1
     
     return partitionedData
