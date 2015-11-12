@@ -49,7 +49,8 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
   numVectors = 2 ** (depthPerBatch + 1) - 1
   vectors = [randomUnitVector(numCols) for i in range(numVectors)]
   multiDotProduct = lambda x: [np.dot(v, x) for v in vectors]
-  projections = data.applyToRows(multiDotProduct)
+  with time("projections"):
+    projections = data.applyToRows(multiDotProduct)
   numRows = projections.shape[0]
   indices = np.arange(numRows).reshape([numRows, 1])
   projections = np.hstack((indices, projections))
@@ -57,8 +58,9 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
   quantiles = np.random.uniform(0.25, 0.75, numVectors)
 
   # Compute split points
-  rulesTree = projectionsToRulesTree(projections, vectors, quantiles,
-      maxLeafSize, columnIndex = 1)
+  with time("compute split points"):
+    rulesTree = projectionsToRulesTree(projections, vectors, quantiles,
+        maxLeafSize, columnIndex = 1)
 
   del projections
   del indices
@@ -66,7 +68,8 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
   # Partition the data
   assert isinstance(rulesTree, Node)
   pathsToIndices = rulesTree.mapPathsToLeaves()
-  partitionedData = data.partitionWithIndexMap(pathsToIndices)
+  with time("partition data"):
+    partitionedData = data.partitionWithIndexMap(pathsToIndices)
 
   # Build tree recursively
   def replaceLeafRecursive(path, previousLeaf):
