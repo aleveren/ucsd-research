@@ -9,6 +9,10 @@ from collections import namedtuple
 import copy
 import timeit
 import contextlib
+import shutil
+import os
+import pickle
+import datetime
 
 def selectQuantile(values, alpha):
   rank = int(len(values) * alpha) - 1
@@ -39,7 +43,18 @@ def randomUnitVector(n):
   unit = v / np.linalg.norm(v)
   return unit
 
-def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
+def ensureDirectoryExists(directory):
+  try:
+    os.makedirs(directory)
+  except OSError:
+    if not os.path.isdir(directory):
+      raise
+  # Note: may mix new and old results when re-running with the same
+  # output location. TODO: Find a way to avoid this.
+
+def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
+    outputDir = None):
+
   if not data.numRowsExceeds(maxLeafSize):
     return LazyLeaf(data, distanceFunction)
 
@@ -74,9 +89,30 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch):
   # Build tree recursively
   def replaceLeafRecursive(path, previousLeaf):
     leafData = partitionedData[path]
-    return makeTree(leafData, maxLeafSize, distanceFunction, depthPerBatch)
+    return makeTree(leafData, maxLeafSize, distanceFunction, depthPerBatch,
+        outputDir = None)
 
-  return rulesTree.replaceLeaves(replaceLeafRecursive)
+  builtTree = rulesTree.replaceLeaves(replaceLeafRecursive)
+
+  if outputDir == None:
+    return builtTree
+  else:
+    ensureDirectoryExists(outputDir)
+
+    # Move leaf data to the given directory
+    def leafMover(path, previousLeaf):
+      originalDataLocation = previousLeaf.lazyData.filename
+      newDataLocation = outputDir + "/" + path + ".csv"
+      newLazyData = previousLeaf.lazyData._replace(filename = newDataLocation)
+      shutil.copy2(originalDataLocation, newDataLocation)
+      return previousLeaf._replace(lazyData = newLazyData)
+
+    persistedTree = builtTree.replaceLeaves(leafMover)
+
+    with open(outputDir + "/tree.dump", "w") as f:
+      pickle.dump(persistedTree, f)
+
+    return persistedTree
 
 def projectionsToRulesTree(
     projections, directions, quantiles, maxLeafSize, columnIndex):
@@ -112,10 +148,25 @@ def projectionsToRulesTree(
 
   return Node(rule, leftTree, rightTree)
 
-def makeForest(data, maxLeafSize, numTrees, distanceFunction, depthPerBatch):
-  trees = [makeTree(data, maxLeafSize, distanceFunction, depthPerBatch)
-      for i in range(numTrees)]
-  return NearestNeighborForest(trees, data, distanceFunction)
+def makeForest(data, maxLeafSize, numTrees, distanceFunction, depthPerBatch,
+    outputDir = None):
+  if outputDir is None:
+    treeOutputDirs = [None for i in range(numTrees)]
+  else:
+    ensureDirectoryExists(outputDir)
+    treeOutputDirs = [outputDir + "/tree" + str(i) for i in range(numTrees)]
+  trees = [
+    makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
+        outputDir = treeDir)
+    for treeDir in treeOutputDirs
+  ]
+  forest = NearestNeighborForest(trees, data, distanceFunction)
+
+  if outputDir is not None:
+    with open(outputDir + "/forest.dump", "w") as f:
+      pickle.dump(forest, f)
+
+  return forest
 
 class Rule(namedtuple("Rule", ["direction", "threshold"])):
   def __call__(self, row):
@@ -315,6 +366,9 @@ def time(name = None, preannounce = True, printer = lambda x: print(x)):
 if __name__ == "__main__":
   np.random.seed(1)
 
+  timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
+  outputDir = "forests/forest_" + timestamp
+
   exampleData = LazyDiskData("data/accumDataRDR_subset.csv",
       columnSlice = slice(3, None))
 
@@ -330,7 +384,8 @@ if __name__ == "__main__":
 
   with time("build trees"):
     forest = makeForest(exampleData, maxLeafSize = 500, numTrees = numTrees,
-        distanceFunction = euclidean, depthPerBatch = 3)
+        distanceFunction = euclidean, depthPerBatch = 3,
+        outputDir = outputDir)
 
   with time("run query"):
     result = forest.nearestNeighbor(u)
@@ -338,3 +393,5 @@ if __name__ == "__main__":
 
   print("For comparison, naive result:\n{}\nnaive elapsed = {}".format(
       naiveResult, naiveRuntime))
+
+  print("Forest saved at: {}".format(outputDir))
