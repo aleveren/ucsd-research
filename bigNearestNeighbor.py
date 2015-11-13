@@ -195,7 +195,7 @@ class NearestNeighborForest(object):
   def nearestNeighbor(self, query):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
     def distanceCalculator(row):
-      activeColumnsOfRow = row[self.data.columnSlice]
+      activeColumnsOfRow = np.array(row[self.data.columnSlice], dtype=float)
       return self.distanceFunction(query, activeColumnsOfRow)
     nearest = min(results, key=distanceCalculator)
     return nearest
@@ -284,15 +284,14 @@ class LazyDiskData(object):
     minDistance = None
     chunk_index = 0
     for chunk in self.dataRef():
-      for indexAndRow in chunk.itertuples():
-        row = list(indexAndRow[1:])
-        activeColumnsOfRow = np.array(row[self.columnSlice])
+      for rowIndex, row in chunk.iterrows():
+        activeColumnsOfRow = np.array(row[self.columnSlice], dtype=float)
         currentDistance = distanceFunction(query, activeColumnsOfRow)
         if minDistance == None or currentDistance < minDistance:
           minDistance = currentDistance
           nearest = row
       chunk_index += 1
-    return np.array(nearest)
+    return nearest
 
 tempFiles = []
 def registerTempFile(f):
@@ -340,5 +339,5 @@ if __name__ == "__main__":
     result = forest.nearestNeighbor(u)
     print(result)
 
-  print("For comparison, naive result: {}, elapsed = {}".format(
+  print("For comparison, naive result:\n{}\nnaive elapsed = {}".format(
       naiveResult, naiveRuntime))
