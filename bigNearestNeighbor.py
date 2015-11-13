@@ -186,11 +186,8 @@ class Node(namedtuple("Node", ["rule", "leftTree", "rightTree"])):
 
     return Node(copy.deepcopy(self.rule), newLeft, newRight)
 
-class NearestNeighborForest(object):
-  def __init__(self, trees, data, distanceFunction):
-    self.trees = trees
-    self.data = data
-    self.distanceFunction = distanceFunction
+class NearestNeighborForest(namedtuple("NearestNeighborForest",
+    ["trees", "data", "distanceFunction"])):
 
   def nearestNeighbor(self, query):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
@@ -200,15 +197,15 @@ class NearestNeighborForest(object):
     nearest = min(results, key=distanceCalculator)
     return nearest
 
-class LazyDiskData(object):
-  def __init__(
-      self,
-      filename,
-      chunksize = 10000,
-      columnSlice = slice(None)):
-    self.filename = filename
-    self.chunksize = chunksize
-    self.columnSlice = columnSlice
+# Provide namedtuple constructor with optional args
+def LazyDiskData(
+    filename,
+    chunksize = 10000,
+    columnSlice = slice(None)):
+  return _LazyDiskData(filename, chunksize, columnSlice)
+
+class _LazyDiskData(namedtuple("LazyDiskData",
+    ["filename", "chunksize", "columnSlice"])):
 
   def dataRef(self):
     return pd.read_csv(self.filename, chunksize = self.chunksize)
