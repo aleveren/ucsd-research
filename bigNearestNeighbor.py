@@ -369,15 +369,21 @@ if __name__ == "__main__":
   timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
   outputDir = "forests/forest_" + timestamp
 
-  exampleData = LazyDiskData("data/accumDataRDR_subset.csv",
-      columnSlice = slice(3, None))
+#  exampleData = LazyDiskData("data/accumDataRDR_subset.csv",
+#      columnSlice = slice(3, None))
+#
+#  query = randomUnitVector(6144)
+#
+#  numTrees = 1
 
-  u = randomUnitVector(6144)
+  exampleData = LazyDiskData("data/testdata.csv")
 
-  numTrees = 1
+  query = np.zeros(10)
+
+  numTrees = 3
 
   with time("naive linear scan query"):
-    naiveResult = exampleData.linearScanNearestNeighbor(u,
+    naiveResult = exampleData.linearScanNearestNeighbor(query,
         distanceFunction = euclidean)
     print(naiveResult)
   naiveRuntime = last_elapsed_time
@@ -388,7 +394,7 @@ if __name__ == "__main__":
         outputDir = outputDir)
 
   with time("run query"):
-    result = forest.nearestNeighbor(u)
+    result = forest.nearestNeighbor(query)
     print(result)
 
   print("For comparison, naive result:\n{}\nnaive elapsed = {}".format(
