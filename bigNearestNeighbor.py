@@ -341,21 +341,21 @@ class _LazyDiskData(namedtuple("LazyDiskData",
       chunk_index += 1
     return nearest
 
-tempFiles = {}
+globalTempFiles = {}
 def registerTempFile(f):
   '''Register a temp file to prevent it from being garbage collected'''
-  global tempFiles
-  tempFiles[f.name] = f
+  global globalTempFiles
+  globalTempFiles[f.name] = f
 
 def unregisterTempFile(filename):
   '''Determines whether the given filename was previously registered as
      a temporary file, and if so, closes it (this ought to force deletion
      of the temp file)'''
-  global tempFiles
+  global globalTempFiles
   assert isinstance(filename, str)
-  if filename in tempFiles:
+  if filename in globalTempFiles:
     print("Removing temporary file '{}'".format(filename))
-    f = tempFiles.pop(filename)
+    f = globalTempFiles.pop(filename)
     f.close()
 
 last_elapsed_time = None
