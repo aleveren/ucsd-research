@@ -12,7 +12,6 @@ import contextlib
 import shutil
 import os
 import pickle
-import datetime
 
 def selectQuantile(values, alpha):
   rank = int(len(values) * alpha) - 1
@@ -378,41 +377,3 @@ def time(name = None, preannounce = True, printer = lambda x: print(x)):
 def getLastElapsedTime():
   return last_elapsed_time
 
-if __name__ == "__main__":
-  np.random.seed(1)
-
-  timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
-  outputDir = "forests/forest_" + timestamp
-
-#  exampleData = LazyDiskData("data/accumDataRDR_subset.csv",
-#      columnSlice = slice(3, None))
-#
-#  query = randomUnitVector(6144)
-#
-#  numTrees = 1
-
-  exampleData = LazyDiskData("data/testdata.csv")
-
-  query = np.zeros(10)
-
-  numTrees = 10
-
-  with time("naive linear scan query"):
-    naiveResult = exampleData.linearScanNearestNeighbor(query,
-        distanceFunction = euclidean)
-    print(naiveResult)
-  naiveRuntime = getLastElapsedTime()
-
-  with time("build trees"):
-    forest = makeForest(exampleData, maxLeafSize = 500, numTrees = numTrees,
-        distanceFunction = euclidean, depthPerBatch = 3,
-        outputDir = outputDir)
-
-  with time("run query"):
-    result = forest.nearestNeighbor(query)
-    print(result)
-
-  print("For comparison, naive result:\n{}\nnaive elapsed = {}".format(
-      naiveResult, naiveRuntime))
-
-  print("Forest saved at: {}".format(outputDir))
