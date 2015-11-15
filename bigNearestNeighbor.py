@@ -85,6 +85,7 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
   pathsToIndices = rulesTree.mapPathsToLeaves()
   with time("partition data"):
     partitionedData = data.partitionWithIndexMap(pathsToIndices)
+  unregisterTempFile(data.filename)
 
   # Build tree recursively
   def replaceLeafRecursive(path, previousLeaf):
@@ -341,11 +342,22 @@ class _LazyDiskData(namedtuple("LazyDiskData",
       chunk_index += 1
     return nearest
 
-tempFiles = []
+tempFiles = {}
 def registerTempFile(f):
   '''Register a temp file to prevent it from being garbage collected'''
   global tempFiles
-  tempFiles.append(f)
+  tempFiles[f.name] = f
+
+def unregisterTempFile(filename):
+  '''Determines whether the given filename was previously registered as
+     a temporary file, and if so, closes it (this ought to force deletion
+     of the temp file)'''
+  global tempFiles
+  assert isinstance(filename, str)
+  if filename in tempFiles:
+    print("Removing temporary file '{}'".format(filename))
+    f = tempFiles.pop(filename)
+    f.close()
 
 last_elapsed_time = None
 
