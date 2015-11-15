@@ -28,7 +28,8 @@ elif analysis == "full":
   query = randomUnitVector(6144)
   numTrees = 1
 elif analysis == "sim":
-  exampleData = LazyDiskData("data/testdata.csv")
+  exampleData = LazyDiskData("data/testdata.csv",
+      columnSlice = slice(1, None))
   query = np.zeros(10)
   numTrees = 10
 else:
