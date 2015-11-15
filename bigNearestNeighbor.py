@@ -392,7 +392,7 @@ if __name__ == "__main__":
 
   query = np.zeros(10)
 
-  numTrees = 3
+  numTrees = 10
 
   with time("naive linear scan query"):
     naiveResult = exampleData.linearScanNearestNeighbor(query,
