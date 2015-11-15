@@ -107,5 +107,16 @@ class TestNearestNeighbor(unittest.TestCase):
     result = tree.replaceLeaves(lambda p, v: p)
     self.assertEqual(result, expected)
 
+  def test_replaceLeaves_expandTree(self):
+    tree = Node(None, Node(None, 10, 20), 30)
+    expected = Node(None,
+      Node(None,
+        Node(None, 11, Node(None, 12, 13)),
+        Node(None, 21, Node(None, 22, 23))),
+      Node(None, 31, Node(None, 32, 33)))
+    result = tree.replaceLeaves(
+        lambda p, v: Node(None, v+1, Node(None, v+2, v+3)))
+    self.assertEqual(result, expected)
+
 if __name__ == "__main__":
   unittest.main()
