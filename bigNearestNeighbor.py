@@ -375,6 +375,9 @@ def time(name = None, preannounce = True, printer = lambda x: print(x)):
     printer("Elapsed seconds{} = {}".format(extraName, elapsed))
     last_elapsed_time = elapsed
 
+def getLastElapsedTime():
+  return last_elapsed_time
+
 if __name__ == "__main__":
   np.random.seed(1)
 
@@ -398,7 +401,7 @@ if __name__ == "__main__":
     naiveResult = exampleData.linearScanNearestNeighbor(query,
         distanceFunction = euclidean)
     print(naiveResult)
-  naiveRuntime = last_elapsed_time
+  naiveRuntime = getLastElapsedTime()
 
   with time("build trees"):
     forest = makeForest(exampleData, maxLeafSize = 500, numTrees = numTrees,
