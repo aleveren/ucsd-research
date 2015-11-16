@@ -5,7 +5,7 @@ import heapq
 import numpy as np
 import pandas as pd
 import tempfile
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 import copy
 import timeit
 import contextlib
@@ -52,9 +52,10 @@ def ensureDirectoryExists(directory):
   # output location. TODO: Find a way to avoid this.
 
 def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
-    outputDir = None):
+    outputDir, parentPath):
 
   if not data.numRowsExceeds(maxLeafSize):
+    print("makeTree reached leaf at {}".format(parentPath))
     return LazyLeaf(data, distanceFunction)
 
   numCols = data.numActiveColumns()
@@ -81,8 +82,8 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
 
   # Partition the data
   assert isinstance(rulesTree, Node)
-  pathsToIndices = rulesTree.mapPathsToLeaves()
-  with time("partition data"):
+  pathsToIndices = rulesTree.mapPathsToLeaves(pathSoFar = parentPath)
+  with time("partition data within '{}'".format(parentPath)):
     partitionedData = data.partitionWithIndexMap(pathsToIndices)
   unregisterTempFile(data.filename)
 
@@ -90,13 +91,15 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
   def replaceLeafRecursive(path, previousLeaf):
     leafData = partitionedData[path]
     return makeTree(leafData, maxLeafSize, distanceFunction, depthPerBatch,
-        outputDir = None)
+        outputDir = None, parentPath = path)
 
-  builtTree = rulesTree.replaceLeaves(replaceLeafRecursive)
+  builtTree = rulesTree.replaceLeaves(replaceLeafRecursive,
+      pathSoFar = parentPath)
 
   if outputDir == None:
     return builtTree
   else:
+    assert parentPath == ""
     ensureDirectoryExists(outputDir)
 
     # Move leaf data to the given directory
@@ -149,17 +152,18 @@ def projectionsToRulesTree(
   return Node(rule, leftTree, rightTree)
 
 def makeForest(data, maxLeafSize, numTrees, distanceFunction, depthPerBatch,
-    outputDir = None):
+    outputDir):
   if outputDir is None:
     treeOutputDirs = [None for i in range(numTrees)]
   else:
     ensureDirectoryExists(outputDir)
     treeOutputDirs = [outputDir + "/tree" + str(i) for i in range(numTrees)]
-  trees = [
-    makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
-        outputDir = treeDir)
-    for treeDir in treeOutputDirs
-  ]
+  trees = []
+  for i, treeDir in enumerate(treeOutputDirs):
+    with time("building tree index {}".format(i)):
+      newTree = makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
+          outputDir = treeDir, parentPath = "")
+    trees.append(newTree)
   forest = NearestNeighborForest(trees, data, distanceFunction)
 
   if outputDir is not None:
@@ -208,14 +212,14 @@ class Node(namedtuple("Node", ["rule", "leftTree", "rightTree"])):
     if isinstance(self.leftTree, Node):
       leftMap = self.leftTree.mapPathsToLeaves(pathToLeft)
     else:
-      leftMap = {pathToLeft: self.leftTree}
+      leftMap = OrderedDict([(pathToLeft, self.leftTree)])
 
     if isinstance(self.rightTree, Node):
       rightMap = self.rightTree.mapPathsToLeaves(pathToRight)
     else:
-      rightMap = {pathToRight: self.rightTree}
+      rightMap = OrderedDict([(pathToRight, self.rightTree)])
 
-    return dict(leftMap.items() + rightMap.items())
+    return OrderedDict(leftMap.items() + rightMap.items())
 
   def replaceLeaves(self, replacer, pathSoFar = ""):
     '''Creates a modified copy of this tree by replacing leaves according to
@@ -293,8 +297,8 @@ class _LazyDiskData(namedtuple("LazyDiskData",
 
   def partitionWithIndexMap(self, pathsToIndices):
     uniquePaths = pathsToIndices.keys()
-    tempFiles = {}
-    partitionedData = {}
+    tempFiles = OrderedDict()
+    partitionedData = OrderedDict()
     toMerge = []
 
     for path in uniquePaths:
@@ -308,7 +312,7 @@ class _LazyDiskData(namedtuple("LazyDiskData",
       toMerge.append([(i, path) for i in pathsToIndices[path]])
 
     mergedPaths = [path for i, path in heapq.merge(*toMerge)]
-  
+
     # Populate data files
     d = self.dataRef()
     chunk_index = 0
@@ -324,7 +328,7 @@ class _LazyDiskData(namedtuple("LazyDiskData",
         currentTempFile = tempFiles[path]
         group.to_csv(currentTempFile, mode="a", header=False, index=False)
       chunk_index += 1
-    
+
     return partitionedData
 
   def linearScanNearestNeighbor(self, query, distanceFunction):
