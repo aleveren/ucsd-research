@@ -7,9 +7,6 @@ import datetime
 
 np.random.seed(1)
 
-timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
-outputDir = "forests/forest_" + timestamp
-
 if len(sys.argv) > 1:
   analysis = sys.argv[1]
 else:
@@ -34,6 +31,9 @@ elif analysis == "sim":
   numTrees = 10
 else:
   raise Exception("Unrecognized analysis: {}".format(analysis))
+
+timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
+outputDir = "forests/forest_" + analysis + "_" + timestamp
 
 with time("naive linear scan query"):
   naiveResult = exampleData.linearScanNearestNeighbor(query,
