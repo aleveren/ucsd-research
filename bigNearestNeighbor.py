@@ -164,7 +164,7 @@ def makeForest(data, maxLeafSize, numTrees, distanceFunction, depthPerBatch,
       newTree = makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
           outputDir = treeDir, parentPath = "")
     trees.append(newTree)
-  forest = NearestNeighborForest(trees, data, distanceFunction)
+  forest = NearestNeighborForest(trees, data.columnSlice, distanceFunction)
 
   if outputDir is not None:
     with open(outputDir + "/forest.pkl", "w+b") as f:
@@ -242,12 +242,12 @@ class Node(namedtuple("Node", ["rule", "leftTree", "rightTree"])):
     return Node(copy.deepcopy(self.rule), newLeft, newRight)
 
 class NearestNeighborForest(namedtuple("NearestNeighborForest",
-    ["trees", "data", "distanceFunction"])):
+    ["trees", "columnSlice", "distanceFunction"])):
 
   def nearestNeighbor(self, query):
     results = [tree.nearestNeighbor(query) for tree in self.trees]
     def distanceCalculator(row):
-      activeColumnsOfRow = np.array(row[self.data.columnSlice], dtype=float)
+      activeColumnsOfRow = np.array(row[self.columnSlice], dtype=float)
       return self.distanceFunction(query, activeColumnsOfRow)
     nearest = min(results, key=distanceCalculator)
     return nearest
