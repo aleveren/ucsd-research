@@ -85,7 +85,7 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
   pathsToIndices = rulesTree.mapPathsToLeaves(pathSoFar = parentPath)
   with time("partition data within '{}'".format(parentPath)):
     partitionedData = data.partitionWithIndexMap(pathsToIndices)
-  unregisterTempFile(data.filename)
+  unregisterTempFile(data.filename())
 
   # Build tree recursively
   def replaceLeafRecursive(path, previousLeaf):
@@ -104,9 +104,10 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
 
     # Move leaf data to the given directory
     def leafMover(path, previousLeaf):
-      originalDataLocation = previousLeaf.lazyData.filename
+      originalDataLocation = previousLeaf.lazyData.filename()
       newDataLocation = outputDir + "/" + path + ".csv"
-      newLazyData = previousLeaf.lazyData._replace(filename = newDataLocation)
+      newLazyData = previousLeaf.lazyData._replace(
+          directory = outputDir, baseFilename = path + ".csv")
       shutil.copy2(originalDataLocation, newDataLocation)
       return previousLeaf._replace(lazyData = newLazyData)
 
@@ -171,6 +172,31 @@ def makeForest(data, maxLeafSize, numTrees, distanceFunction, depthPerBatch,
       pickle.dump(forest, f)
 
   return forest
+
+def loadForest(directory):
+  with open(directory + "/forest.pkl", "rb") as f:
+    forest = pickle.load(f)
+  newTrees = []
+  for i in range(len(forest.trees)):
+    tree = forest.trees[i]
+    treeDir = directory + "/tree" + str(i)
+    def fileRenamer(path, leaf):
+      newData = leaf.lazyData._replace(directory = treeDir)
+      newLeaf = leaf._replace(lazyData = newData)
+      return newLeaf
+    newTree = tree.replaceLeaves(fileRenamer)
+    newTrees.append(newTree)
+  return forest._replace(trees = newTrees)
+
+def loadTree(directory):
+  with open(directory + "/tree.pkl", "rb") as f:
+    tree = pickle.load(f)
+  def fileRenamer(path, leaf):
+    newData = leaf.lazyData._replace(directory = directory)
+    newLeaf = leaf._replace(lazyData = newData)
+    return newLeaf
+  newTree = tree.replaceLeaves(fileRenamer)
+  return newTree
 
 class Rule(namedtuple("Rule", ["direction", "threshold"])):
   def __call__(self, row):
@@ -254,16 +280,23 @@ class NearestNeighborForest(namedtuple("NearestNeighborForest",
 
 # Provide namedtuple constructor with optional args
 def LazyDiskData(
-    filename,
+    baseFilename,
+    directory = None,  # This should be None for absolute paths
     chunksize = 10000,
     columnSlice = slice(None)):
-  return _LazyDiskData(filename, chunksize, columnSlice)
+  return _LazyDiskData(baseFilename, directory, chunksize, columnSlice)
 
 class _LazyDiskData(namedtuple("LazyDiskData",
-    ["filename", "chunksize", "columnSlice"])):
+    ["baseFilename", "directory", "chunksize", "columnSlice"])):
+
+  def filename(self):
+    if self.directory is None:
+      return self.baseFilename
+    else:
+      return self.directory + "/" + self.baseFilename
 
   def dataRef(self):
-    return pd.read_csv(self.filename, chunksize = self.chunksize)
+    return pd.read_csv(self.filename(), chunksize = self.chunksize)
 
   def matrixGenerator(self):
     d = self.dataRef()
@@ -307,7 +340,8 @@ class _LazyDiskData(namedtuple("LazyDiskData",
       tempName = temp.name
       print("path = {}, tempName = {}".format(path, tempName))
       tempFiles[path] = tempName
-      partitionedData[path] = LazyDiskData(tempName,
+      partitionedData[path] = LazyDiskData(
+          directory = None, baseFilename = tempName,
           chunksize = self.chunksize, columnSlice = self.columnSlice)
       toMerge.append([(i, path) for i in pathsToIndices[path]])
 

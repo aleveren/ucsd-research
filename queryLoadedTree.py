@@ -3,7 +3,7 @@
 import pickle
 import numpy as np
 import sys
-from bigNearestNeighbor import time
+from bigNearestNeighbor import time, loadForest
 
 if len(sys.argv) > 1:
   filename = sys.argv[1]
@@ -12,8 +12,7 @@ else:
   sys.exit(1)
 
 with time("load forest"):
-  with open(filename) as f:
-    forest = pickle.load(f)
+  forest = loadForest(filename)
 query = np.zeros(len(forest.trees[0].rule.direction))
 with time("run query"):
   result = forest.nearestNeighbor(query)
