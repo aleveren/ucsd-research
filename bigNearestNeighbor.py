@@ -112,7 +112,7 @@ def makeTree(data, maxLeafSize, distanceFunction, depthPerBatch,
 
     persistedTree = builtTree.replaceLeaves(leafMover)
 
-    with open(outputDir + "/tree.dump", "w") as f:
+    with open(outputDir + "/tree.pkl", "w+b") as f:
       pickle.dump(persistedTree, f)
 
     return persistedTree
@@ -167,7 +167,7 @@ def makeForest(data, maxLeafSize, numTrees, distanceFunction, depthPerBatch,
   forest = NearestNeighborForest(trees, data, distanceFunction)
 
   if outputDir is not None:
-    with open(outputDir + "/forest.dump", "w") as f:
+    with open(outputDir + "/forest.pkl", "w+b") as f:
       pickle.dump(forest, f)
 
   return forest
