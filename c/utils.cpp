@@ -229,6 +229,7 @@ Forest makeForest(
     Data data, int maxLeafSize, int numTrees, DistanceMetric metric) {
   vector<Tree*> trees;
   for (int i = 0; i < numTrees; i++) {
+    cout << "Building tree index " << i << endl;
     Tree *tree = makeTree(data, maxLeafSize, metric);
     trees.push_back(tree);
   }
@@ -289,7 +290,7 @@ int main(int argc, char** argv) {
   // TODO: keep this in a separate file, so that the rest can be
   // used as a library
   
-  cout << "Loading data ... ";
+  cout << "Loading data ... " << flush;
   Data data = loadData("../data/testdata.csv");
 
   int COLS = data[0]->size();
@@ -307,12 +308,12 @@ int main(int argc, char** argv) {
   Forest forest = makeForest(data, maxLeafSize, numTrees, &euclidean);
   vector<double> query(COLS, 0.0);
 
-  cout << "Running random-projection query ... ";
+  cout << "Running random-projection query ... " << flush;
   vector<double> *result = forest.nearestNeighbor(query);
   double resultDistance = euclidean(*result, query);
   cout << "Found point at distance " << resultDistance << endl;
 
-  cout << "Running linear scan ... ";
+  cout << "Running linear scan ... " << flush;
   result = linearScanNearestNeighbor(data, query, &euclidean);
   resultDistance = euclidean(*result, query);
   cout << "Found point at distance " << resultDistance << endl;
