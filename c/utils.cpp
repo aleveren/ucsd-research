@@ -267,9 +267,9 @@ Data loadData(string path) {
     vector<double> *dColumns = new vector<double>();
     int colIndex = 0;
     for (string value : columns) {
-      // For now: Hard-coding the fact that we should ignore first column
+      // For now: Hard-coding the fact that we should ignore first column(s)
       // TODO: make this more general / parameterized
-      if (colIndex != 0) {
+      if (colIndex >= 3) {
         double dValue;
         try {
           dValue = boost::lexical_cast<double>(value);
@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
   // used as a library
   
   cout << "Loading data ... " << flush;
-  Data data = loadData("../data/testdata.csv");
+  Data data = loadData("../data/accumDataRDR_subset.csv");
 
   int COLS = data[0]->size();
   int ROWS = data.size();
@@ -317,8 +317,6 @@ int main(int argc, char** argv) {
   result = linearScanNearestNeighbor(data, query, &euclidean);
   resultDistance = euclidean(*result, query);
   cout << "Found point at distance " << resultDistance << endl;
-
-  cout << "Expected optimum: sqrt(COLS) = " << sqrt(COLS) << endl;
 
   return 0;
 }
