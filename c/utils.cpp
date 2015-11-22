@@ -1,10 +1,13 @@
 #include <iostream>
 #include <cmath>
+#include <cstdlib>
 #include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
 #include <exception>
 #include <boost/random.hpp>
+#include <boost/algorithm/string.hpp>
 
 using namespace std;
 
@@ -249,47 +252,59 @@ vector<double> * linearScanNearestNeighbor(
   return nearest;
 }
 
+Data loadData(string path) {
+  Data result;
+  string line;
+  ifstream f(path);
+  if (!f.is_open()) {
+    throw runtime_error("Could not open file");
+  }
+  getline(f, line);  // Discard the header line
+  while (getline(f, line)) {
+    vector<string> columns;
+    boost::split(columns, line, boost::is_any_of(","));
+    vector<double> *dColumns = new vector<double>();
+    int colIndex = 0;
+    for (string value : columns) {
+      // For now: Hard-coding the fact that we should ignore first column
+      // TODO: make this more general / parameterized
+      if (colIndex != 0) {
+        double dValue;
+        try {
+          dValue = boost::lexical_cast<double>(value);
+        } catch (boost::bad_lexical_cast e) {
+          throw runtime_error("Could not parse CSV value as double");
+        }
+        dColumns->push_back(dValue);
+      }
+      colIndex++;
+    }
+    result.push_back(dColumns);
+  }
+  f.close();
+  return result;
+}
+
 int main(int argc, char** argv) {
   // TODO: keep this in a separate file, so that the rest can be
   // used as a library
   
-  const int ROWS = 500;
-  const int COLS = 5;
+  cout << "Loading data ... ";
+  Data data = loadData("../data/testdata.csv");
+
+  int COLS = data[0]->size();
+  int ROWS = data.size();
+
+  cout << "Data size: COLS = " << COLS << ", ROWS = " << ROWS << endl;
+
+  int maxLeafSize = 500;
+  int numTrees = 10;
 
   boost::random::uniform_real_distribution<> unif_distrib(0.0, 1.0);
   boost::random::uniform_int_distribution<> column_distrib(0, COLS-1);
  
-  int random_row_index =
-      boost::random::uniform_int_distribution<>(0, ROWS-1)(gen);
-
-  Data data;
-
-  double M = sqrt(COLS) + 1.0;
-  cout << "Building dataset" << endl;
-  for (int i = 0; i < ROWS; i++) {
-    vector<double> *w = new vector<double>(COLS, 0.0);
-
-    if (i == random_row_index) {
-      for (int j = 0; j < COLS; j++) {
-        (*w)[j] = 1.0;
-      }
-    } else {
-      int random_col_index = column_distrib(gen);
-      for (int j = 0; j < COLS; j++) {
-        if (j == random_col_index) {
-          (*w)[j] = M;
-        } else {
-          (*w)[j] = unif_distrib(gen);
-        }
-      }
-    }
-
-    data.push_back(w);
-  }
-
   cout << "Building trees" << endl;
-  Forest forest = makeForest(data, /* maxLeafSize */ 100,
-      /* numTrees */ 20, /* metric */ &euclidean);
+  Forest forest = makeForest(data, maxLeafSize, numTrees, &euclidean);
   vector<double> query(COLS, 0.0);
 
   cout << "Running random-projection query ... ";
@@ -301,6 +316,8 @@ int main(int argc, char** argv) {
   result = linearScanNearestNeighbor(data, query, &euclidean);
   resultDistance = euclidean(*result, query);
   cout << "Found point at distance " << resultDistance << endl;
+
+  cout << "Expected optimum: sqrt(COLS) = " << sqrt(COLS) << endl;
 
   return 0;
 }
