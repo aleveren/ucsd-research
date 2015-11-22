@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
   // used as a library
   
   cout << "Loading data ... " << flush;
-  Data data = loadData("../data/accumDataRDR_subset.csv");
+  Data data = loadData("../data/accumDataRDR_all.csv");
 
   int COLS = data[0]->size();
   int ROWS = data.size();
