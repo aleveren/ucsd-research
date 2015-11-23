@@ -47,7 +47,7 @@ double earthmover(vector<double> a, vector<double> b) {
 double normalizedDotProduct(vector<double> a, vector<double> b) {
   // TODO: double-check this implementation via testing
   double numer = abs(dot(a, b));  // TODO: how to handle negative components?
-  double denom = sqrt(magnitude(a) * magnitude(b));
+  double denom = magnitude(a) * magnitude(b);
   if (denom <= 0) {
     throw runtime_error("Cannot compute normalized dot product");
   }
