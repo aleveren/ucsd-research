@@ -3,8 +3,20 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <ctime>
 #include <exception>
 #include <boost/random.hpp>
+
+#define TIMER(name, x) \
+{ \
+  clock_t MACRO_startTime = clock(); \
+  cout << "Starting timer [" << (name) << "]" << endl; \
+  { x } \
+  double MACRO_elapsedSeconds = \
+      (double) (clock() - MACRO_startTime) / CLOCKS_PER_SEC; \
+  cout << "Elapsed seconds [" << (name) << "] = " \
+      << MACRO_elapsedSeconds << endl; \
+}
 
 using namespace std;
 
@@ -77,8 +89,11 @@ int main(int argc, char** argv) {
     }
   }
 
-  cout << "Loading data from " << path << " ... " << flush;
-  Data data = loadData(path, columnsToIgnore);
+  Data data;
+  TIMER("load data", {
+    cout << "Loading data from " << path << " ... " << flush;
+    data = loadData(path, columnsToIgnore);
+  })
 
   int COLS = data[0]->size();
   int ROWS = data.size();
@@ -97,18 +112,25 @@ int main(int argc, char** argv) {
   int maxLeafSize = 500;
   int numTrees = 10;
 
-  cout << "Building trees" << endl;
-  Forest *forest = makeForest(data, maxLeafSize, numTrees, metric);
+  Forest *forest;
+  TIMER("building trees", {
+    cout << "Building trees" << endl;
+    forest = makeForest(data, maxLeafSize, numTrees, metric);
+  })
 
-  cout << "Running random-projection query ... " << flush;
-  vector<double> *result = forest->nearestNeighbor(query);
-  double resultDistance = metric(*result, query);
-  cout << "Found point at distance " << resultDistance << endl;
+  TIMER("RP query", {
+    cout << "Running random-projection query ... " << flush;
+    vector<double> *result = forest->nearestNeighbor(query);
+    double resultDistance = metric(*result, query);
+    cout << "Found point at distance " << resultDistance << endl;
+  })
 
-  cout << "Running linear scan ... " << flush;
-  result = linearScanNearestNeighbor(data, query, metric);
-  resultDistance = metric(*result, query);
-  cout << "Found point at distance " << resultDistance << endl;
+  TIMER("Linear scan query", {
+    cout << "Running linear scan ... " << flush;
+    vector<double> *result = linearScanNearestNeighbor(data, query, metric);
+    double resultDistance = metric(*result, query);
+    cout << "Found point at distance " << resultDistance << endl;
+  })
 
   return 0;
 }
