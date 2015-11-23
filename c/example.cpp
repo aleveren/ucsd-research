@@ -9,13 +9,13 @@
 
 #define TIMER(name, x) \
 { \
-  clock_t MACRO_startTime = clock(); \
-  cout << "Starting timer [" << (name) << "]" << endl; \
+  clock_t _MACRO_startTime##name = clock(); \
+  cout << "Starting timer [" #name "]" << endl; \
   { x } \
-  double MACRO_elapsedSeconds = \
-      (double) (clock() - MACRO_startTime) / CLOCKS_PER_SEC; \
-  cout << "Elapsed seconds [" << (name) << "] = " \
-      << MACRO_elapsedSeconds << endl; \
+  double _MACRO_elapsedSeconds##name = \
+      (double) (clock() - _MACRO_startTime##name) / CLOCKS_PER_SEC; \
+  cout << "Elapsed seconds [" #name "] = " \
+      << _MACRO_elapsedSeconds##name << endl; \
 }
 
 using namespace std;
@@ -55,6 +55,8 @@ double normalizedDotProduct(vector<double> a, vector<double> b) {
 }
 
 int main(int argc, char** argv) {
+  TIMER(overall, {
+
   string path = "../data/testdata.csv";
   int columnsToIgnore = 1;
   string analysis = "sim";
@@ -90,15 +92,15 @@ int main(int argc, char** argv) {
   }
 
   Data data;
-  TIMER("load data", {
+  int COLS;
+  int ROWS;
+  TIMER(loadData, {
     cout << "Loading data from " << path << " ... " << flush;
     data = loadData(path, columnsToIgnore);
+    COLS = data[0]->size();
+    ROWS = data.size();
+    cout << "Data size: COLS = " << COLS << ", ROWS = " << ROWS << endl;
   })
-
-  int COLS = data[0]->size();
-  int ROWS = data.size();
-
-  cout << "Data size: COLS = " << COLS << ", ROWS = " << ROWS << endl;
 
   vector<double> query(COLS, 0.0);
   if (analysis == "subset" || analysis == "full") {
@@ -113,23 +115,25 @@ int main(int argc, char** argv) {
   int numTrees = 10;
 
   Forest *forest;
-  TIMER("building trees", {
+  TIMER(buildingTrees, {
     cout << "Building trees" << endl;
     forest = makeForest(data, maxLeafSize, numTrees, metric);
   })
 
-  TIMER("RP query", {
+  TIMER(rpQuery, {
     cout << "Running random-projection query ... " << flush;
     vector<double> *result = forest->nearestNeighbor(query);
     double resultDistance = metric(*result, query);
     cout << "Found point at distance " << resultDistance << endl;
   })
 
-  TIMER("Linear scan query", {
+  TIMER(linearScanQuery, {
     cout << "Running linear scan ... " << flush;
     vector<double> *result = linearScanNearestNeighbor(data, query, metric);
     double resultDistance = metric(*result, query);
     cout << "Found point at distance " << resultDistance << endl;
+  })
+
   })
 
   return 0;
