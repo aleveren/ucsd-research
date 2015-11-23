@@ -1,13 +1,4 @@
-#include <iostream>
-#include <cmath>
-#include <cstdlib>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <fstream>
-#include <exception>
-#include <boost/random.hpp>
-#include <boost/algorithm/string.hpp>
+#include "utils.hpp"
 
 using namespace std;
 
@@ -70,9 +61,6 @@ string join(string sep, vector<double> vec) {
   return ss.str();
 }
 
-typedef vector<vector<double> *> Data;
-typedef double (*DistanceMetric)(vector<double>, vector<double>);
-
 DistanceMetric defaultMetric = &euclidean;
 
 class Tree {
@@ -81,32 +69,27 @@ public:
   virtual Tree * getLeaf(vector<double>) = 0;
 };
 
-class Forest {
-public:
-  Forest(vector<Tree*> trees, DistanceMetric metric) :
-      trees_(trees), metric_(metric) { }
+/* Beginning of Forest implementation */
+Forest::Forest(vector<Tree*> trees, DistanceMetric metric) :
+    trees_(trees), metric_(metric) { }
 
-  vector<double> * nearestNeighbor(vector<double> query) {
-    vector<double> *nearest = nullptr;
-    double nearestDistance = 0.0;
-    for (int i = 0; i < trees_.size(); i++) {
-      vector<double> *currentNearest = trees_[i]->nearestNeighbor(query);
-      double currentDistance = metric_(query, *currentNearest);
-      if (nearest == nullptr || currentDistance < nearestDistance) {
-        nearest = currentNearest;
-        nearestDistance = currentDistance;
-      }
+vector<double> * Forest::nearestNeighbor(vector<double> query) {
+  vector<double> *nearest = nullptr;
+  double nearestDistance = 0.0;
+  for (int i = 0; i < trees_.size(); i++) {
+    vector<double> *currentNearest = trees_[i]->nearestNeighbor(query);
+    double currentDistance = metric_(query, *currentNearest);
+    if (nearest == nullptr || currentDistance < nearestDistance) {
+      nearest = currentNearest;
+      nearestDistance = currentDistance;
     }
-    if (nearest == nullptr) {
-      throw runtime_error("Internal error: no nearest neighbor");
-    }
-    return nearest;
   }
-
-private:
-  vector<Tree*> trees_;
-  DistanceMetric metric_;
-};
+  if (nearest == nullptr) {
+    throw runtime_error("Internal error: no nearest neighbor");
+  }
+  return nearest;
+}
+/* End of Forest implementation */
 
 class Rule {
 public:
@@ -125,13 +108,6 @@ private:
   double threshold_;
   double approxQuantile_;
 };
-
-//std::ostream& operator<<(std::ostream& s, const Rule& rule) {
-//  return s << "Rule("
-//      << "direction: " << rule.direction_ << ", "
-//      << "threshold: " << rule.threshold_ << ", "
-//      << "approxQuantile: " << rule.approxQuantile_ << ")";
-//}
 
 class Node : public Tree {
 public:
@@ -225,7 +201,7 @@ Tree * makeTree(Data data, int maxLeafSize, DistanceMetric metric) {
   return new Node(rule, leftTree, rightTree);
 }
 
-Forest makeForest(
+Forest * makeForest(
     Data data, int maxLeafSize, int numTrees, DistanceMetric metric) {
   vector<Tree*> trees;
   for (int i = 0; i < numTrees; i++) {
@@ -233,7 +209,7 @@ Forest makeForest(
     Tree *tree = makeTree(data, maxLeafSize, metric);
     trees.push_back(tree);
   }
-  return Forest(trees, metric);
+  return new Forest(trees, metric);
 }
 
 vector<double> * linearScanNearestNeighbor(
@@ -253,7 +229,7 @@ vector<double> * linearScanNearestNeighbor(
   return nearest;
 }
 
-Data loadData(string path) {
+Data loadData(string path, int columnsToIgnore) {
   Data result;
   string line;
   ifstream f(path);
@@ -267,9 +243,8 @@ Data loadData(string path) {
     vector<double> *dColumns = new vector<double>();
     int colIndex = 0;
     for (string value : columns) {
-      // For now: Hard-coding the fact that we should ignore first column(s)
       // TODO: make this more general / parameterized
-      if (colIndex >= 3) {
+      if (colIndex >= columnsToIgnore) {
         double dValue;
         try {
           dValue = boost::lexical_cast<double>(value);
@@ -286,37 +261,3 @@ Data loadData(string path) {
   return result;
 }
 
-int main(int argc, char** argv) {
-  // TODO: keep this in a separate file, so that the rest can be
-  // used as a library
-  
-  cout << "Loading data ... " << flush;
-  Data data = loadData("../data/accumDataRDR_all.csv");
-
-  int COLS = data[0]->size();
-  int ROWS = data.size();
-
-  cout << "Data size: COLS = " << COLS << ", ROWS = " << ROWS << endl;
-
-  int maxLeafSize = 500;
-  int numTrees = 10;
-
-  boost::random::uniform_real_distribution<> unif_distrib(0.0, 1.0);
-  boost::random::uniform_int_distribution<> column_distrib(0, COLS-1);
- 
-  cout << "Building trees" << endl;
-  Forest forest = makeForest(data, maxLeafSize, numTrees, &euclidean);
-  vector<double> query(COLS, 0.0);
-
-  cout << "Running random-projection query ... " << flush;
-  vector<double> *result = forest.nearestNeighbor(query);
-  double resultDistance = euclidean(*result, query);
-  cout << "Found point at distance " << resultDistance << endl;
-
-  cout << "Running linear scan ... " << flush;
-  result = linearScanNearestNeighbor(data, query, &euclidean);
-  resultDistance = euclidean(*result, query);
-  cout << "Found point at distance " << resultDistance << endl;
-
-  return 0;
-}
