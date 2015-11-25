@@ -27,5 +27,5 @@ def main(filename, seed = 1):
   df.to_csv(filename, header=True, index=False)
 
 if __name__ == "__main__":
-  filename = "data/testdata.csv"
+  filename = "../data/testdata.csv"
   main(filename)

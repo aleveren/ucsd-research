@@ -15,17 +15,17 @@ else:
 print("Analysis: {}".format(analysis))
 
 if analysis == "subset":
-  exampleData = LazyDiskData("data/accumDataRDR_subset.csv",
+  exampleData = LazyDiskData("../data/accumDataRDR_subset.csv",
       columnSlice = slice(3, None))
   query = randomUnitVector(6144)
   numTrees = 1
 elif analysis == "full":
-  exampleData = LazyDiskData("data/accumDataRDR_all.csv",
+  exampleData = LazyDiskData("../data/accumDataRDR_all.csv",
       columnSlice = slice(3, None))
   query = randomUnitVector(6144)
   numTrees = 1
 elif analysis == "sim":
-  exampleData = LazyDiskData("data/testdata.csv",
+  exampleData = LazyDiskData("../data/testdata.csv",
       columnSlice = slice(1, None))
   query = np.zeros(10)
   numTrees = 10
