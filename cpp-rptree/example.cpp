@@ -3,20 +3,8 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <ctime>
 #include <exception>
 #include <boost/random.hpp>
-
-#define TIMER(name, x) \
-{ \
-  clock_t _MACRO_startTime##name = clock(); \
-  cout << "Starting timer [" #name "]" << endl; \
-  { x } \
-  double _MACRO_elapsedSeconds##name = \
-      (double) (clock() - _MACRO_startTime##name) / CLOCKS_PER_SEC; \
-  cout << "Elapsed seconds [" #name "] = " \
-      << _MACRO_elapsedSeconds##name << endl; \
-}
 
 using namespace std;
 
@@ -55,7 +43,7 @@ double normalizedDotProduct(vector<double> a, vector<double> b) {
 }
 
 int main(int argc, char** argv) {
-  TIMER(overall, {
+  TIMER_START(overall);
 
   string path = "../data/testdata.csv";
   int columnsToIgnore = 1;
@@ -94,13 +82,13 @@ int main(int argc, char** argv) {
   Data data;
   int COLS;
   int ROWS;
-  TIMER(loadData, {
-    cout << "Loading data from " << path << " ... " << flush;
-    data = loadData(path, columnsToIgnore);
-    COLS = data[0]->size();
-    ROWS = data.size();
-    cout << "Data size: COLS = " << COLS << ", ROWS = " << ROWS << endl;
-  })
+  TIMER_START(loadData);
+  cout << "Loading data from " << path << " ... " << flush;
+  data = loadData(path, columnsToIgnore);
+  COLS = data[0]->size();
+  ROWS = data.size();
+  cout << "Data size: COLS = " << COLS << ", ROWS = " << ROWS << endl;
+  TIMER_END(loadData);
 
   vector<double> query(COLS, 0.0);
   if (analysis == "subset" || analysis == "full") {
@@ -115,26 +103,26 @@ int main(int argc, char** argv) {
   int numTrees = 10;
 
   Forest *forest;
-  TIMER(buildingTrees, {
-    cout << "Building trees" << endl;
-    forest = makeForest(data, maxLeafSize, numTrees, metric);
-  })
+  TIMER_START(buildingTrees);
+  cout << "Building trees" << endl;
+  forest = makeForest(data, maxLeafSize, numTrees, metric);
+  TIMER_END(buildingTrees);
 
-  TIMER(rpQuery, {
-    cout << "Running random-projection query ... " << flush;
-    vector<double> *result = forest->nearestNeighbor(query);
-    double resultDistance = metric(*result, query);
-    cout << "Found point at distance " << resultDistance << endl;
-  })
+  TIMER_START(rpQuery);
+  cout << "Running random-projection query ... " << flush;
+  vector<double> *result = forest->nearestNeighbor(query);
+  double resultDistance = metric(*result, query);
+  cout << "Found point at distance " << resultDistance << endl;
+  TIMER_END(rpQuery);
 
-  TIMER(linearScanQuery, {
-    cout << "Running linear scan ... " << flush;
-    vector<double> *result = linearScanNearestNeighbor(data, query, metric);
-    double resultDistance = metric(*result, query);
-    cout << "Found point at distance " << resultDistance << endl;
-  })
+  TIMER_START(linearScanQuery);
+  cout << "Running linear scan ... " << flush;
+  vector<double> *result = linearScanNearestNeighbor(data, query, metric);
+  double resultDistance = metric(*result, query);
+  cout << "Found point at distance " << resultDistance << endl;
+  TIMER_END(linearScanQuery);
 
-  })
+  TIMER_END(overall);
 
   return 0;
 }
