@@ -11,18 +11,14 @@
 #include <boost/algorithm/string.hpp>
 
 #define TIMER_START(name) \
-{\
   clock_t _MACRO_startTime##name = clock(); \
-  cout << "Starting timer [" #name "]" << endl; \
-  {
+  cout << "Starting timer [" #name "]" << endl;
 
 #define TIMER_END(name) \
-  }\
   double _MACRO_elapsedSeconds##name = \
       (double) (clock() - _MACRO_startTime##name) / CLOCKS_PER_SEC; \
   cout << "Elapsed seconds [" #name "] = " \
-      << _MACRO_elapsedSeconds##name << endl; \
-}
+      << _MACRO_elapsedSeconds##name << endl;
 
 double selectRank(std::vector<double> values, int rank);
 double selectQuantile(std::vector<double> values, double alpha);
