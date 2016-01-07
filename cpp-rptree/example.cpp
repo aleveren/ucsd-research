@@ -1,4 +1,5 @@
-#include "utils.hpp"
+#include "nn/common.hpp"
+#include "nn/rp_trees/rp_trees.hpp"
 
 #include <iostream>
 #include <vector>
@@ -68,7 +69,7 @@ int main(int argc, char** argv) {
   Forest *forest;
   TIMER_START(buildingTrees);
   cout << "Building trees" << endl;
-  forest = makeForest(data, maxLeafSize, numTrees, metric);
+  forest = Forest::makeForest(data, maxLeafSize, numTrees, metric);
   TIMER_END(buildingTrees);
 
   vector<double> *result;

@@ -1,3 +1,10 @@
+CC=g++
+CFLAGS='-std=c++11'
+
 all:
-	g++ -c -o bin/utils.o -std=c++11 utils.cpp
-	g++ -o bin/example -std=c++11 example.cpp bin/utils.o
+	$(CC) $(CFLAGS) -c -o bin/common.o nn/common.cpp
+	$(CC) $(CFLAGS) -c -o bin/rp_trees.o nn/rp_trees/rp_trees.cpp
+	$(CC) $(CFLAGS) -o bin/example example.cpp bin/*.o
+
+clean:
+	rm bin/*
