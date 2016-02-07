@@ -4,14 +4,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import namedtuple
 
+class Compound(namedtuple("Compound", ["abundance", "peaks"])):
+  pass
+
+class Constant(namedtuple("Constant", ["value"])):
+  def sample(self):
+    return self.value
+
+class LogNormalDistrib(namedtuple("LogNormalDistrib", ["mean", "sigma"])):
+  def sample(self):
+    return np.random.lognormal(self.mean, self.sigma)
+
 class PeakDistrib(namedtuple("PeakDistrib", [
     "mean_location", "sigma_location",
     "mean_height", "sigma_height",
     "mean_width", "sigma_width"])):
-  pass
+  def sample(self, abundance):
+    loc = np.random.lognormal(self.mean_location, self.sigma_location)
+    width = np.random.lognormal(self.mean_width, self.sigma_width)
+    height = np.random.lognormal(self.mean_height, self.sigma_height)
+    return Peak(loc, width, abundance * height)
 
-class GaussianParams(namedtuple("GaussianParams", [
-    "mean", "sigma", "height"])):
+class Peak(namedtuple("Peak", ["mean", "sigma", "height"])):
   def density(self, x):
     var = self.sigma ** 2
     unscaled = np.exp(-0.5 * (x - self.mean) ** 2 / float(var))
@@ -23,18 +37,18 @@ sigheight = 1e-6
 sigwidth = 1e-6
 
 compoundPeaks = [
-  [
+  Compound(abundance = Constant(1.0), peaks = [
     PeakDistrib(np.log(1), sigloc, np.log(10), sigheight, mwidth, sigwidth),
     PeakDistrib(np.log(2), sigloc, np.log(15), sigheight, mwidth, sigwidth),
-  ],
-  [
+  ]),
+  Compound(abundance = Constant(1.0), peaks = [
     PeakDistrib(np.log(3), sigloc, np.log(20), sigheight, mwidth, sigwidth),
     PeakDistrib(np.log(4), sigloc, np.log(25), sigheight, mwidth, sigwidth),
-  ],
-  [
+  ]),
+  Compound(abundance = Constant(1.0), peaks = [
     PeakDistrib(np.log(5), sigloc, np.log(30), sigheight, mwidth, sigwidth),
     PeakDistrib(np.log(6), sigloc, np.log(35), sigheight, mwidth, sigwidth),
-  ],
+  ]),
 ]
 
 np.random.seed(1)
@@ -46,17 +60,10 @@ plt.figure()
 for sampleIndex in range(numSamples):
   gaussians = []
 
-  for ps in compoundPeaks:
-    #a_mean = 1.0  # For now, use the same prior distrib for each abundance
-    #a_sigma = 0.1
-    #abundance = np.random.lognormal(a_mean, a_sigma)
-    abundance = 1.0
-
-    for peak in ps:
-      loc = np.random.lognormal(peak.mean_location, peak.sigma_location)
-      width = np.random.lognormal(peak.mean_width, peak.sigma_width)
-      height = np.random.lognormal(peak.mean_height, peak.sigma_height)
-      gaussians.append(GaussianParams(loc, width, abundance * height))
+  for compound in compoundPeaks:
+    abundance = compound.abundance.sample()
+    for peak in compound.peaks:
+      gaussians.append(peak.sample(abundance))
 
   print("SAMPLE")
   for g in gaussians:
