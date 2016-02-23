@@ -32,8 +32,8 @@ class Peak(namedtuple("Peak", ["mean", "sigma", "height"])):
     return self.height * unscaled
 
 mwidth = np.log(0.1)
-sigloc = 1e-1
-sigheight = 1e-6
+sigloc = 5e-2
+sigheight = 5e-2
 sigwidth = 1e-6
 
 compoundPeaks = [
@@ -52,10 +52,16 @@ compoundPeaks = [
 ]
 
 np.random.seed(1)
-numSamples = 10
-xsample = np.arange(0, 10, 0.01)
+numSamples = 2
+xsample = np.arange(0, 7, 0.01)
 
 plt.figure()
+
+ax = plt.gca()
+
+for compound in compoundPeaks:
+  for peak in compound.peaks:
+    ax.axvline(x=np.exp(peak.mean_location), linestyle=':', color='k')
 
 for sampleIndex in range(numSamples):
   gaussians = []
@@ -73,7 +79,6 @@ for sampleIndex in range(numSamples):
   for g in gaussians:
     sample += [g.density(x) for x in xsample]
 
-  ax = plt.gca()
   ax.plot(xsample, sample)
 
 plt.show()
