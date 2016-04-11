@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import re
 import argparse
+import sys
 
 def download(url, dest, verbose=True):
   if verbose:
@@ -109,7 +110,10 @@ for detailType in ["RDR", "CCS"]:
     localFile = "../data/" + detailType + "/" + detailFilename
 
     if forceDownload or not os.path.exists(localFile):
-      download(toDownload, localFile)
+      result = download(toDownload, localFile)
+      if result is None:
+        print("Failure downloading {}".format(toDownload), file = sys.stderr)
+        continue
 
     print("Processing '{}'".format(detailFilename))
 
