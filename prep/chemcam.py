@@ -50,7 +50,8 @@ for d in dirsToCreate:
 forceDownload = args.force_download
 smallTest = args.small_test
 
-baseUrl = "http://pds-geosciences.wustl.edu/msl/msl-m-chemcam-libs-4_5-rdr-v1/mslccm_1xxx"
+baseUrl = "http://pds-geosciences.wustl.edu/" + \
+    "msl/msl-m-chemcam-libs-4_5-rdr-v1/mslccm_1xxx"
 
 # Download summary data
 filename = "msl_ccam_obs.csv"
@@ -117,7 +118,16 @@ for detailType in ["RDR", "CCS"]:
 
     print("Processing '{}'".format(detailFilename))
 
-    data = pd.read_csv(localFile, header = 16)
+    headerIndex = 0
+    with open(localFile, "r") as f:
+      for lineIndex, line in enumerate(f.readlines()):
+        if line.startswith("#"):
+          headerIndex = lineIndex
+    if headerIndex != 16:
+      print("Unexpected header index at {}: {}".format(
+          detailFilename, headerIndex), file = sys.stderr)
+
+    data = pd.read_csv(localFile, header = headerIndex)
     cols = [x.strip() for x in data.columns]
     shotColIndices = []
     shots = []
@@ -127,7 +137,9 @@ for detailType in ["RDR", "CCS"]:
         shots.append(int(match.group(1)))
         shotColIndices.append(colIndex)
 
-    currentWavelengths = data['# wave ']
+    assert 'wave' in data.columns[0], \
+        "First column '{}' does not contain 'wave'".format(data.columns[0])
+    currentWavelengths = data[data.columns[0]]
     if wavelengths is None:
       wavelengths = currentWavelengths
     assert np.array_equal(wavelengths, currentWavelengths)
@@ -144,7 +156,8 @@ for detailType in ["RDR", "CCS"]:
       newColNames[i] = "wavelength_{}".format(w)
     data.rename(columns = newColNames, inplace = True)
 
-    exportFile = "../data/" + detailType + "/" + detailFilename.replace(".CSV", ".transpose.CSV")
+    exportFile = "../data/" + detailType + "/" + \
+        detailFilename.replace(".CSV", ".transpose.CSV")
     data.to_csv(exportFile, index = False)
 
     with open(accumFile, "a") as f:
