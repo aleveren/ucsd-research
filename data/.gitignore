@@ -4,3 +4,5 @@
 *.gz
 *.zip
 .~lock*
+RDR/progress.txt
+CCS/progress.txt
