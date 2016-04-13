@@ -33,29 +33,31 @@ def download(url, dest, verbose=True):
 parser = argparse.ArgumentParser(description = "Download ChemCam data.")
 parser.add_argument("--force_download", action="store_true", default=False)
 parser.add_argument("--small_test", action="store_true", default=False)
+parser.add_argument("--dest", action="store", default="../data")
 args = parser.parse_args()
+
+dest = args.dest
+forceDownload = args.force_download
+smallTest = args.small_test
 
 # Set up data directories
 dirsToCreate = [
-  "../data",
-  "../data/MOC",
-  "../data/RDR",
-  "../data/CCS",
+  dest,
+  dest + "/MOC",
+  dest + "/RDR",
+  dest + "/CCS",
 ]
 for d in dirsToCreate:
   if not os.path.exists(d):
     print("Creating directory '{}'".format(d))
     os.makedirs(d)
 
-forceDownload = args.force_download
-smallTest = args.small_test
-
 baseUrl = "http://pds-geosciences.wustl.edu/" + \
     "msl/msl-m-chemcam-libs-4_5-rdr-v1/mslccm_1xxx"
 
 # Download summary data
 filename = "msl_ccam_obs.csv"
-localFile = "../data/" + filename
+localFile = dest + "/" + filename
 if forceDownload or not os.path.exists(localFile):
   url = baseUrl + "/document/" + filename
   download(url, localFile)
@@ -81,7 +83,7 @@ pattern = r'moc_\d+_\d+\.csv'
 mocFiles = sorted(list(set(re.findall(pattern, response))))
 
 for f in mocFiles:
-  localFile = "../data/MOC/" + f
+  localFile = dest + "/MOC/" + f
   if forceDownload or not os.path.exists(localFile):
     toDownload = baseUrl + "/data/moc/" + f
     download(toDownload, localFile)
@@ -90,7 +92,7 @@ for f in mocFiles:
 # Download both RDR and CCS data files
 wavelengths = None
 for detailType in ["RDR", "CCS"]:
-  progressFile = "../data/" + detailType + "/progress.txt"
+  progressFile = dest + "/" + detailType + "/progress.txt"
 
   if forceDownload or not os.path.exists(progressFile):
     with open(progressFile, "w") as f:
@@ -100,7 +102,7 @@ for detailType in ["RDR", "CCS"]:
     alreadyAppended = [line.strip() for line in f.readlines()]
   print("alreadyAppended = {}".format(alreadyAppended))
 
-  accumFile = "../data/" + detailType + "/ALL.CSV"
+  accumFile = dest + "/" + detailType + "/ALL.CSV"
 
   if len(alreadyAppended) == 0:
     with open(accumFile, "w") as f:
@@ -122,7 +124,7 @@ for detailType in ["RDR", "CCS"]:
         row["EDR Filename"].replace("EDR", detailType))
     paddedSol = row["Sol"].rjust(5, "0")
     toDownload = baseUrl + "/data/sol" + paddedSol + "/" + detailFilename
-    localFile = "../data/" + detailType + "/" + detailFilename
+    localFile = dest + "/" + detailType + "/" + detailFilename
 
     if detailFilename in alreadyAppended:
       print("Skipping already-processed file: {}".format(detailFilename))
@@ -174,7 +176,7 @@ for detailType in ["RDR", "CCS"]:
       newColNames[i] = "wavelength_{}".format(w)
     data.rename(columns = newColNames, inplace = True)
 
-    exportFile = "../data/" + detailType + "/" + \
+    exportFile = dest + "/" + detailType + "/" + \
         detailFilename.replace(".CSV", ".transpose.CSV")
     data.to_csv(exportFile, index = False)
 
