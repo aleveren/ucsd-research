@@ -30,10 +30,19 @@ def download(url, dest, verbose=True):
     print("  Done.")
     return body
 
-parser = argparse.ArgumentParser(description = "Download ChemCam data.")
-parser.add_argument("--force_download", action="store_true", default=False)
-parser.add_argument("--small_test", action="store_true", default=False)
-parser.add_argument("--dest", action="store", default="../data")
+exampleUsage = '''Example usage:
+  $ time python -u %(prog)s --dest ../data >stdout.log 2>stderr.log'''
+
+parser = argparse.ArgumentParser(
+    formatter_class = argparse.RawDescriptionHelpFormatter,
+    description = "Download ChemCam data.",
+    epilog = exampleUsage)
+parser.add_argument("--force_download", action="store_true", default=False,
+    help = "always download files, even if they already exist locally")
+parser.add_argument("--small_test", action="store_true", default=False,
+    help = "for debugging, only process a small number of files")
+parser.add_argument("--dest", action="store", default="../data",
+    help = "the destination directory for all downloaded data")
 args = parser.parse_args()
 
 dest = args.dest
