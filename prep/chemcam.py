@@ -86,15 +86,22 @@ for rowIndex, row in summaryData.iterrows():
 assert len(timestamps) == len(set(timestamps))
 
 # Download MOC files
-print("Downloading MOC directory info")
-response = download(baseUrl + "/data/moc/", dest = None)
-pattern = r'moc_\d+_\d+\.csv'
-mocFiles = sorted(list(set(re.findall(pattern, response))))
+localFile = dest + "/MOC/toDownload.txt"
+if forceDownload or not os.path.exists(localFile):
+  print("Downloading MOC directory info")
+  response = download(baseUrl + "/data/moc/", dest = None)
+  pattern = r'moc_\d+_\d+\.csv'
+  with open(localFile, "w") as f:
+    for m in sorted(list(set(re.findall(pattern, response)))):
+      f.write(m + "\n")
 
-for f in mocFiles:
-  localFile = dest + "/MOC/" + f
+with open(localFile, "r") as f:
+  mocFiles = [x.strip() for x in f.readlines()]
+
+for m in mocFiles:
+  localFile = dest + "/MOC/" + m
   if forceDownload or not os.path.exists(localFile):
-    toDownload = baseUrl + "/data/moc/" + f
+    toDownload = baseUrl + "/data/moc/" + m
     download(toDownload, localFile)
   # Note: use header = 7 when loading this data
 
@@ -109,7 +116,7 @@ for detailType in ["RDR", "CCS"]:
 
   with open(progressFile, "r") as f:
     alreadyAppended = [line.strip() for line in f.readlines()]
-  print("alreadyAppended = {}".format(alreadyAppended))
+  print("alreadyAppended: {} items".format(len(alreadyAppended)))
 
   accumFile = dest + "/" + detailType + "/ALL.CSV"
 
