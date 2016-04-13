@@ -120,12 +120,15 @@ for detailType in ["RDR", "CCS"]:
   else:
     accumNeedsHeader = False
 
+  rowCount = 0
   for rowWithIndex in summaryData.iterrows():
     rowIndex = rowWithIndex[0]
     row = rowWithIndex[1]
 
-    if smallTest and rowIndex > 100:
+    if smallTest and rowCount > 4:
       continue
+    rowCount += 1
+    print("Row count: {} of {}".format(rowCount, summaryData.shape[0]))
 
     spacecraftClock = \
         int(re.search(r'CL5_(\d+)EDR', row["EDR Filename"]).group(1))
