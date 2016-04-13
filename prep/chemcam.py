@@ -67,7 +67,7 @@ indices = (summaryData["EDR Type"] == "CL5") & (summaryData["PDS?"] != "No")
 summaryData = summaryData[indices]
 print("Summary data after filtering: {}".format(summaryData.shape))
 
-# Sanity check timestamps
+# Sanity check: timestamps should be unique
 timestamps = []
 for rowIndex, row in summaryData.iterrows():
   match = re.search(r'CL5_(\d+)EDR', row["EDR Filename"])
@@ -90,10 +90,24 @@ for f in mocFiles:
 # Download both RDR and CCS data files
 wavelengths = None
 for detailType in ["RDR", "CCS"]:
+  progressFile = "../data/" + detailType + "/progress.txt"
+
+  if forceDownload or not os.path.exists(progressFile):
+    with open(progressFile, "w") as f:
+      f.write("")
+
+  with open(progressFile, "r") as f:
+    alreadyAppended = [line.strip() for line in f.readlines()]
+  print("alreadyAppended = {}".format(alreadyAppended))
+
   accumFile = "../data/" + detailType + "/ALL.CSV"
-  with open(accumFile, "w") as f:
-    f.write("")
-  accumNeedsHeader = True
+
+  if len(alreadyAppended) == 0:
+    with open(accumFile, "w") as f:
+      f.write("")
+    accumNeedsHeader = True
+  else:
+    accumNeedsHeader = False
 
   for rowWithIndex in summaryData.iterrows():
     rowIndex = rowWithIndex[0]
@@ -109,6 +123,10 @@ for detailType in ["RDR", "CCS"]:
     paddedSol = row["Sol"].rjust(5, "0")
     toDownload = baseUrl + "/data/sol" + paddedSol + "/" + detailFilename
     localFile = "../data/" + detailType + "/" + detailFilename
+
+    if detailFilename in alreadyAppended:
+      print("Skipping already-processed file: {}".format(detailFilename))
+      continue
 
     if forceDownload or not os.path.exists(localFile):
       result = download(toDownload, localFile)
@@ -167,3 +185,7 @@ for detailType in ["RDR", "CCS"]:
 
     os.remove(localFile)
     os.remove(exportFile)
+
+    with open(progressFile, "a") as f:
+      f.write(detailFilename + "\n")
+    alreadyAppended.append(detailFilename)
