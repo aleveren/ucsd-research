@@ -43,6 +43,10 @@ parser.add_argument("--small_test", action="store_true", default=False,
     help = "for debugging, only process a small number of files")
 parser.add_argument("--dest", action="store", default="../data",
     help = "the destination directory for all downloaded data")
+parser.add_argument("--skip_rdr", action="store_true", default=False,
+    help = "skip downloading RDR data")
+parser.add_argument("--skip_ccs", action="store_true", default=False,
+    help = "skip downloading CCS data")
 args = parser.parse_args()
 
 dest = args.dest
@@ -105,9 +109,15 @@ for m in mocFiles:
     download(toDownload, localFile)
   # Note: use header = 7 when loading this data
 
+detailTypes = []
+if not args.skip_rdr:
+  detailTypes.append("RDR")
+if not args.skip_ccs:
+  detailTypes.append("CCS")
+
 # Download both RDR and CCS data files
 wavelengths = None
-for detailType in ["RDR", "CCS"]:
+for detailType in detailTypes:
   progressFile = dest + "/" + detailType + "/progress.txt"
 
   if forceDownload or not os.path.exists(progressFile):
