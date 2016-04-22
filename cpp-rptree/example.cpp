@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     path = "../data/testdata.csv";
     columnsToIgnore = 1;
   } else if (analysis == "full") {
-    path = "../data/accumDataRDR_all.csv";
+    path = "../data/RDR/ALL.CSV";
     columnsToIgnore = 3;
   } else if (analysis == "subset") {
     path = "../data/accumDataRDR_subset.csv";

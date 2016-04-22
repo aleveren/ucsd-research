@@ -20,7 +20,7 @@ if analysis == "subset":
   query = randomUnitVector(6144)
   numTrees = 1
 elif analysis == "full":
-  exampleData = LazyDiskData("../data/accumDataRDR_all.csv",
+  exampleData = LazyDiskData("../data/RDR/ALL.CSV",
       columnSlice = slice(3, None))
   query = randomUnitVector(6144)
   numTrees = 1
