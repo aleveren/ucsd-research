@@ -18,15 +18,48 @@ def replaceEnforced(s, toRemove, toAdd):
 def extractWavelength(col):
   return float(re.search(r"wavelength_(\d+\.?\d*)", col).group(1))
 
-def normalizeRows(d):
+def normalizeRows(d, useWidths):
   unchanged = d.iloc[:, :3]
   toChange = d.iloc[:, 3:]
+  if useWidths:
+    # multiply by "width" of wavelength ranges
+    wavelengths = map(extractWavelength, toChange.columns)
+    deltas = getDeltas(wavelengths).as_matrix()
+    toChange = toChange.mul(deltas, axis=1)
   # set negative entries to 0
   no_neg = toChange.where(toChange >= 0, other=0)
   # normalize rows to sum to 1
   sums = no_neg.sum(axis=1)
   normalized = no_neg.div(sums, axis=0)
   return pd.concat([unchanged, normalized], axis=1)
+
+def testNormalize():
+  global dfc, dfr, dfc0, dfc1, dfr0, dfr1  # TODO: remove
+  dfc = pd.read_csv("../data/CCS/subsetShots_5pct.csv")
+  dfr = pd.read_csv("../data/RDR/subsetShots_5pct.csv")
+  dfc0 = normalizeRows(dfc, useWidths=False)
+  dfc1 = normalizeRows(dfc, useWidths=True)
+  dfr0 = normalizeRows(dfr, useWidths=False)
+  dfr1 = normalizeRows(dfr, useWidths=True)
+
+  plt.figure()
+  ax = plt.gca()
+  ax.plot(dfc0.iloc[0,3:].tolist(),  'b-', label='dfc0')
+  ax.plot(dfc1.iloc[0,3:].tolist(), 'b--', label='dfc1')
+  ax.plot(dfr0.iloc[0,3:].tolist(),  'g-', label='dfr0')
+  ax.plot(dfr1.iloc[0,3:].tolist(), 'g--', label='dfr1')
+  ax.legend(loc='upper left')
+  plt.show()
+
+def getDeltas(w):
+  # Compute width of the range of wavelengths covered by each data point
+  deltas = pd.Series(w).diff()
+  # Adjust for large "holes" in the spectrum
+  assert np.isnan(deltas[0])
+  deltas[0] = deltas[1]
+  largeDeltaIndices = deltas[deltas > 1].index
+  deltas[largeDeltaIndices] = deltas[largeDeltaIndices - 1]
+  return deltas
 
 def nearestNeighborMapping(centers, allPoints):
   centers = np.reshape(centers, [len(centers), 1])
@@ -126,7 +159,7 @@ def main():
 
     minIntensity = 0.002  # units: fraction (0 < f < 1)
 
-    d = normalizeRows(pd.read_csv(filename))
+    d = normalizeRows(pd.read_csv(filename), useWidths=False)
 
     wavelengthCols = [x for x in d.columns if "wavelength" in x]
 
@@ -170,7 +203,7 @@ def main():
     centers = pd.read_csv(centerFilename)
     centers = OrderedDict(zip(centers["from"], centers["to"]))
 
-    d = normalizeRows(pd.read_csv(sampledFilename))
+    d = normalizeRows(pd.read_csv(sampledFilename), useWidths=False)
     d = d.apply(reduceDimRow, axis = 1, centers = centers)
     d.to_csv(dimReducedFilename, index=None)
 
@@ -196,7 +229,7 @@ def main():
       print rowCount
       rowCount += chunk.shape[0]
 
-      processed = normalizeRows(chunk) \
+      processed = normalizeRows(chunk, useWidths=False) \
           .apply(reduceDimRow, axis = 1, centers = centers)
 
       with open(dimReducedFilename, 'a') as f:
