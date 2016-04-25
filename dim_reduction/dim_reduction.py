@@ -53,150 +53,154 @@ def reduceDimRow(row, centers):
     newRow[centers[oldCol]] += intensity
   return pd.Series(newRow)
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--force-rerun', action='store_true', default=False)
-args = parser.parse_args()
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--force-rerun', action='store_true', default=False)
+  args = parser.parse_args()
 
-filenames   = [
-  "../data/CCS/ALL.CSV",
-  "../data/RDR/ALL.CSV",
-]
+  filenames   = [
+    "../data/CCS/ALL.CSV",
+    "../data/RDR/ALL.CSV",
+  ]
 
-sampledFiles = []
+  sampledFiles = []
 
-for filename in filenames:
-  np.random.seed(1)
+  for filename in filenames:
+    np.random.seed(1)
 
-  sampleFrac = 0.05
+    sampleFrac = 0.05
   
-  outFilename = replaceEnforced(filename, "ALL.CSV", "subsetShots_5pct.csv")
+    outFilename = replaceEnforced(filename, "ALL.CSV", "subsetShots_5pct.csv")
 
-  sampledFiles.append(outFilename)
+    sampledFiles.append(outFilename)
 
-  print "sampling from {}".format(filename)
-  if os.path.exists(outFilename) and not args.force_rerun:
-    print "  Already exists; skipping"
-    continue
+    print "sampling from {}".format(filename)
+    if os.path.exists(outFilename) and not args.force_rerun:
+      print "  Already exists; skipping"
+      continue
 
-  sampledFrames = []
-  rowCount = 0
-  chunkIter = pd.read_csv(filename, chunksize=10000)
-  for d in chunkIter:
-    sampledFrames.append(d.sample(frac=sampleFrac))
+    sampledFrames = []
+    rowCount = 0
+    chunkIter = pd.read_csv(filename, chunksize=10000)
+    for d in chunkIter:
+      sampledFrames.append(d.sample(frac=sampleFrac))
   
-    rowCount += d.shape[0]
-    print rowCount
+      rowCount += d.shape[0]
+      print rowCount
   
-  print("Concatenating...")
-  sampled = pd.concat(sampledFrames)
+    print("Concatenating...")
+    sampled = pd.concat(sampledFrames)
 
-  print("Saving to {} ...".format(outFilename))
-  sampled.to_csv(outFilename, index=False)
+    print("Saving to {} ...".format(outFilename))
+    sampled.to_csv(outFilename, index=False)
 
-for filename in sampledFiles:
-  print "quantiles for {}".format(filename)
+  for filename in sampledFiles:
+    print "quantiles for {}".format(filename)
 
-  quantileFilename = replaceEnforced(filename, ".csv", "_quantiles.csv")
-  if os.path.exists(quantileFilename) and not args.force_rerun:
-    print "  Already exists; skipping"
-    continue
+    quantileFilename = replaceEnforced(filename, ".csv", "_quantiles.csv")
+    if os.path.exists(quantileFilename) and not args.force_rerun:
+      print "  Already exists; skipping"
+      continue
 
-  d = pd.read_csv(filename)
-  quantiles = d.quantile([0, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 1])
+    d = pd.read_csv(filename)
+    quantiles = d.quantile([0, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 1])
 
-  numNegative = pd.Series(
-      (len(d.loc[:, c].pipe(lambda x: x[x < 0])) for c in d.columns),
-      index = d.columns).rename("num_negative")
+    numNegative = pd.Series(
+        (len(d.loc[:, c].pipe(lambda x: x[x < 0])) for c in d.columns),
+        index = d.columns).rename("num_negative")
 
-  quantiles = quantiles.append(numNegative).transpose()
+    quantiles = quantiles.append(numNegative).transpose()
 
-  quantiles.to_csv(quantileFilename)
+    quantiles.to_csv(quantileFilename)
 
-centerFilenames = []
-for filename in sampledFiles:
-  centerFilename = replaceEnforced(filename, ".csv", "_centers.csv")
-  centerFilenames.append(centerFilename)
+  centerFilenames = []
+  for filename in sampledFiles:
+    centerFilename = replaceEnforced(filename, ".csv", "_centers.csv")
+    centerFilenames.append(centerFilename)
 
-  print "threshold intensities / cluster for {}".format(filename)
+    print "threshold intensities / cluster for {}".format(filename)
 
-  if os.path.exists(centerFilename) and not args.force_rerun:
-    print "  Already exists; skipping"
-    continue
+    if os.path.exists(centerFilename) and not args.force_rerun:
+      print "  Already exists; skipping"
+      continue
 
-  minIntensity = 0.002  # units: fraction (0 < f < 1)
+    minIntensity = 0.002  # units: fraction (0 < f < 1)
 
-  d = normalizeRows(pd.read_csv(filename))
+    d = normalizeRows(pd.read_csv(filename))
 
-  wavelengthCols = [x for x in d.columns if "wavelength" in x]
+    wavelengthCols = [x for x in d.columns if "wavelength" in x]
 
-  allWavelengths = map(extractWavelength, wavelengthCols)
+    allWavelengths = map(extractWavelength, wavelengthCols)
 
-  colToWavelength = { col: extractWavelength(col) for col in wavelengthCols }
+    colToWavelength = { col: extractWavelength(col) for col in wavelengthCols }
 
-  wavelengths = []
-  for i, row in d.iterrows():
-    if i % 100 == 0: print i
-    for col, val in row.loc[wavelengthCols].iteritems():
-      if val >= minIntensity:
-        wavelengths.append(colToWavelength[col])
-  wavelengths = np.reshape(wavelengths, [len(wavelengths), 1])
-  wavelengths = pd.DataFrame(wavelengths).sample(frac = 0.01)
+    wavelengths = []
+    for i, row in d.iterrows():
+      if i % 100 == 0: print i
+      for col, val in row.loc[wavelengthCols].iteritems():
+        if val >= minIntensity:
+          wavelengths.append(colToWavelength[col])
+    wavelengths = np.reshape(wavelengths, [len(wavelengths), 1])
+    wavelengths = pd.DataFrame(wavelengths).sample(frac = 0.01)
 
-  print "wavelengths shape: ", wavelengths.shape
+    print "wavelengths shape: ", wavelengths.shape
 
-  kmodel = KMeans(n_clusters = 50)
-  kmodel.fit(wavelengths)
-  centers = np.sort(kmodel.cluster_centers_, axis = 0)
-  mapping = nearestColumnMapping(centers, wavelengthCols)
-  pd.DataFrame.from_dict(
-      {
-        "from": mapping.keys(),
-        "to": mapping.values(),
-        "from_numeric": map(extractWavelength, mapping.keys()),
-        "to_numeric": map(extractWavelength, mapping.values()),
-      }).to_csv(centerFilename, index=None)
+    kmodel = KMeans(n_clusters = 50)
+    kmodel.fit(wavelengths)
+    centers = np.sort(kmodel.cluster_centers_, axis = 0)
+    mapping = nearestColumnMapping(centers, wavelengthCols)
+    pd.DataFrame.from_dict(
+        {
+          "from": mapping.keys(),
+          "to": mapping.values(),
+          "from_numeric": map(extractWavelength, mapping.keys()),
+          "to_numeric": map(extractWavelength, mapping.values()),
+        }).to_csv(centerFilename, index=None)
 
-for centerFilename, sampledFilename in zip(centerFilenames, sampledFiles):
-  dimReducedFilename = replaceEnforced(sampledFilename, ".csv", "_reduced.csv")
+  for centerFilename, sampledFilename in zip(centerFilenames, sampledFiles):
+    dimReducedFilename = replaceEnforced(
+        sampledFilename, ".csv", "_reduced.csv")
 
-  print("reducing dimensions for {}".format(sampledFilename))
+    print("reducing dimensions for {}".format(sampledFilename))
 
-  if os.path.exists(dimReducedFilename) and not args.force_rerun:
-    print "  Already exists; skipping"
-    continue
+    if os.path.exists(dimReducedFilename) and not args.force_rerun:
+      print "  Already exists; skipping"
+      continue
 
-  centers = pd.read_csv(centerFilename)
-  centers = OrderedDict(zip(centers["from"], centers["to"]))
+    centers = pd.read_csv(centerFilename)
+    centers = OrderedDict(zip(centers["from"], centers["to"]))
 
-  d = normalizeRows(pd.read_csv(sampledFilename))
-  d = d.apply(reduceDimRow, axis = 1, centers = centers)
-  d.to_csv(dimReducedFilename, index=None)
+    d = normalizeRows(pd.read_csv(sampledFilename))
+    d = d.apply(reduceDimRow, axis = 1, centers = centers)
+    d.to_csv(dimReducedFilename, index=None)
 
-for centerFilename, bigFilename in zip(centerFilenames, filenames):
-  dimReducedFilename = replaceEnforced(bigFilename, ".CSV", "_reduced.csv")
+  for centerFilename, bigFilename in zip(centerFilenames, filenames):
+    dimReducedFilename = replaceEnforced(bigFilename, ".CSV", "_reduced.csv")
 
-  print("reducing dimensions for {}".format(bigFilename))
+    print("reducing dimensions for {}".format(bigFilename))
 
-  if os.path.exists(dimReducedFilename) and not args.force_rerun:
-    print "  Already exists; skipping"
-    continue
+    if os.path.exists(dimReducedFilename) and not args.force_rerun:
+      print "  Already exists; skipping"
+      continue
 
-  centers = pd.read_csv(centerFilename)
-  centers = OrderedDict(zip(centers["from"], centers["to"]))
+    centers = pd.read_csv(centerFilename)
+    centers = OrderedDict(zip(centers["from"], centers["to"]))
 
-  # clear output file
-  with open(dimReducedFilename, 'w') as f:
-    f.write('')
+    # clear output file
+    with open(dimReducedFilename, 'w') as f:
+      f.write('')
 
-  rowCount = 0
-  for chunk in pd.read_csv(bigFilename, chunksize=1000):
-    needsHeader = (rowCount == 0)
-    print rowCount
-    rowCount += chunk.shape[0]
+    rowCount = 0
+    for chunk in pd.read_csv(bigFilename, chunksize=1000):
+      needsHeader = (rowCount == 0)
+      print rowCount
+      rowCount += chunk.shape[0]
 
-    processed = normalizeRows(chunk) \
-        .apply(reduceDimRow, axis = 1, centers = centers)
+      processed = normalizeRows(chunk) \
+          .apply(reduceDimRow, axis = 1, centers = centers)
 
-    with open(dimReducedFilename, 'a') as f:
-      processed.to_csv(f, index=None, header = needsHeader)
+      with open(dimReducedFilename, 'a') as f:
+        processed.to_csv(f, index=None, header = needsHeader)
 
+if __name__ == "__main__":
+  main()
