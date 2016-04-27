@@ -35,20 +35,71 @@ def normalizeRows(d, useWidths):
 
 def testNormalize():
   global dfc, dfr, dfc0, dfc1, dfr0, dfr1  # TODO: remove
-  dfc = pd.read_csv("../data/CCS/subsetShots_5pct.csv")
-  dfr = pd.read_csv("../data/RDR/subsetShots_5pct.csv")
-  dfc0 = normalizeRows(dfc, useWidths=False)
-  dfc1 = normalizeRows(dfc, useWidths=True)
+  dfr = pd.read_csv("../data/RDR/subsetShots_5pct.csv", nrows=5)
+  dfc = pd.read_csv("../data/CCS/subsetShots_5pct.csv", nrows=5)
   dfr0 = normalizeRows(dfr, useWidths=False)
   dfr1 = normalizeRows(dfr, useWidths=True)
+  dfc0 = normalizeRows(dfc, useWidths=False)
+  dfc1 = normalizeRows(dfc, useWidths=True)
 
-  plt.figure()
-  ax = plt.gca()
-  ax.plot(dfc0.iloc[0,3:].tolist(),  'b-', label='dfc0')
-  ax.plot(dfc1.iloc[0,3:].tolist(), 'b--', label='dfc1')
-  ax.plot(dfr0.iloc[0,3:].tolist(),  'g-', label='dfr0')
-  ax.plot(dfr1.iloc[0,3:].tolist(), 'g--', label='dfr1')
+  print dfr0.iloc[0,:3]
+  print dfr1.iloc[0,:3]
+  print dfc0.iloc[0,:3]
+  print dfc1.iloc[0,:3]
+
+  def plotToAxes(ax):
+    ax.plot(dfr0.iloc[0,3:].tolist(),  'g-', label='RDR data')
+    ax.plot(dfr1.iloc[0,3:].tolist(), 'g--', label='RDR data, width-adjusted')
+    ax.plot(dfc0.iloc[0,3:].tolist(),  'b-', label='CCS data')
+    ax.plot(dfc1.iloc[0,3:].tolist(), 'b--', label='CCS data, width-adjusted')
+
+  fig = plt.figure()
+  ax = fig.add_subplot(1, 2, 1)
+  plotToAxes(ax)
   ax.legend(loc='upper left')
+  ax.set_title("example spectra")
+
+  otherAxes = fig.add_subplot(1, 2, 2)
+  plotToAxes(otherAxes)
+  otherAxes.set_xlim(100,200)
+  otherAxes.set_ylim(0,0.005)
+  otherAxes.set_title("zoomed view")
+
+  mappingData = pd.read_csv("../data/CCS/subsetShots_5pct_centers.csv")
+  origWavelength = mappingData["from_numeric"].tolist()
+  newWavelength = mappingData["to_numeric"].tolist()
+
+  mapper = OrderedDict(zip(mappingData["from"], mappingData["to"]))
+
+  spectrum = dfc0.iloc[0, 3:]
+  # insert NaN's to avoid connecting "gaps" (hacky)
+  spectrum[2048] = np.nan
+  spectrum[4096] = np.nan
+
+  spectrum_after = reduceDimRow(dfc0.iloc[0,:], mapper).iloc[3:]
+  wavelength_after = map(extractWavelength, spectrum_after.index)
+
+  fig = plt.figure(figsize=(7,12))
+
+  ax = fig.add_subplot(3,1,1)
+  ax.plot(origWavelength, newWavelength, 'bx')
+  ax.set_xlabel("wavelength")
+  ax.set_ylabel("nearest cluster center")
+  ax.set_title("Wavelength clustering results, based on CCS data")
+  xlim = ax.get_xlim()
+
+  ax = fig.add_subplot(3,1,2)
+  ax.plot(origWavelength, spectrum, 'b.-')
+  ax.set_xlabel("wavelength")
+  ax.set_ylabel("normalized intensity")
+  ax.set_xlim(xlim)
+
+  ax = fig.add_subplot(3,1,3)
+  ax.stem(wavelength_after, spectrum_after, 'b.-')
+  ax.set_xlabel("wavelength")
+  ax.set_ylabel("normalized intensity after dimensionality reduction")
+  ax.set_xlim(xlim)
+
   plt.show()
 
 def getDeltas(w):
@@ -98,6 +149,7 @@ def main():
 
   sampledFiles = []
 
+  # generate random samples
   for filename in filenames:
     np.random.seed(1)
 
@@ -127,6 +179,7 @@ def main():
     print("Saving to {} ...".format(outFilename))
     sampled.to_csv(outFilename, index=False)
 
+  # compute quantiles on samples
   for filename in sampledFiles:
     print "quantiles for {}".format(filename)
 
@@ -146,8 +199,11 @@ def main():
 
     quantiles.to_csv(quantileFilename)
 
+  # perform "wavelength clustering" to identify cluster centers
   centerFilenames = []
   for filename in sampledFiles:
+    np.random.seed(1)
+
     centerFilename = replaceEnforced(filename, ".csv", "_centers.csv")
     centerFilenames.append(centerFilename)
 
@@ -190,6 +246,7 @@ def main():
           "to_numeric": map(extractWavelength, mapping.values()),
         }).to_csv(centerFilename, index=None)
 
+  # reduce dimensions of small samples
   for centerFilename, sampledFilename in zip(centerFilenames, sampledFiles):
     dimReducedFilename = replaceEnforced(
         sampledFilename, ".csv", "_reduced.csv")
@@ -207,6 +264,7 @@ def main():
     d = d.apply(reduceDimRow, axis = 1, centers = centers)
     d.to_csv(dimReducedFilename, index=None)
 
+  # reduce dimensions of full datasets (using batches)
   for centerFilename, bigFilename in zip(centerFilenames, filenames):
     dimReducedFilename = replaceEnforced(bigFilename, ".CSV", "_reduced.csv")
 
