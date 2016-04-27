@@ -168,7 +168,9 @@ def main():
     rowCount = 0
     chunkIter = pd.read_csv(filename, chunksize=10000)
     for d in chunkIter:
-      sampledFrames.append(d.sample(frac=sampleFrac))
+      sampleMask = np.random.binomial(1, sampleFrac, size=d.shape[0])
+      sample = d[sampleMask.astype(bool)]
+      sampledFrames.append(sample)
   
       rowCount += d.shape[0]
       print rowCount
@@ -229,8 +231,10 @@ def main():
       for col, val in row.loc[wavelengthCols].iteritems():
         if val >= minIntensity:
           wavelengths.append(colToWavelength[col])
-    wavelengths = np.reshape(wavelengths, [len(wavelengths), 1])
-    wavelengths = pd.DataFrame(wavelengths).sample(frac = 0.01)
+    wavelengthFrac = 0.01
+    sampleMask = np.random.binomial(1, wavelengthFrac, size=len(wavelengths))
+    wavelengths = np.array(wavelengths)[sampleMask.astype(bool)]
+    wavelengths = wavelengths.reshape([len(wavelengths), 1])
 
     print "wavelengths shape: ", wavelengths.shape
 
