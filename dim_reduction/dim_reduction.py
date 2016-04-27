@@ -10,6 +10,8 @@ from sklearn.neighbors import NearestNeighbors
 import argparse
 from collections import OrderedDict
 
+minIntensity = 0.0002  # units: fraction (0 < f < 1)
+
 def replaceEnforced(s, toRemove, toAdd):
   newString = s.replace(toRemove, toAdd)
   assert newString != s
@@ -82,22 +84,23 @@ def testNormalize():
   fig = plt.figure(figsize=(7,12))
 
   ax = fig.add_subplot(3,1,1)
-  ax.plot(origWavelength, newWavelength, 'bx')
+  ax.plot(origWavelength, newWavelength, 'b.')
   ax.set_xlabel("wavelength")
   ax.set_ylabel("nearest cluster center")
   ax.set_title("Wavelength clustering results, based on CCS data")
   xlim = ax.get_xlim()
 
   ax = fig.add_subplot(3,1,2)
-  ax.plot(origWavelength, spectrum, 'b.-')
+  ax.plot(origWavelength, spectrum, 'b-')
+  ax.axhline(y = minIntensity, color='k', linestyle='--')
   ax.set_xlabel("wavelength")
   ax.set_ylabel("normalized intensity")
   ax.set_xlim(xlim)
 
   ax = fig.add_subplot(3,1,3)
-  ax.stem(wavelength_after, spectrum_after, 'b.-')
+  ax.stem(wavelength_after, spectrum_after, 'b')
   ax.set_xlabel("wavelength")
-  ax.set_ylabel("normalized intensity after dimensionality reduction")
+  ax.set_ylabel("normalized intensity\n(after dimensionality reduction)")
   ax.set_xlim(xlim)
 
   plt.show()
@@ -215,8 +218,6 @@ def main():
       print "  Already exists; skipping"
       continue
 
-    minIntensity = 0.002  # units: fraction (0 < f < 1)
-
     d = normalizeRows(pd.read_csv(filename), useWidths=False)
 
     wavelengthCols = [x for x in d.columns if "wavelength" in x]
@@ -296,6 +297,8 @@ def main():
 
       with open(dimReducedFilename, 'a') as f:
         processed.to_csv(f, index=None, header = needsHeader)
+
+  testNormalize()
 
 if __name__ == "__main__":
   main()
