@@ -1,0 +1,111 @@
+\documentclass[11pt]{article}
+
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{algpseudocode}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage[nomessages]{fp}
+\usepackage{adjustbox}
+
+\newcommand{\deriv}[2]{\frac{d #1}{d #2}}
+\newcommand{\pDeriv}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\pDerivTwo}[3]{\frac{\partial^2 #1}{\partial #2 \partial #3}}
+
+\newcommand{\cond}{\,|\,}
+
+\newcommand{\quickFig}[2]{ %
+  \begin{figure}[H] %
+  \centering %
+  \includegraphics[width=#1 \linewidth,natwidth=600]{#2} %
+  \end{figure} %
+}
+
+\newenvironment{lrcases}
+  {\left\lbrace\begin{aligned}}
+  {\end{aligned}\right\rbrace}
+
+\newcommand{\nth}{^{\mathrm{th}}}
+\newcommand{\argmax}{\mathop{\mathrm{argmax}}}
+\newcommand{\argmin}{\mathop{\mathrm{argmin}}}
+\newcommand{\arginf}{\mathop{\mathrm{arg\,inf}}}
+\newcommand{\argsup}{\mathop{\mathrm{arg\,sup}}}
+\newcommand{\EMD}{\mathrm{EMD}}
+\newcommand{\diam}{\mathrm{diam}}
+
+\newcommand{\eps}{\varepsilon}
+\newcommand{\abs}[1]{\left\lvert#1\right\rvert}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+
+\newcommand{\xmin}{x_\mathrm{min}}
+\newcommand{\xmax}{x_\mathrm{max}}
+
+\theoremstyle{definition}
+\newtheorem*{claim}{Claim}
+
+\begin{document}
+
+\paragraph{Motivation} We want to perform a discretization of earth-mover distance (EMD) such that distances computed using discretized data are not too different from the distances computed using the original data.
+
+Let's focus on 1D EMD for now, and let's assume that the original data are given in the form of continuous probability density functions over some finite interval $[\xmin, \xmax] \subset \mathbb R^1$.
+
+Suppose we are given two probability density functions $p_1$ and $p_2$, and a set of $k$ points $Z \subset [\xmin, \xmax]$.  Let $\phi_Z(p)$ denote the discretized version of a probability density function $p$, where all the probability mass at point $x$ has been moved to the nearest value $z \in Z$.  We want to characterize the \emph{EMD discretization error}, which is the difference
+\[ \Delta(p_1, p_2; Z) = \EMD(\phi_Z(p_1), \phi_Z(p_2)) - \EMD(p_1, p_2). \]
+
+\noindent There are several questions we could ask:
+\begin{itemize}
+\item Given $p_1$ and $p_2$, what values of $Z$ minimize or maximize $\Delta(p_1, p_2; Z)$?
+\item Given $p_1$ and $Z$, what values of $p_2$ minimize or maximize $\Delta(p_1, p_2; Z)$?
+\item Given $p_1$, what values of $Z$ and $p_2$ minimize or maximize $\Delta(p_1, p_2; Z)$?
+\item Given $Z$, what values of $p_1$ and $p_2$ minimize or maximize $\Delta(p_1, p_2; Z)$?
+\end{itemize}
+
+\noindent Similarly, if $p_1$ and $p_2$ are considered random variables:
+\begin{itemize}
+\item Given a distribution over $p_1$ and $p_2$, what values of $Z$ minimize or maximize $\mathbb E[\Delta(p_1, p_2; Z)]$?
+\item Given $Z$, what distributions over $p_1$ and $p_2$ minimize or maximize $\mathbb E[\Delta(p_1, p_2; Z)]$?
+\end{itemize}
+
+\paragraph{Observations} After choosing $Z$, consider the Voronoi tesselation of $\mathbb R^1$ relative to $Z$.  We can create a large negative discretization error if we place all of the probability mass at the far left end of a Voronoi cell in $p_1$ and at the far right end of the same Voronoi cell in $p_2$ (in this case, the discretized EMD becomes 0).  On the other hand, we can create a large positive discretization error as follows: if $\tilde x$ is the boundary between two Voronoi cells (i.e., $\tilde x = (z_i + z_{i+1})/2$ for some $i$), then we can place all of the probability mass at $\tilde x - \eps$ in $p_1$ and at $\tilde x + \eps$ in $p_2$.  In this case, the discretized EMD will be $\abs{z_{i+1}-z_i}$, whereas the original EMD was arbitrarily close to $0$.
+
+Also, if $p_1 = p_2$, then $\phi_Z(p_1) = \phi_Z(p_2)$ for any $Z$, and so $\Delta(p_1, p_2; Z) = 0$.  That is, equal distributions always have equal discretizations.
+
+\paragraph{Conjecture} If we want to reduce the dimension of our data to at most $k$ features, and we want to minimize the worst-case EMD discretization error, we should select an evenly-spaced set of points:
+\[ Z = \left\{ \xmin + \frac{2j-1}{2k}(\xmax-\xmin) : j \in \{ 1, \ldots, k \} \right\}. \]
+
+This way, the maximum width of a Voronoi cell will be $1/k$; this limits the amount by which the distance between a pair of distributions can be \emph{decreased}.  Furthermore, the maximum distance between adjacent points in $Z$ will be $1/k$; this limits the amount by which the distance between a pair of distributions can be \emph{increased}.
+
+Can we do better if we know that the distributions over $p_1$ and $p_2$ are such that certain subsets of $\mathbb R^1$ are expected to receive very low probability density?
+
+In particular, suppose $D$ is a ``meta-distribution'' (a distribution over distributions over $\mathbb R$), with $p_1 \sim D$ and $p_2 \sim D$.  Then, for what values of $Z$ is the distribution of the discretization error $\Delta(p_1, p_2; Z)$ ``well-behaved'' (e.g., bounded near zero, or highly concentrated near zero)?
+
+Consider a special case where the distributions generated by $D$ are all discrete distributions.  Let $f_D$ be a density function over $\mathbb R$ with finite support, and let $F_D$ be the corresponding cumulative density function.  For some fixed $n$, suppose the distributions generated by $D$ consist of discrete distributions where $n$ points are sampled from $f_D$, and each of the points are assigned a probability mass of $1/n$.
+
+It seems plausible that a good way to choose $Z$ is to define
+\[ \alpha_j = \frac{2j-1}{2k}, \quad \text{ for } j \in \{1, \ldots, k \}, \]
+and choose $Z$ by computing the inverse CDF on these points:
+\[ Z = \left\{ F_D^{-1}(\alpha_j) : j \in \{ 1, \ldots, k \} \right\}. \]
+
+If we assume $f_D$ is the uniform distribution over $[\xmin, \xmax]$, this coincides with the earlier choice of $Z$.  More generally, this method tends to avoid regions in $\mathbb R$ where $f_D$ has low density.
+
+One minor modification might be necessary: if any of the points $z_i \in Z$ lands in a region where $f_D(x) = 0$, would it make sense to adjust them to coincide with the nearest $x$-value for which $f_D(x)$ is non-zero?  More precisely, should we apply something like the following update rule?  (Is this likely to increase or decrease the discretization error?)
+\[ z_i \mapsto \arginf_{x : f_D(x) > 0} \abs{x-z_i}. \]
+
+In practice, we will not have access to the distribution $D$ from which $p_1$ and $p_2$ are drawn.  Instead, we should find an estimate $\hat F_D$ of $F_D$ using a large sample of discrete distributions $p_i$ drawn from $D$.
+
+How can we translate this into a practical algorithm for selecting $Z$ given $k$?
+
+Idea: take a sample of distributions $p_1, \ldots, p_n$, with CDFs $F_1, \ldots F_n$.  Then, estimate the cumulative density using
+\[ \hat F_D(x) = \frac1n \sum_i F_i(x). \]
+Next, compute the inverse of the estimated cumulative density function, and let 
+\[Z = \{ \hat F_D^{-1}: j \in 1, \ldots, k\},\]
+where the $\alpha_j$'s are as defined above.
+
+Caveat: there are many plausible distributions $D$ that this special case does not cover.  For instance, $D$ could select a ``base'' distribution from some set and then add noise to it.  When performing discretization, we should be careful not to lose the ability to distinguish between different base distributions.
+
+\end{document}
