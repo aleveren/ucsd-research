@@ -5,15 +5,20 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import re
-from sklearn.cluster import KMeans
-from sklearn.neighbors import NearestNeighbors
 import argparse
 from collections import OrderedDict
 
-from dim_reduction import normalizeRows, extractWavelength
+from dim_reduction import (
+    normalizeRows,
+    extractWavelength,
+    reduceDimRow,
+    nearestColumnMapping,
+)
 
 def main():
-  df = pd.read_csv("../data/CCS/subsetShots_5pct.csv", nrows=1000)
+  print "reading data"
+  df = pd.read_csv("../data/CCS/subsetShots_5pct.csv")
+  print "preprocessing data"
   df = normalizeRows(df, useWidths=False)
   nrow = df.shape[0]
   rowsum = df.iloc[:,3:].sum(axis=0)
@@ -28,6 +33,7 @@ def main():
   alpha_index = 0
   w_index = 0
  
+  print "computing density-dependent centers"
   while True:
     if alpha_index >= len(alphas) or w_index >= len(wavelengths):
       break
@@ -40,10 +46,9 @@ def main():
       w_index += 1
 
   print new_xs
-  print len(new_xs)
-  print cumulative[-1] / float(nrow)
 
-  plt.figure()
+  print "creating plot"
+  fig = plt.figure()
   ax = plt.gca()
   for a in new_alphas:
     ax.axhline(y=a / float(nrow), linestyle='-', color='#cccccc')
@@ -51,8 +56,16 @@ def main():
     ax.axvline(x=x, linestyle='-', color='#cccccc')
   #ax.twinx().plot(wavelengths, rowsum / float(nrow), color=(0.5,0.7,0.5,0.3))
   ax.plot(wavelengths, cumulative / float(nrow))
+  ax.set_xlabel("wavelength")
+  ax.set_ylabel("cumulative spectral intensity $\\hat F_D$")
+  plt.savefig("wavelengths_density_dependent.pdf")
+  plt.close(fig)
 
-  plt.show()
+  print "reducing data"
+  mapping = nearestColumnMapping(new_xs, df.columns[3:])
+  newData = df.apply(reduceDimRow, axis = 1, centers = mapping)
+  print "saving reduced data"
+  newData.to_csv("../data/CCS/subsetShots_5pct_reduced_by_density.csv", index=None)
 
 if __name__ == "__main__":
   main()
