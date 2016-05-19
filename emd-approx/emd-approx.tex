@@ -8,6 +8,7 @@
 \usepackage{graphicx}
 \usepackage{algpseudocode}
 \usepackage{float}
+\usepackage{outlines}
 \usepackage{listings}
 \usepackage{tikz}
 \usepackage[nomessages]{fp}
@@ -106,6 +107,31 @@ Next, compute the inverse of the estimated cumulative density function, and let
 \[Z = \{ \hat F_D^{-1}: j \in 1, \ldots, k\},\]
 where the $\alpha_j$'s are as defined above.
 
-Caveat: there are many plausible distributions $D$ that this special case does not cover.  For instance, $D$ could select a ``base'' distribution from some set and then add noise to it.  When performing discretization, we should be careful not to lose the ability to distinguish between different base distributions.
+Here is an example of this procedure performed on a subsample of the ChemCam data:
+\quickFig{0.6}{../dim_reduction/wavelengths_density_dependent.pdf}
+
+Major caveat: there are many plausible distributions $D$ that this special case does not cover.  For instance, $D$ could select a ``base'' distribution from some set and then add noise to it.  When performing discretization, we should be careful not to lose the ability to distinguish between different base distributions.  This limitation may explain why the density-dependent reduction performs poorly in the results below.
+
+\paragraph{Results} I've attempted three different dimensionality reductions:
+
+\begin{outline}[enumerate]
+\1 $k$-means reduction: whenever a wavelength is associated with an intensity of more than 0.02\% of the total, add it to a list of wavelengths (allowing duplicates), and perform 1-D $k$-means clustering on the result
+\1 Density-dependent reduction: uses estimation of $\hat F_D$ described above
+\1 Uniformly-spaced reduction: uses points spaced evenly between $\xmin$ and $\xmax$
+\end{outline}
+
+For each of these methods, I created a reduced dataset with only 50 columns instead of 6144.
+I then computed a pairwise earth-mover distance matrix for a set of 500 random spectra, evaluated on the raw data (6144 wavelengths) and on each of the reduced datasets.
+To measure how well distances are preserved by each reduction, I computed the Frobenius norm of the difference between pairs of matrices:
+\begin{center}
+\begin{tabular}{c|c|c}
+Source of distance matrix $D_A$ & Source of distance matrix $D_B$ & $\norm{D_A-D_B}_F$ \\ \hline
+Original data & $k$-means reduced data         & 22.94 \\
+Original data & Density-dependent reduced data & 75.15 \\
+Original data & Uniform-spacing reduced data   & 35.21
+\end{tabular}
+\end{center}
+
+Hence, the $k$-means approach seems to preserve pairwise EMD significantly better than the density-dependent approach.  Surprisingly, even a naive uniform dimensionality reduction performs much better than a density-dependent approach.  It would be interesting to try to understand from a theoretical perspective why this happens.
 
 \end{document}
