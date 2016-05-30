@@ -45,50 +45,55 @@ def demo():
 
   m1 = nearestMapping(xs, centers)
   xs1, ys1 = discretize(xs, ys, m1)
-  showDiscretization(xs, ys, xs1, ys1, m1)
+  #showDiscretization(xs, ys, xs1, ys1, m1)
 
   m2 = proportionalMapping(xs, centers)
   xs2, ys2 = discretize(xs, ys, m2)
-  showDiscretization(xs, ys, xs2, ys2, m2)
+  #showDiscretization(xs, ys, xs2, ys2, m2)
 
-  for i in range(8):
-    testName = "nearest" if i % 2 == 0 else "proportional"
-    testMapping = m1 if i % 2 == 0 else m2
+  for i in range(4096):
+    #testName = "nearest" if i % 2 == 0 else "proportional"
+    #testMapping = m1 if i % 2 == 0 else m2
+    #testName = "nearest"
+    #testMapping = m1
+    testName = "proportional"
+    testMapping = m2
 
-    p1 = uniform_randomEndpoints(xs, 0, 1)
-    p2 = uniform_randomEndpoints(xs, 0, 1)
-    if i >= 4:
-      p1 *= np.random.lognormal(0, 1, len(xs))
-      p1 /= np.sum(p1)
-      if i >= 6:
-        p2 *= np.random.lognormal(0, 1, len(xs))
-        p2 /= np.sum(p2)
+    p1 = uniform_randomEndpoints(xs, numIntervals = 6)
+    p2 = uniform_randomEndpoints(xs, numIntervals = 6)
+    #if i >= 4:
+    #  p1 *= np.random.lognormal(0, 1, len(xs))
+    #  p1 /= np.sum(p1)
+    #  if i >= 6:
+    #    p2 *= np.random.lognormal(0, 1, len(xs))
+    #    p2 /= np.sum(p2)
     distance_before = earthmover1d(xs, p1, p2)
     xs_new, p1_new = discretize(xs, p1, testMapping)
     xs_new2, p2_new = discretize(xs, p2, testMapping)
     assert np.array_equal(xs_new, xs_new2)
     distance_after = earthmover1d(xs_new, p1_new, p2_new)
 
-    print distance_before
-    print distance_after
+    print "{} -> {}".format(distance_before, distance_after)
     title = "{}: original distance = {:.2f}, discretized distance = {:.2f}".format(testName, distance_before, distance_after)
-
-    epsilon = 1e-6
-    if distance_after - distance_before > epsilon:
-      title += "; counterexample"
-
-    fig, axes = plt.subplots(3, 2, sharex='col')
-    a1 = [axes[i][0] for i in range(3)]
-    a2 = [axes[i][1] for i in range(3)]
-    showDiscretization(xs, p1, xs_new, p1_new, testMapping, axes = a1)
-    showDiscretization(xs, p2, xs_new, p2_new, testMapping, axes = a2)
-
-    fig.suptitle(title)
 
     d11_before = earthmover1d(xs, p1, p1)
     d11_after = earthmover1d(xs_new, p1_new, p1_new)
     assert d11_before == 0
     assert d11_after == 0
+
+    epsilon = 1e-6
+    if distance_after - distance_before > epsilon:
+      title += "; counterexample"
+
+      fig, axes = plt.subplots(3, 2, sharex='col')
+      a1 = [axes[i][0] for i in range(3)]
+      a2 = [axes[i][1] for i in range(3)]
+      showDiscretization(xs, p1, xs_new, p1_new, testMapping, axes = a1)
+      showDiscretization(xs, p2, xs_new, p2_new, testMapping, axes = a2)
+
+      fig.suptitle(title)
+
+      break
 
   plt.show()
 
