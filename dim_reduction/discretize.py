@@ -9,12 +9,20 @@ from collections import OrderedDict, defaultdict
 
 from earthmover import earthmover1d
 
-def uniform_randomEndpoints(xs, xmin = None, xmax = None):
+def uniform_randomEndpoints(xs, xmin = None, xmax = None, numIntervals = 1):
   if xmin is None: xmin = min(xs)
   if xmax is None: xmax = max(xs)
-  a = np.random.uniform(xmin, xmax)
-  b = np.random.uniform(xmin, xmax)
-  return uniform(xs, min([a,b]), max([a,b]))
+  endpoints = [np.random.uniform(xmin, xmax)
+      for i in range(2*numIntervals)]
+  #endpoints = sorted([np.random.uniform(xmin, xmax)
+  #    for i in range(2*numIntervals)])
+  result = np.zeros_like(xs)
+  for i in range(numIntervals):
+    a = min([endpoints[2*i], endpoints[2*i + 1]])
+    b = max([endpoints[2*i], endpoints[2*i + 1]])
+    result += uniform(xs, a, b)
+  result /= np.sum(result)
+  return result
 
 def uniform(xs, a, b):
   ys = np.zeros_like(xs)
