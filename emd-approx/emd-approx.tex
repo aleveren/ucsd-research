@@ -28,8 +28,8 @@
 }
 
 \newenvironment{lrcases}
-  {\left\lbrace\begin{aligned}}
-  {\end{aligned}\right\rbrace}
+  {\left\lbrace\begin{array}{ll}}
+  {\end{array}\right\rbrace}
 
 \newcommand{\nth}{^{\mathrm{th}}}
 \newcommand{\argmax}{\mathop{\mathrm{argmax}}}
@@ -138,5 +138,74 @@ Original data & Uniform-spacing reduced data   & 35.21
 \end{center}
 
 Hence, the $k$-means approach seems to preserve pairwise EMD significantly better than the density-dependent approach.  Surprisingly, even a naive uniform dimensionality reduction performs much better than a density-dependent approach.  It would be interesting to try to understand from a theoretical perspective why this happens.
+
+\section*{Alternative approach: Proportional assignments}
+
+In the previous scheme, we assigned all of the probability mass at a point $x$ to the closest $z_i \in Z$.  This allowed the possibility of increasing the distance between two distributions when probability mass is moved across the boundary between Voronoi cells.  We now consider whether a different discretization scheme might avoid this possibility.
+
+An alternative scheme is to divide the mass at $x$ between its left and right neighbors, based on the distances $x$ and these neighbors.  In particular, if a probability distribution assigns mass $1$ to a point $x$ that lies between $z_i$ and $z_{i+1}$, then the discretized version of this distribution will assign
+\begin{align*}
+\frac{z_{i+1}-x}{z_{i+1}-z_i} & \text{ to $z_i$, and} \\
+\frac{x-z_i}{z_{i+1}-z_i}     & \text{ to $z_{i+1}$.}
+\end{align*}
+Note that if there is a localized mass halfway between $z_i$ and $z_{i+1}$, it will end up divided evenly between the left and right neighbors.  Small perturbations to such a distribution will no longer cause large increases in the discretized distance.
+
+Generalizing this to an arbitrary probability density function $p : \mathbb R \to \mathbb R$, the discretized distribution $\phi_Z(p)$ assigns the following mass to $z_i$:
+\begin{align*}
+& \int_{z_{i-1}}^{z_i} p(x) \frac{x-z_{i-1}}{z_i-z_{i-1}} \, dx
++ \int_{z_i}^{z_{i+1}} p(x) \frac{z_{i+1}-x}{z_{i+1}-z_i} \, dx \\
+&\qquad =
+\int_{-\infty}^{\infty} p(x) \max\left(0, \min \left(
+  \frac{x-z_{i-1}}{z_i-z_{i-1}},
+  \frac{z_{i+1}-x}{z_{i+1}-z_i}
+\right)\right) \, dx \\
+&\qquad =
+E_{X \sim p}[w_i(X)],
+\end{align*}
+where
+\[
+w_i(x) = \max\left(0, \min \left(
+  \frac{x-z_{i-1}}{z_i-z_{i-1}},
+  \frac{z_{i+1}-x}{z_{i+1}-z_i}
+\right)\right).
+\]
+
+Note that we can express the all-or-nothing nearest-neighbor assignment method in a similar form, except we must replace $w_i$ with
+\begin{align*}
+w_{i,\mathrm{nearest}}(x)
+&=
+\begin{cases}
+1, & \frac{z_{i-1} + z_i}{2} < x < \frac{z_i + z_{i+1}}{2}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{align*}
+
+Returning to the proportional-assignment approach, consider the case where a probability distribution $p_1$ assigns mass $1$ to some point $x_1 \in (z_i, z_{i+1})$ for some $i$, and another distribution $p_2$ assigns mass $1$ to some point $x_2$ in the same interval.
+
+Note that the original distance is $\EMD(p_1,p_2) = \abs{x_1-x_2}$.  The discretized distance is
+\begin{align*}
+\EMD(\phi_Z(p_1), \phi_Z(p_2))
+&=
+\EMD\left(
+\begin{lrcases}
+z_i, & \text{w.p.\ $\frac{z_{i+1}-x_1}{z_{i+1}-z_i}$} \\
+z_{i+1}, & \text{w.p.\ $\frac{x_1-z_i}{z_{i+1}-z_i}$}
+\end{lrcases}
+,
+\begin{lrcases}
+z_i, & \text{w.p.\ $\frac{z_{i+1}-x_2}{z_{i+1}-z_i}$} \\
+z_{i+1}, & \text{w.p.\ $\frac{x_2-z_i}{z_{i+1}-z_i}$}
+\end{lrcases}
+\right) \\
+&= (z_{i+1}-z_i) \abs{\frac{z_{i+1}-x_1}{z_{i+1}-z_i} - \frac{z_{i+1}-x_2}{z_{i+1}-z_i}} \\
+&= \abs{x_1 - x_2} \\
+&= \EMD(p_1, p_2).
+\end{align*}
+
+This shows that the earthmover distance is preserved for this simple case.
+
+Note that there are still some cases where the discretized distance decreases to zero.  For instance, if $p_1$ and $p_2$ both have support inside the interval $(z_i, z_{i+1})$ and both are symmetrically distributed around the point $\frac{z_i + z_{i+1}}{2}$, they will both discretize to the same distribution (namely, the uniform distribution over $z_i$ and $z_{i+1}$); therefore, the discretized distance is zero, even if the original distance between $p_1$ and $p_2$ was nonzero.
+
+Can we extend the argument above to show that the discretized distance \emph{never exceeds} the original distance?
 
 \end{document}
