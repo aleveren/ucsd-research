@@ -108,20 +108,18 @@ class HierClust(object):
     def _large_partition(self, data):
         _logger.debug("Running _large_partition on %s observations", len(data))
 
-        # Generate a smaller set of cluster centers via KMeans
-        # Note: doesn't support custom metric?
-        # TODO: consider just using a random subsample?
         num_representatives = self._num_reps(len(data))
-        kmeans_obj = KMeans(
-            n_clusters = num_representatives,
-            precompute_distances = False,
-            copy_x = True,
-            n_init = 1,
-        ).fit(data)
-        centers = kmeans_obj.cluster_centers_
+        if num_representatives < len(data):
+            # Generate a random subset
+            mask = [True for i in range(num_representatives)] + \
+                [False for i in range(len(data) - num_representatives)]
+            mask = np.random.permutation(mask)
+            subset = data.iloc[mask, :]
+        else:
+            subset = data
 
         # Partition the small set
-        center_partition = self._small_partition(centers)
+        small_partition = self._small_partition(subset)
 
         # Use KNN classifier to extend partition to full data
         _logger.debug("Running KNN classifier on %s observations", len(data))
@@ -129,7 +127,7 @@ class HierClust(object):
             n_neighbors = self.n_neighbors,
             algorithm = 'ball_tree',
             metric = 'euclidean',
-        ).fit(centers, center_partition)
+        ).fit(subset, small_partition)
         full_partition = nn_classifier.predict(data)
         return full_partition
 
