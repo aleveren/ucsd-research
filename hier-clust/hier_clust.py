@@ -41,15 +41,21 @@ class HierClust(object):
         data_features = data.iloc[:, feature_columns]
         orig_indices = np.arange(len(data))
 
-        tree = self._fit_helper(data_features, orig_indices, tree_path = '')
+        tree = self._fit_helper(data_features, orig_indices, tree_path = '',
+            num_leaves_done = 0)
         assignments = self._get_assignments(tree)
         tree_paths = np.array([p for i, p in assignments])
 
         return tree, tree_paths
 
-    def _fit_helper(self, data, orig_indices, tree_path):
-        _logger.debug("Running _fit_helper on %s observations (tree_path = %s)",
-            len(data), tree_path)
+    def _fit_helper(self, data, orig_indices, tree_path, num_leaves_done):
+        log_msg = "Partitioning {} observations " \
+            "(tree_path = {}, num_leaves_done = {})" \
+            .format(len(data), tree_path, num_leaves_done)
+        if len(data) > self.threshold_for_subset:
+            _logger.info(log_msg)
+        else:
+            _logger.debug(log_msg)
 
         if len(data) <= 1 or len(data) <= self.leaf_size:
             return Tree.leaf(data = {
@@ -78,8 +84,10 @@ class HierClust(object):
             subtree = self._fit_helper(
                 data_subset,
                 orig_indices_subset,
-                tree_path + str(label))
+                tree_path + str(label),
+                num_leaves_done = num_leaves_done)
             children.append(subtree)
+            num_leaves_done += len(data_subset)
 
         return Tree(children = children, data = {
             "data_frame": data,
@@ -98,6 +106,8 @@ class HierClust(object):
     def _small_partition(self, data):
         _logger.debug("Running _small_partition on %s observations", len(data))
 
+        # TODO: what happens if we re-use top-level sparse similarity
+        #       for all splits?
         similarity = self._get_sparse_similarity(data)
         similarity = 0.5 * similarity + 0.5 * similarity.T
         spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed')
@@ -222,7 +232,9 @@ def main(argv):
     parser.add_argument('--input', required = True)
     parser.add_argument('--feature_columns', default = None)
     parser.add_argument('--log', default = 'WARNING')
-    parser.add_argument('--seed', type = long, default = None)
+    parser.add_argument('--random_seed', type = long, default = None)
+    parser.add_argument('--output_column', default = "cluster_id")
+    parser.add_argument('--output', default = None)
     args = parser.parse_args(argv)
 
     data = pd.read_csv(args.input)
@@ -231,16 +243,22 @@ def main(argv):
         level = numeric_logging_level(args.log),
         format = '%(asctime)s %(message)s')
 
-    if args.seed is not None:
-        np.random.seed(args.seed)
+    if args.random_seed is not None:
+        np.random.seed(args.random_seed)
 
     hc = HierClust()
     tree, assignments = hc.fit(
         data = data,
         feature_columns = args.feature_columns)
 
-    for i, path in enumerate(assignments):
-        print("{}: {}".format(i, path))
+    if args.output is None:
+        for i, path in enumerate(assignments):
+            print("{}: {}".format(i, path))
+    else:
+        _logger.info("Outputting to '%s' (column = '%s')",
+            args.output, args.output_column)
+        data[args.output_column] = assignments
+        data.to_csv(args.output, index = False)
 
 
 if __name__ == '__main__':
