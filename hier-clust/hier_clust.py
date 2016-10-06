@@ -206,7 +206,7 @@ class HierClust(object):
     def _num_reps(self, n):
         '''
         A function that grows like f(n) but transitions to n below n0.
-        Used for picking the number of representatives for K-means.
+        Used for picking the number of representatives for spectral clustering.
         '''
         # TODO: find better way to parameterize this function
         alpha = float(self.representative_growth_exponent)
