@@ -3,25 +3,18 @@
 import numpy as np
 import pandas as pd
 from scipy.sparse import coo_matrix
-from sklearn.neighbors import (
-    NearestNeighbors,
-    KNeighborsClassifier)
+from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.cluster import SpectralClustering
 import sys
 import re
 import argparse
 import logging
-from collections import namedtuple
+
+from tree_util import Tree
 
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())
-
-
-class Tree(namedtuple("Tree", ["data", "children"])):
-    @classmethod
-    def leaf(cls, data = None):
-        return cls(data = data, children = [])
 
 
 class HierClust(object):
