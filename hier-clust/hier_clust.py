@@ -19,21 +19,28 @@ _logger.addHandler(logging.NullHandler())
 
 
 class HierClust(object):
-    def __init__(self):
-        # TODO: turn these into user-controlled parameters
-        self.n_neighbors = 20
-        self.threshold_for_subset = 500
-        self.representative_growth_exponent = 1/3.
-        self.sigma_similarity = 1.0
-        self.leaf_size = 1
+    def __init__(self,
+            n_neighbors = 20,
+            threshold_for_subset = 500,
+            representative_growth_exponent = 1/3.0,
+            sigma_similarity = 1.0,
+            leaf_size = 1):
+        self.n_neighbors = n_neighbors
+        self.threshold_for_subset = threshold_for_subset
+        self.representative_growth_exponent = representative_growth_exponent
+        self.sigma_similarity = sigma_similarity
+        self.leaf_size = leaf_size
 
     def fit(self, data, feature_columns = None):
+        '''
+        Generates a hierarchical clustering on the given data
+        '''
         if feature_columns is None:
             feature_columns = slice(None, None, None)
         elif isinstance(feature_columns, basestring):
             feature_columns = [i for i in range(len(data.columns))
                 if re.match(feature_columns, data.columns[i])]
-        data_features = data.iloc[:, feature_columns]
+        data_features = np.asarray(data)[:, feature_columns]
         orig_indices = np.arange(len(data))
 
         tree = self._fit_helper(data_features, orig_indices, tree_path = '',
@@ -44,6 +51,9 @@ class HierClust(object):
         return tree, tree_paths
 
     def _fit_helper(self, data, orig_indices, tree_path, num_leaves_done):
+        '''
+        Recursive helper function for partitioning a dataset into 2 parts
+        '''
         log_msg = "Partitioning {} observations " \
             "(tree_path = {}, num_leaves_done = {})" \
             .format(len(data), tree_path, num_leaves_done)
@@ -54,7 +64,6 @@ class HierClust(object):
 
         if len(data) <= 1 or len(data) <= self.leaf_size:
             return Tree.leaf(data = {
-                "data_frame": data,
                 "orig_indices": orig_indices,
                 "tree_path": tree_path,
             })
@@ -85,7 +94,6 @@ class HierClust(object):
             num_leaves_done += len(data_subset)
 
         return Tree(children = children, data = {
-            "data_frame": data,
             "orig_indices": orig_indices,
             "tree_path": tree_path,
         })
@@ -137,6 +145,9 @@ class HierClust(object):
         return full_partition
 
     def _get_assignments(self, tree):
+        '''
+        Turns a tree into a column of cluster id's ("tree paths")
+        '''
         if len(tree.children) == 0:
             indices = tree.data["orig_indices"]
             path = tree.data["tree_path"]
@@ -173,6 +184,10 @@ class HierClust(object):
         return result
 
     def _nn_result_to_sparse_similarity(self, distances, indices):
+        '''
+        Convert the result of K-nearest-neighbors into a sparse similarity
+        matrix
+        '''
         num_obs = len(indices)
         rows_nested = [[i for k in range(self.n_neighbors)]
             for i in range(num_obs)]
@@ -187,6 +202,9 @@ class HierClust(object):
         return similarities
 
     def _get_sparse_similarity(self, data):
+        '''
+        Generate a sparse similarity matrix via nearest neighbors
+        '''
         _logger.debug("Running _get_sparse_similarity on %s observations",
             len(data))
         nn_obj = NearestNeighbors(
@@ -198,6 +216,9 @@ class HierClust(object):
         return self._nn_result_to_sparse_similarity(distances, indices)
 
     def _get_dense_similarity(self, data):
+        '''
+        Generate a sparse similarity matrix via nearest neighbors
+        '''
         distances = sklearn.metrics.pairwise.pairwise_distances(
             data, metric = 'euclidean')
         dense_similarity = np.exp(-distances ** 2 / self.sigma_similarity)
@@ -208,7 +229,6 @@ class HierClust(object):
         A function that grows like f(n) but transitions to n below n0.
         Used for picking the number of representatives for spectral clustering.
         '''
-        # TODO: find better way to parameterize this function
         alpha = float(self.representative_growth_exponent)
         n0 = float(self.threshold_for_subset)
         def f(x): return x ** alpha
