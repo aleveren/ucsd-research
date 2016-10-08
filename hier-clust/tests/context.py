@@ -5,4 +5,4 @@ _dirname = os.path.dirname(__file__)
 _newpath = os.path.abspath(os.path.join(_dirname, '..'))
 sys.path.insert(0, _newpath)
 
-from hier_clust import hier_clust
+import hier_clust
