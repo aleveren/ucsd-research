@@ -12,11 +12,6 @@ class Tree(namedtuple("Tree", ["data", "children"])):
             return 0
         return 1 + max([c.depth() for c in self.children])
 
-    def map_data(self, f):
-        mapped_children = [c.map_data(f) for c in self.children]
-        mapped_data = f(self.data)
-        return Tree(data = mapped_data, children = mapped_children)
-
     def prune(self, depth):
         if depth <= 0:
             return Tree.leaf(data = self.data)
@@ -25,18 +20,33 @@ class Tree(namedtuple("Tree", ["data", "children"])):
             pruned_children.append(c.prune(depth - 1))
         return Tree(data = self.data, children = pruned_children)
 
-    def reduce_leaves(self, f_combine):
+    def subtree(self, path):
+        if len(path) == 0:
+            return self
+        child_index = int(path[0])
+        assert child_index >= 0 and child_index < len(self.children), \
+            "Cannot find requested subtree"
+        return self.children[child_index].subtree(path[1:])
+
+    def map_data(self, f):
+        mapped_children = [c.map_data(f) for c in self.children]
+        mapped_data = f(self.data)
+        return Tree(data = mapped_data, children = mapped_children)
+
+    def reduce_leaves(self, f_leaf, f_combine):
         if len(self.children) == 0:
-            return self.data
-        children_results = [c.reduce_leaves(f_combine) for c in self.children]
+            return f_leaf(self.data)
+        children_results = [c.reduce_leaves(f_leaf, f_combine)
+            for c in self.children]
         result = f_combine(*children_results)
         return result
 
-    def reduce_all(self, f_combine):
+    def reduce_all(self, f_node, f_combine):
         if len(self.children) == 0:
-            return self.data
-        children_results = [c.reduce_all(f_combine) for c in self.children]
-        result = f_combine(self.data, *children_results)
+            return f_node(self.data)
+        children_results = [c.reduce_all(f_node, f_combine)
+            for c in self.children]
+        result = f_combine(f_node(self.data), *children_results)
         return result
 
     def str_display(self, indent = 0):
