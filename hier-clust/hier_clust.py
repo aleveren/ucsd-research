@@ -5,6 +5,7 @@ import pandas as pd
 from scipy.sparse import coo_matrix
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.cluster import SpectralClustering
+import sklearn.metrics
 import sys
 import re
 import argparse
@@ -92,19 +93,19 @@ class HierClust(object):
     def _tiny_partition(self, data):
         _logger.debug("Running _tiny_partition on %s observations", len(data))
 
-        spc_obj = SpectralClustering(n_clusters = 2)
-        partition = spc_obj.fit_predict(data)
+        similarity = self._get_dense_similarity(data)
+        spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
+            assign_labels = 'discretize')
+        partition = spc_obj.fit_predict(similarity)
 
         return partition
 
     def _small_partition(self, data):
         _logger.debug("Running _small_partition on %s observations", len(data))
 
-        # TODO: what happens if we re-use top-level sparse similarity
-        #       for all splits?
         similarity = self._get_sparse_similarity(data)
-        similarity = 0.5 * similarity + 0.5 * similarity.T
-        spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed')
+        spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
+            assign_labels = 'discretize')
         partition = spc_obj.fit_predict(similarity)
 
         return partition
@@ -177,7 +178,7 @@ class HierClust(object):
             for i in range(num_obs)]
         rows = np.array(rows_nested).flatten()
         cols = indices.flatten()
-        similarities = np.exp(-distances / self.sigma_similarity).flatten()
+        similarities = np.exp(-distances ** 2 / self.sigma_similarity).flatten()
 
         # Store result in a sparse, symmetric matrix
         similarities = coo_matrix((similarities, (rows, cols)),
@@ -195,6 +196,12 @@ class HierClust(object):
         ).fit(data)
         distances, indices = nn_obj.kneighbors(data)
         return self._nn_result_to_sparse_similarity(distances, indices)
+
+    def _get_dense_similarity(self, data):
+        distances = sklearn.metrics.pairwise.pairwise_distances(
+            data, metric = 'euclidean')
+        dense_similarity = np.exp(-distances ** 2 / self.sigma_similarity)
+        return dense_similarity
 
     def _num_reps(self, n):
         '''
