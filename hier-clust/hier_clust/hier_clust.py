@@ -40,10 +40,10 @@ class HierClust(object):
         elif isinstance(feature_columns, basestring):
             feature_columns = [i for i in range(len(data.columns))
                 if re.match(feature_columns, data.columns[i])]
-        data_features = np.asarray(data)[:, feature_columns]
+        data = np.asarray(data)[:, feature_columns]
         orig_indices = np.arange(len(data))
 
-        tree = self._fit_helper(data_features, orig_indices, tree_path = '',
+        tree = self._fit_helper(data, orig_indices, tree_path = '',
             num_leaves_done = 0)
         assignments = self._get_assignments(tree)
         tree_paths = np.array([p for i, p in assignments])
@@ -115,7 +115,7 @@ class HierClust(object):
             mask = [True for i in range(num_representatives)] + \
                 [False for i in range(len(data) - num_representatives)]
             mask = np.random.permutation(mask)
-            subset = data.iloc[mask, :]
+            subset = data[mask, :]
         else:
             subset = data
 
