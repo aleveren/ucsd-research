@@ -70,8 +70,6 @@ class HierClust(object):
 
         if len(data) == 2:
             partition = np.array([0, 1])
-        elif len(data) <= self.n_neighbors:
-            partition = self._tiny_partition(data)
         elif len(data) <= self.threshold_for_subset:
             partition = self._small_partition(data)
         else:
@@ -98,20 +96,10 @@ class HierClust(object):
             "tree_path": tree_path,
         })
 
-    def _tiny_partition(self, data):
-        _logger.debug("Running _tiny_partition on %s observations", len(data))
-
-        similarity = self._get_dense_similarity(data)
-        spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
-            assign_labels = 'discretize')
-        partition = spc_obj.fit_predict(similarity)
-
-        return partition
-
     def _small_partition(self, data):
         _logger.debug("Running _small_partition on %s observations", len(data))
 
-        similarity = self._get_sparse_similarity(data)
+        similarity = self._get_similarity(data)
         spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
             assign_labels = 'discretize')
         partition = spc_obj.fit_predict(similarity)
@@ -183,6 +171,15 @@ class HierClust(object):
 
         return result
 
+    def _get_similarity(self, data):
+        '''
+        Generate a similarity matrix for the given data
+        '''
+        if len(data) <= self.n_neighbors:
+            return self._get_dense_similarity(data)
+        else:
+            return self._get_sparse_similarity(data)
+
     def _nn_result_to_sparse_similarity(self, distances, indices):
         '''
         Convert the result of K-nearest-neighbors into a sparse similarity
@@ -205,8 +202,6 @@ class HierClust(object):
         '''
         Generate a sparse similarity matrix via nearest neighbors
         '''
-        _logger.debug("Running _get_sparse_similarity on %s observations",
-            len(data))
         nn_obj = NearestNeighbors(
             n_neighbors = self.n_neighbors,
             algorithm = 'ball_tree',
