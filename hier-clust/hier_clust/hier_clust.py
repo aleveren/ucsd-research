@@ -190,7 +190,8 @@ class HierClust(object):
             for i in range(num_obs)]
         rows = np.array(rows_nested).flatten()
         cols = indices.flatten()
-        similarities = np.exp(-distances ** 2 / self.sigma_similarity).flatten()
+        scaling_factor = 2.0 * self.sigma_similarity ** 2
+        similarities = np.exp(-distances ** 2 / scaling_factor).flatten()
 
         # Store result in a sparse, symmetric matrix
         similarities = coo_matrix((similarities, (rows, cols)),
@@ -214,9 +215,10 @@ class HierClust(object):
         '''
         Generate a sparse similarity matrix via nearest neighbors
         '''
+        scaling_factor = 2.0 * self.sigma_similarity ** 2
         distances = sklearn.metrics.pairwise.pairwise_distances(
             data, metric = 'euclidean')
-        dense_similarity = np.exp(-distances ** 2 / self.sigma_similarity)
+        dense_similarity = np.exp(-distances ** 2 / scaling_factor)
         return dense_similarity
 
     def _num_reps(self, n):
