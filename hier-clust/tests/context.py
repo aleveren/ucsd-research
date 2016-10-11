@@ -7,3 +7,4 @@ sys.path.insert(0, _newpath)
 
 import hier_clust
 from hier_clust import tree_util
+from hier_clust import linkage_util

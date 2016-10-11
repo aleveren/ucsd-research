@@ -32,30 +32,28 @@ def get_linkage(tree):
         result.append([item.index0, item.index1, item.node_height, item.size])
     return np.array(result, dtype='float')
     
-def get_linkage_helper(tree, next_node_id, tot_depth):
+def get_linkage_helper(tree, next_node_id, height):
     indices = tree.data["orig_indices"]
-    path = tree.data["tree_path"]
-    
+
     if tree.depth() == 0:
         assert len(indices) == 1
         return [Leaf(indices[0])]
     if tree.depth() == 1:
         assert len(indices) == 2
-        return [Split(next_node_id, indices[0], indices[1],
-            tot_depth - len(path), len(indices))]
+        return [Split(next_node_id, indices[0], indices[1], height, 2)]
 
-    link_left = get_linkage_helper(tree.children[0], next_node_id, tot_depth)
-    node_id_left = link_left[-1].node_id
-    if link_left[-1].is_leaf():
-        link_left = link_left[:-1]
-    next_node_id += len(link_left)
+    links = []
+    node_ids = []
 
-    link_right = get_linkage_helper(tree.children[1], next_node_id, tot_depth)
-    node_id_right = link_right[-1].node_id
-    if link_right[-1].is_leaf():
-        link_right = link_right[:-1]
-    next_node_id += len(link_right)
+    assert len(tree.children) == 2
+    for c in tree.children:
+        current_links = get_linkage_helper(c, next_node_id, height - 1)
+        node_ids.append(current_links[-1].node_id)
+        if current_links[-1].is_leaf():
+            current_links = current_links[:-1]
+        next_node_id += len(current_links)
+        links.extend(current_links)
 
-    entry = Split(next_node_id, node_id_left, node_id_right,
-        tot_depth - len(path), len(indices))    
-    return link_left + link_right + [entry]
+    entry = Split(next_node_id, node_ids[0], node_ids[1], height, len(indices))
+    links.append(entry)
+    return links

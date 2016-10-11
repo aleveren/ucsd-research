@@ -1,6 +1,5 @@
 import unittest
 import numpy as np
-import pytest
 
 from context import tree_util
 
