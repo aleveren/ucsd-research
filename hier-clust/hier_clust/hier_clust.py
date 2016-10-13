@@ -2,10 +2,11 @@
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, dok_matrix, issparse
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.cluster import SpectralClustering
 import sklearn.metrics
+from collections import defaultdict
 import sys
 import re
 import argparse
@@ -21,14 +22,18 @@ _logger.addHandler(logging.NullHandler())
 class HierClust(object):
     def __init__(self,
             n_neighbors = 20,
+            mutual_neighbors = True,
             threshold_for_subset = 500,
             representative_growth_exponent = 1/3.0,
             sigma_similarity = 1.0,
+            sparse_similarity = 'auto',
             leaf_size = 1):
         self.n_neighbors = n_neighbors
+        self.mutual_neighbors = mutual_neighbors
         self.threshold_for_subset = threshold_for_subset
         self.representative_growth_exponent = representative_growth_exponent
         self.sigma_similarity = sigma_similarity
+        self.sparse_similarity = sparse_similarity
         self.leaf_size = leaf_size
 
     def fit(self, data, feature_columns = None):
@@ -99,7 +104,7 @@ class HierClust(object):
     def _small_partition(self, data):
         _logger.debug("Running _small_partition on %s observations", len(data))
 
-        similarity = self._get_similarity(data)
+        similarity = self._get_similarity(data, sparse = self.sparse_similarity)
         spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
             assign_labels = 'discretize')
         partition = spc_obj.fit_predict(similarity)
@@ -171,55 +176,72 @@ class HierClust(object):
 
         return result
 
-    def _get_similarity(self, data):
+    def _get_similarity(self, data, sparse):
         '''
         Generate a similarity matrix for the given data
         '''
-        if len(data) <= self.n_neighbors:
-            return self._get_dense_similarity(data)
+        dist = self._get_distances(data, sparse = sparse)
+        scaling_factor = 2. * self.sigma_similarity ** 2
+        if issparse(dist):
+            similarity = dok_matrix(dist.shape, dtype = float)
+            for i, j in dist.keys():
+                z = dist[i, j]
+                if np.isnan(z):
+                    # Workaround: prevents sparse format from ignoring zeros
+                    similarity[i, j] = 1.0
+                else:
+                    similarity[i, j] = np.exp(-z ** 2 / scaling_factor)
+            for i in range(dist.shape[0]):
+                similarity[i, i] = 1.0
         else:
-            return self._get_sparse_similarity(data)
+            similarity = np.exp(-dist ** 2 / scaling_factor)
 
-    def _nn_result_to_sparse_similarity(self, distances, indices):
-        '''
-        Convert the result of K-nearest-neighbors into a sparse similarity
-        matrix
-        '''
-        num_obs = len(indices)
-        rows_nested = [[i for k in range(self.n_neighbors)]
-            for i in range(num_obs)]
-        rows = np.array(rows_nested).flatten()
-        cols = indices.flatten()
-        scaling_factor = 2.0 * self.sigma_similarity ** 2
-        similarities = np.exp(-distances ** 2 / scaling_factor).flatten()
+        # Enforce symmetry
+        similarity = 0.5 * similarity + 0.5 * similarity.T
 
-        # Store result in a sparse, symmetric matrix
-        similarities = coo_matrix((similarities, (rows, cols)),
-            shape = (len(indices), len(indices)))
-        similarities = 0.5 * similarities + 0.5 * similarities.T
-        return similarities
+        return similarity
 
-    def _get_sparse_similarity(self, data):
+    def _get_distances(self, data, sparse):
         '''
-        Generate a sparse similarity matrix via nearest neighbors
+        Gets a distance matrix.
+        For small datasets, return a dense matrix, otherwise return
+        a sparse matrix based on K-nearest-neighbors.
         '''
-        nn_obj = NearestNeighbors(
-            n_neighbors = self.n_neighbors,
-            algorithm = 'ball_tree',
-            metric = 'euclidean',
-        ).fit(data)
-        distances, indices = nn_obj.kneighbors(data)
-        return self._nn_result_to_sparse_similarity(distances, indices)
+        if sparse == 'never':
+            sparse = False
+        elif sparse == 'auto' or sparse is None:
+            sparse = (len(data) > self.n_neighbors)
 
-    def _get_dense_similarity(self, data):
-        '''
-        Generate a sparse similarity matrix via nearest neighbors
-        '''
-        scaling_factor = 2.0 * self.sigma_similarity ** 2
-        distances = sklearn.metrics.pairwise.pairwise_distances(
-            data, metric = 'euclidean')
-        dense_similarity = np.exp(-distances ** 2 / scaling_factor)
-        return dense_similarity
+        if not sparse:
+            return sklearn.metrics.pairwise.pairwise_distances(
+                data, metric = 'euclidean')
+        else:
+            nn_obj = NearestNeighbors(
+                n_neighbors = self.n_neighbors,
+                algorithm = 'ball_tree',
+                metric = 'euclidean',
+            ).fit(data)
+            distances, indices = nn_obj.kneighbors(data)
+
+            d = dok_matrix((len(data), len(data)), dtype = float)
+            for row_index, current_indices in enumerate(indices):
+                for pos, col_index in enumerate(current_indices):
+                   dist = distances[row_index][pos]
+                   if dist == 0.0:
+                       # Workaround: prevents sparse format from ignoring zeros
+                       dist = np.nan
+                   d[row_index, col_index] = dist
+
+            if self.mutual_neighbors:
+                result = dok_matrix(d.shape, dtype = float)
+                for i, j in d.keys():
+                    if d.has_key((j, i)):
+                        result[i, j] = d[i, j]
+                        result[j, i] = d[j, i]
+            else:
+                result = d
+
+            return result
 
     def _num_reps(self, n):
         '''
