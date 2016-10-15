@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from scipy.sparse import coo_matrix, issparse
+from scipy.sparse.csgraph import connected_components
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.cluster import SpectralClustering
 import sklearn.metrics
@@ -113,6 +114,44 @@ class HierClust(object):
         _logger.debug("Running _small_partition on %s observations", len(data))
 
         similarity = self._get_similarity(data, sparse = self.sparse_similarity)
+
+        n_components, labels = connected_components(
+            similarity, directed = False, return_labels = True)
+
+        if n_components == 2:
+            _logger.debug("Similarity graph has exactly 2 components",
+                n_components)
+            return labels
+
+        elif n_components > 2:
+            _logger.debug("Similarity graph is not connected: %s components",
+                n_components)
+
+            # Build partition by picking "most balanced" division of components
+            component_sizes = Counter()
+            for label in labels:
+                component_sizes[label] += 1
+
+            total = 0
+            cumulative_sizes = []
+            for i, (label, size) in enumerate(component_sizes.items()):
+                total += size
+                cumulative_sizes.append((i, label, total))
+
+            target_size = int(len(data) / 2.)
+            best_index, _, _ = min(cumulative_sizes[:-1],
+                key = lambda x: abs(x[2] - target_size))
+
+            low_labels = set()
+            for i in xrange(best_index + 1):
+                low_labels.add(cumulative_sizes[i][0])
+
+            partition = np.ones_like(labels)
+            for i in xrange(len(data)):
+                if labels[i] in low_labels:
+                    partition[i] = 0
+            return partition
+
         spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
             assign_labels = 'discretize')
         partition = spc_obj.fit_predict(similarity)
@@ -308,6 +347,7 @@ class HierClust(object):
                        row_new.append(row_index)
                        col_new.append(col_index)
                        val_new.append(dist)
+
                    elif entries[a, b] == 2:
                        row_new.append(row_index)
                        col_new.append(col_index)
