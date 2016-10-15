@@ -121,7 +121,7 @@ class HierClust(object):
                 [False for i in range(len(data) - num_representatives)]
             mask = np.random.permutation(mask)
             subset = data[mask, :]
-        else:
+        else:  # pragma: no cover
             subset = data
 
         # Partition the small set
@@ -144,8 +144,7 @@ class HierClust(object):
         if len(tree.children) == 0:
             indices = tree.data["orig_indices"]
             path = tree.data["tree_path"]
-            if len(indices) > 1:
-                indices = sorted(indices)
+            indices = sorted(indices)
             return [(i, path) for i in indices]
 
         # Get assignments recursively on children
@@ -291,7 +290,7 @@ class HierClust(object):
         def f_prime(x): return alpha * x ** (alpha - 1)
         a = n0 - f(n0) / f_prime(n0)
         b = 1.0 / f_prime(n0)
-        if n < n0:
+        if n < n0:  # pragma: no cover
             return int(n)
         else:
             return int(np.ceil(a + b * f(n)))
@@ -299,7 +298,7 @@ class HierClust(object):
 
 def numeric_logging_level(level_string):
     num_level = getattr(logging, level_string.upper(), None)
-    if not isinstance(num_level, int):
+    if not isinstance(num_level, int):  # pragma: no cover
         raise ValueError('Invalid log level: {}'.format(level_string))
     return num_level
 
@@ -338,5 +337,5 @@ def main(argv):
         data.to_csv(args.output, index = False)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main(sys.argv[1:])

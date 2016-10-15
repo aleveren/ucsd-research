@@ -1,10 +1,22 @@
 import unittest
+from mock import patch
 import numpy as np
+import pandas as pd
 
 from context import hier_clust
 
 
 class Tests(unittest.TestCase):
+    def sim_data(self):
+        theta = np.linspace(0, 2*np.pi, 20)
+        points = []
+        for x in [0, 5, 10, 15, 20]:
+            for th in theta:
+                points.append(np.array([[x + np.cos(th), np.sin(th)]]))
+        data = np.vstack(points)
+        assert data.shape == (100, 2)
+        return data
+
     def test_similarity_sparse(self):
         # Test case where sparseness makes a difference
         hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0)
@@ -52,14 +64,8 @@ class Tests(unittest.TestCase):
         assert np.allclose(sim2.todense(), expected)
         assert sim2.nnz == 7
 
-    def test_clust_large_data(self):
-        theta = np.linspace(0, 2*np.pi, 20)
-        points = []
-        for x in [0, 5, 10, 15, 20]:
-            for th in theta:
-                points.append(np.array([[x + np.cos(th), np.sin(th)]]))
-        data = np.vstack(points)
-        assert data.shape == (100, 2)
+    def test_cluster(self):
+        data = self.sim_data()
         hc = hier_clust.HierClust(
             n_neighbors = 10,
             threshold_for_subset = 50,
@@ -88,3 +94,16 @@ class Tests(unittest.TestCase):
 
         xs = [2, 3, 2, 3, 2, 3, 3, 1, 3]
         assert hier_clust.HierClust()._get_median(xs) == 3
+
+    @patch('pandas.DataFrame.to_csv')
+    @patch('pandas.read_csv')
+    def test_main(self, mock_read_csv, mock_to_csv):
+        mock_read_csv.return_value = pd.DataFrame(self.sim_data(),
+            columns = ['a1', 'a2'])
+
+        hier_clust.main(['--input', 'bogus.csv', '--feature_columns', 'a.*'])
+        assert not mock_to_csv.called
+
+        hier_clust.main(['--input', 'bogus.csv', '--feature_columns', 'a.*',
+            '--random_seed', '1', '--output', 'bogus_out.csv'])
+        assert mock_to_csv.called
