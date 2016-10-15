@@ -80,13 +80,21 @@ class HierClust(object):
         else:
             partition = self._large_partition(data)
 
-        num0 = len(partition[partition == 0])
-        num1 = len(partition[partition == 1])
-        _logger.debug("Partition result: #0: {}, #1: {}".format(num0, num1))
+        data_subsets = []
+        for label in [0, 1]:
+            data_subset = data[partition == label]
+            data_subsets.append(data_subset)
+            size = len(data_subset)
+            if size == 0 or size == len(data): # pragma: no cover
+                raise Exception("Bad partition: ({} of {})" \
+                    .format(size, len(data)))
+
+        _logger.debug("Partition result: #0: {}, #1: {}" \
+            .format(len(data_subsets[0]), len(data_subsets[1])))
 
         children = []
         for label in [0, 1]:
-            data_subset = data[partition == label]
+            data_subset = data_subsets[label]
             orig_indices_subset = orig_indices[partition == label]
             subtree = self._fit_helper(
                 data_subset,
