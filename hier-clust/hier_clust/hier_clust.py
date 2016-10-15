@@ -25,7 +25,7 @@ class HierClust(object):
             mutual_neighbors = True,
             threshold_for_subset = 500,
             representative_growth_exponent = 1/3.0,
-            sigma_similarity = 1.0,
+            sigma_similarity = 'auto',
             sparse_similarity = 'auto',
             leaf_size = 1):
         self.n_neighbors = n_neighbors
@@ -176,12 +176,49 @@ class HierClust(object):
 
         return result
 
+    def _get_median(self, elements, k = None):
+        '''
+        Computes the median of an array using quickselect.
+        '''
+        if len(elements) == 0:
+            return None
+        if k is None:
+            k = int(np.ceil(len(elements) / 2.)) - 1
+        elements = np.asarray(elements)
+        pivot_index = np.random.randint(len(elements))
+        pivot_value = elements[pivot_index]
+        below = elements[elements < pivot_value]
+        equal = elements[elements == pivot_value]
+        above = elements[elements > pivot_value]
+        if k >= len(below) and k < len(below) + len(equal):
+            return pivot_value
+        elif k < len(below):
+            return self._get_median(below, k)
+        else:
+            return self._get_median(above, k - len(below) - len(equal))
+
     def _get_similarity(self, data, sparse):
         '''
         Generate a similarity matrix for the given data
         '''
         dist = self._get_distances(data, sparse = sparse)
-        scaling_factor = 2. * self.sigma_similarity ** 2
+        if self.sigma_similarity == 'auto':
+            # Choose the value of sigma that maps the
+            # median distance to 0.5
+            if issparse(dist):
+                flat_dist = np.array(dist.values())
+            else:
+                flat_dist = dist.flatten()
+            nontrivial_dist = flat_dist[flat_dist != 0 & np.isfinite(flat_dist)]
+            med_dist = self._get_median(nontrivial_dist)
+            if med_dist is not None:
+                sigma = med_dist * np.sqrt(1./(2. * np.log(2)))
+            else:
+                sigma = 1.0
+        else:
+            sigma = self.sigma_similarity
+        scaling_factor = 2. * sigma ** 2
+
         if issparse(dist):
             similarity = dok_matrix(dist.shape, dtype = float)
             for i, j in dist.keys():

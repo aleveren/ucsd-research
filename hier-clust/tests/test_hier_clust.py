@@ -63,7 +63,28 @@ class Tests(unittest.TestCase):
         hc = hier_clust.HierClust(
             n_neighbors = 10,
             threshold_for_subset = 50,
-            sigma_similarity = 1.0)
+            sigma_similarity = 'auto')
         tree, assignments = hc.fit(data)
         assert len(tree.data["orig_indices"]) == 100
         assert len(assignments) == 100
+
+    def test_median(self):
+        assert hier_clust.HierClust()._get_median([]) is None
+        assert hier_clust.HierClust()._get_median([7]) == 7
+        assert hier_clust.HierClust()._get_median([8, 7]) == 7
+        assert hier_clust.HierClust()._get_median([6, 8, 7]) == 7
+
+        xs = [3, 1, 5, 2, 6, 4, 9, 8, 7]
+        assert hier_clust.HierClust()._get_median(xs) == 5
+
+        xs = [3, 1, 5, 2, 6, 4, 8, 7]
+        assert hier_clust.HierClust()._get_median(xs) == 4
+
+        xs = [3, 2, 3, 1, 1, 1, 2, 3, 2]
+        assert hier_clust.HierClust()._get_median(xs) == 2
+
+        xs = [2, 1, 1, 3, 1, 1, 3, 1, 3]
+        assert hier_clust.HierClust()._get_median(xs) == 1
+
+        xs = [2, 3, 2, 3, 2, 3, 3, 1, 3]
+        assert hier_clust.HierClust()._get_median(xs) == 3
