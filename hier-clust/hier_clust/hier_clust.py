@@ -115,17 +115,20 @@ class HierClust(object):
         _logger.debug("Running _large_partition on %s observations", len(data))
 
         num_representatives = self._num_reps(len(data))
-        if num_representatives < len(data):
-            # Generate a random subset
-            mask = [True for i in range(num_representatives)] + \
-                [False for i in range(len(data) - num_representatives)]
-            mask = np.random.permutation(mask)
-            subset = data[mask, :]
-        else:  # pragma: no cover
-            subset = data
+        assert num_representatives <= len(data)
+
+        # Generate a random subset
+        mask = [True for i in range(num_representatives)] + \
+            [False for i in range(len(data) - num_representatives)]
+        mask = np.random.permutation(mask)
+        subset = data[mask, :]
+        other_subset = data[~mask, :]
 
         # Partition the small set
         small_partition = self._small_partition(subset)
+
+        if len(other_subset) == 0:
+            return small_partition
 
         # Use KNN classifier to extend partition to full data
         _logger.debug("Running KNN classifier on %s observations", len(data))
@@ -134,7 +137,19 @@ class HierClust(object):
             algorithm = 'ball_tree',
             metric = 'euclidean',
         ).fit(subset, small_partition)
-        full_partition = nn_classifier.predict(data)
+        other_partition = nn_classifier.predict(other_subset)
+
+        rep_index = 0
+        other_index = 0
+        full_partition = np.zeros(len(mask))
+        for i in xrange(len(data)):
+            if mask[i]:
+                full_partition[i] = small_partition[rep_index]
+                rep_index += 1
+            else:
+                full_partition[i] = other_partition[other_index]
+                other_index += 1
+
         return full_partition
 
     def _get_assignments(self, tree):
