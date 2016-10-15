@@ -7,6 +7,9 @@ from context import hier_clust
 
 
 class Tests(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(1)
+
     def sim_data(self):
         theta = np.linspace(0, 2*np.pi, 20)
         points = []
