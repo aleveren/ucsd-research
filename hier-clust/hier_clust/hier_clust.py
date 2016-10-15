@@ -2,11 +2,11 @@
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix, dok_matrix, issparse
+from scipy.sparse import coo_matrix, issparse
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.cluster import SpectralClustering
 import sklearn.metrics
-from collections import defaultdict
+from collections import Counter
 import sys
 import re
 import argparse
@@ -205,7 +205,7 @@ class HierClust(object):
             # Choose the value of sigma that maps the
             # median distance to 0.5
             if issparse(dist):
-                flat_dist = np.array(dist.values())
+                flat_dist = np.asarray(dist.data)
             else:
                 flat_dist = dist.flatten()
             nontrivial_dist = flat_dist[flat_dist != 0 & np.isfinite(flat_dist)]
@@ -219,16 +219,22 @@ class HierClust(object):
         scaling_factor = 2. * sigma ** 2
 
         if issparse(dist):
-            similarity = dok_matrix(dist.shape, dtype = float)
-            for i, j in dist.keys():
-                z = dist[i, j]
-                if np.isnan(z):
-                    # Workaround: prevents sparse format from ignoring zeros
-                    similarity[i, j] = 1.0
+            row_new = []
+            col_new = []
+            val_new = []
+            for i in xrange(len(dist.data)):
+                row = dist.row[i]
+                col = dist.col[i]
+                val = dist.data[i]
+                row_new.append(row)
+                col_new.append(col)
+                if row == col or np.isnan(val):
+                    # Workaround: NaN prevents sparse format from ignoring zeros
+                    val_new.append(1.0)
                 else:
-                    similarity[i, j] = np.exp(-z ** 2 / scaling_factor)
-            for i in range(dist.shape[0]):
-                similarity[i, i] = 1.0
+                    sim = np.exp(-val ** 2 / scaling_factor)
+                    val_new.append(sim)
+            similarity = coo_matrix((val_new, (row_new, col_new)))
         else:
             similarity = np.exp(-dist ** 2 / scaling_factor)
 
@@ -259,24 +265,36 @@ class HierClust(object):
             ).fit(data)
             distances, indices = nn_obj.kneighbors(data)
 
-            d = dok_matrix((len(data), len(data)), dtype = float)
-            for row_index, current_indices in enumerate(indices):
-                for pos, col_index in enumerate(current_indices):
-                   dist = distances[row_index][pos]
+            row_new = []
+            col_new = []
+            val_new = []
+            entries = Counter()
+            for row_index in xrange(len(data)):
+                for nbr_index in xrange(self.n_neighbors):
+                   col_index = indices[row_index, nbr_index]
+
+                   dist = distances[row_index, nbr_index]
                    if dist == 0.0:
                        # Workaround: prevents sparse format from ignoring zeros
                        dist = np.nan
-                   d[row_index, col_index] = dist
 
-            if self.mutual_neighbors:
-                result = dok_matrix(d.shape, dtype = float)
-                for i, j in d.keys():
-                    if d.has_key((j, i)):
-                        result[i, j] = d[i, j]
-                        result[j, i] = d[j, i]
-            else:
-                result = d
+                   a, b = min(row_index, col_index), max(row_index, col_index)
+                   entries[a, b] += 1
 
+                   if a == b or not self.mutual_neighbors:
+                       row_new.append(row_index)
+                       col_new.append(col_index)
+                       val_new.append(dist)
+                   elif entries[a, b] == 2:
+                       row_new.append(row_index)
+                       col_new.append(col_index)
+                       val_new.append(dist)
+
+                       row_new.append(col_index)
+                       col_new.append(row_index)
+                       val_new.append(dist)
+
+            result = coo_matrix((val_new, (row_new, col_new)))
             return result
 
     def _num_reps(self, n):
