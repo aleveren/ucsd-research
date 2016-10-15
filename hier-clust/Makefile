@@ -3,6 +3,6 @@ init:
 	#pip install -r requirements.txt
 
 test: init
-	pytest tests
+	pytest --cov=hier_clust --cov-report=term-missing tests
 
 .PHONY: init test
