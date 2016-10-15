@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import textwrap
 
 from context import tree_util
 
@@ -75,6 +76,24 @@ class Tests(unittest.TestCase):
             ]),
         ])
         result = self.large_tree().map_data(lambda x: x * 10)
+        assert result == expected
+
+    def test_str_display(self):
+        result = self.large_tree().str_display()
+        expected = textwrap.dedent("""\
+            Tree(data = 1, children = [
+              Tree(data = 2, children = [
+                Tree(data = 4, children = [])
+                Tree(data = 5, children = [])
+              ])
+              Tree(data = 3, children = [
+                Tree(data = 6, children = [])
+                Tree(data = 7, children = [
+                  Tree(data = 8, children = [])
+                  Tree(data = 9, children = [])
+                ])
+              ])
+            ])""")
         assert result == expected
 
     def test_reconstruct_tree(self):

@@ -33,22 +33,6 @@ class Tree(namedtuple("Tree", ["data", "children"])):
         mapped_data = f(self.data)
         return Tree(data = mapped_data, children = mapped_children)
 
-    def reduce_leaves(self, f_leaf, f_combine):
-        if len(self.children) == 0:
-            return f_leaf(self.data)
-        children_results = [c.reduce_leaves(f_leaf, f_combine)
-            for c in self.children]
-        result = f_combine(*children_results)
-        return result
-
-    def reduce_all(self, f_node, f_combine):
-        if len(self.children) == 0:
-            return f_node(self.data)
-        children_results = [c.reduce_all(f_node, f_combine)
-            for c in self.children]
-        result = f_combine(f_node(self.data), *children_results)
-        return result
-
     def str_display(self, indent = 0):
         result = ' ' * indent + 'Tree(data = {}, children = ['.format(self.data)
         if len(self.children) > 0:
@@ -73,7 +57,7 @@ def reconstruct_tree(leaf_ids, orig_indices = None, tree_path = ''):
     indices = defaultdict(list)
 
     for row_index, c in enumerate(leaf_ids):
-        if not c.startswith(tree_path):
+        if not c.startswith(tree_path):  # pragma: no cover
             raise Exception("Found misplaced data")
         elif depth >= len(c):
             indices["leaf"].append(row_index)
@@ -81,7 +65,7 @@ def reconstruct_tree(leaf_ids, orig_indices = None, tree_path = ''):
             indices["left"].append(row_index)
         elif c[depth] == '1':
             indices["right"].append(row_index)
-        else:
+        else:  # pragma: no cover
             raise Exception(
                 "Found unexpected cluster id: {}".format(c))
 
