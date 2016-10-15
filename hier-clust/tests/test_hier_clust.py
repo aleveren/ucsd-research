@@ -41,7 +41,8 @@ class Tests(unittest.TestCase):
 
     def test_similarity_sparse_mutual(self):
         # Test case where mutual KNN makes a difference
-        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0)
+        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
+            mutual_neighbors = True)
         d = [[0,0], [1,0], [0,2]]
         sim1 = hc._get_similarity(d, sparse = 'auto')
 

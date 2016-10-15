@@ -22,7 +22,7 @@ _logger.addHandler(logging.NullHandler())
 class HierClust(object):
     def __init__(self,
             n_neighbors = 20,
-            mutual_neighbors = True,
+            mutual_neighbors = False,
             threshold_for_subset = 500,
             representative_growth_exponent = 1/3.0,
             sigma_similarity = 'auto',
@@ -308,6 +308,7 @@ class HierClust(object):
                        row_new.append(row_index)
                        col_new.append(col_index)
                        val_new.append(dist)
+
                    elif entries[a, b] == 2:
                        row_new.append(row_index)
                        col_new.append(col_index)
