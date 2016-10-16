@@ -109,5 +109,6 @@ class Tests(unittest.TestCase):
         assert not mock_to_csv.called
 
         hier_clust.main(['--input', 'bogus.csv', '--feature_columns', 'a.*',
-            '--random_seed', '1', '--output', 'bogus_out.csv'])
+            '--random_seed', '1', '--output', 'bogus_out.csv',
+            '--constructor_json', '{"alpha": 0.75}'])
         assert mock_to_csv.called

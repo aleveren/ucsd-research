@@ -9,6 +9,7 @@ import sklearn.metrics
 from collections import Counter
 import sys
 import re
+import json
 import argparse
 import logging
 
@@ -367,6 +368,7 @@ def main(argv):
     parser.add_argument('--random_seed', type = long, default = None)
     parser.add_argument('--output_column', default = "cluster_id")
     parser.add_argument('--output', default = None)
+    parser.add_argument('--constructor_json', default = None)
     args = parser.parse_args(argv)
 
     data = pd.read_csv(args.input)
@@ -378,7 +380,12 @@ def main(argv):
     if args.random_seed is not None:
         np.random.seed(args.random_seed)
 
-    hc = HierClust()
+    if args.constructor_json is not None:
+        constructor_args = json.loads(args.constructor_json)
+    else:
+        constructor_args = dict()
+
+    hc = HierClust(**constructor_args)
     tree, assignments = hc.fit(
         data = data,
         feature_columns = args.feature_columns)
