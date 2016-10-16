@@ -28,6 +28,7 @@ class HierClust(object):
             representative_growth_exponent = 1/3.0,
             sigma_similarity = 'auto',
             sparse_similarity = 'auto',
+            alpha = 0.8,
             leaf_size = 1):
         self.n_neighbors = n_neighbors
         self.n_neighbors_extend_partition = n_neighbors_extend_partition
@@ -36,6 +37,7 @@ class HierClust(object):
         self.representative_growth_exponent = representative_growth_exponent
         self.sigma_similarity = sigma_similarity
         self.sparse_similarity = sparse_similarity
+        self.alpha = alpha
         self.leaf_size = leaf_size
 
     def fit(self, data, feature_columns = None):
@@ -236,7 +238,7 @@ class HierClust(object):
         _logger.debug("Done computing distances")
         if self.sigma_similarity == 'auto':
             # Choose the value of sigma that maps the
-            # median distance to 0.5
+            # median distance to self.alpha
             if issparse(dist):
                 flat_dist = np.asarray(dist.data)
             else:
@@ -246,7 +248,7 @@ class HierClust(object):
             med_dist = self._get_median(nontrivial_dist)
             _logger.debug("Done computing median")
             if med_dist is not None:
-                sigma = med_dist * np.sqrt(1./(2. * np.log(2)))
+                sigma = med_dist * np.sqrt(1./(2. * np.log(1. / self.alpha)))
             else:
                 sigma = 1.0
         else:
