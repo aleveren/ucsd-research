@@ -57,9 +57,9 @@ class Tests(unittest.TestCase):
             Tree.leaf(data = 8),
             Tree.leaf(data = 9),
         ])
-        assert self.large_tree().subtree('11') == expected
+        assert self.large_tree().subtree('RR') == expected
 
-        assert self.large_tree().subtree('10') == Tree.leaf(6)
+        assert self.large_tree().subtree('RL') == Tree.leaf(6)
 
     def test_map_data(self):
         expected = Tree(data = 10, children = [
@@ -97,7 +97,7 @@ class Tests(unittest.TestCase):
         assert result == expected
 
     def test_reconstruct_tree(self):
-        result = tree_util.reconstruct_tree(['000', '001', '01', '10', '11']) \
+        result = tree_util.reconstruct_tree(['LLL', 'LLR', 'LR', 'RL', 'RR']) \
             .map_data(list)
         expected = Tree(data = [0, 1, 2, 3, 4], children = [
             Tree(data = [0, 1, 2], children = [

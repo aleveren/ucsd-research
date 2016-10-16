@@ -23,7 +23,7 @@ class Tree(namedtuple("Tree", ["data", "children"])):
     def subtree(self, path):
         if len(path) == 0:
             return self
-        child_index = int(path[0])
+        child_index = _get_index_from_path_element(path[0])
         assert child_index >= 0 and child_index < len(self.children), \
             "Cannot find requested subtree"
         return self.children[child_index].subtree(path[1:])
@@ -45,6 +45,24 @@ class Tree(namedtuple("Tree", ["data", "children"])):
         return result
 
 
+def _get_index_from_path_element(path_element):
+    if path_element.upper() == 'L':
+        return 0
+    elif path_element.upper() == 'R':
+        return 1
+    else:  # pragma: no cover
+        raise Exception("Unrecognized path element: {}".format(path_element))
+
+
+def get_path_element(index):
+    if index == 0:
+        return 'L'
+    elif index == 1:
+        return 'R'
+    else:  # pragma: no cover
+        raise Exception("Invalid index: {}".format(index))
+
+
 def reconstruct_tree(leaf_ids, orig_indices = None, tree_path = ''):
     '''
     Given a sequence of leaf ids, reconstruct the corresponding tree
@@ -61,9 +79,9 @@ def reconstruct_tree(leaf_ids, orig_indices = None, tree_path = ''):
             raise Exception("Found misplaced data")
         elif depth >= len(c):
             indices["leaf"].append(row_index)
-        elif c[depth] == '0':
+        elif c[depth] == 'L':
             indices["left"].append(row_index)
-        elif c[depth] == '1':
+        elif c[depth] == 'R':
             indices["right"].append(row_index)
         else:  # pragma: no cover
             raise Exception(
@@ -84,7 +102,7 @@ def reconstruct_tree(leaf_ids, orig_indices = None, tree_path = ''):
         assert len(c_left) > 0 and len(c_right) > 0, \
             "Invalid tree-path structure (left or right is missing)"
 
-    tree_left = reconstruct_tree(c_left, i_left, tree_path + '0')
-    tree_right = reconstruct_tree(c_right, i_right, tree_path + '1')
+    tree_left = reconstruct_tree(c_left, i_left, tree_path + 'L')
+    tree_right = reconstruct_tree(c_right, i_right, tree_path + 'R')
 
     return Tree(children = [tree_left, tree_right], data = orig_indices)

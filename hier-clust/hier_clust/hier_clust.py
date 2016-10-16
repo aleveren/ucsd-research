@@ -12,7 +12,7 @@ import re
 import argparse
 import logging
 
-from tree_util import Tree
+from tree_util import Tree, get_path_element
 
 
 _logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class HierClust(object):
             subtree = self._fit_helper(
                 data_subset,
                 orig_indices_subset,
-                tree_path + str(label),
+                tree_path + get_path_element(label),
                 num_leaves_done = num_leaves_done)
             children.append(subtree)
             num_leaves_done += len(data_subset)
