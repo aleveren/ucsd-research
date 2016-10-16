@@ -22,6 +22,7 @@ _logger.addHandler(logging.NullHandler())
 class HierClust(object):
     def __init__(self,
             n_neighbors = 20,
+            n_neighbors_extend_partition = 1,
             mutual_neighbors = False,
             threshold_for_subset = 500,
             representative_growth_exponent = 1/3.0,
@@ -29,6 +30,7 @@ class HierClust(object):
             sparse_similarity = 'auto',
             leaf_size = 1):
         self.n_neighbors = n_neighbors
+        self.n_neighbors_extend_partition = n_neighbors_extend_partition
         self.mutual_neighbors = mutual_neighbors
         self.threshold_for_subset = threshold_for_subset
         self.representative_growth_exponent = representative_growth_exponent
@@ -141,7 +143,7 @@ class HierClust(object):
         # Use KNN classifier to extend partition to full data
         _logger.debug("Running KNN classifier on %s observations", len(data))
         nn_classifier = KNeighborsClassifier(
-            n_neighbors = self.n_neighbors,
+            n_neighbors = self.n_neighbors_extend_partition,
             algorithm = 'ball_tree',
             metric = 'euclidean',
         ).fit(subset, small_partition)
