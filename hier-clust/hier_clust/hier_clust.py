@@ -115,9 +115,15 @@ class HierClust(object):
         _logger.debug("Running _small_partition on %s observations", len(data))
 
         similarity = self._get_similarity(data, sparse = self.sparse_similarity)
+        _logger.debug("Spectral clustering")
         spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
             assign_labels = 'discretize')
         partition = spc_obj.fit_predict(similarity)
+        _logger.debug("Done spectral clustering")
+
+        sizes = [len(partition[partition == x]) for x in [0, 1]]
+        _logger.debug("Result of _small_partition: #0: {}, #1: {}" \
+            .format(*sizes))
 
         return partition
 
@@ -225,7 +231,9 @@ class HierClust(object):
         '''
         Generate a similarity matrix for the given data
         '''
+        _logger.debug("Computing distances")
         dist = self._get_distances(data, sparse = sparse)
+        _logger.debug("Done computing distances")
         if self.sigma_similarity == 'auto':
             # Choose the value of sigma that maps the
             # median distance to 0.5
@@ -234,7 +242,9 @@ class HierClust(object):
             else:
                 flat_dist = dist.flatten()
             nontrivial_dist = flat_dist[flat_dist != 0 & np.isfinite(flat_dist)]
+            _logger.debug("Computing median")
             med_dist = self._get_median(nontrivial_dist)
+            _logger.debug("Done computing median")
             if med_dist is not None:
                 sigma = med_dist * np.sqrt(1./(2. * np.log(2)))
             else:
