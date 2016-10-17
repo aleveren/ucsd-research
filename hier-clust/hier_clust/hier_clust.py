@@ -279,6 +279,15 @@ class HierClust(object):
         # Enforce symmetry
         similarity = 0.5 * similarity + 0.5 * similarity.T
 
+        if issparse(dist):
+            flat_sim = np.asarray(similarity.data)
+        else:
+            flat_sim = similarity.flatten()
+        nontrivial_sim = flat_sim[(flat_sim != 0) & (flat_sim != 1.0) & np.isfinite(flat_sim)]
+        _logger.debug("Computing median similarity")
+        med_sim = self._get_median(nontrivial_sim)
+        _logger.debug("Median similarity = {}".format(med_sim))
+
         return similarity
 
     def _get_distances(self, data, sparse):
