@@ -244,10 +244,10 @@ class HierClust(object):
                 flat_dist = np.asarray(dist.data)
             else:
                 flat_dist = dist.flatten()
-            nontrivial_dist = flat_dist[flat_dist != 0 & np.isfinite(flat_dist)]
-            _logger.debug("Computing median")
+            nontrivial_dist = flat_dist[(flat_dist != 0) & np.isfinite(flat_dist)]
+            _logger.debug("Computing median distance")
             med_dist = self._get_median(nontrivial_dist)
-            _logger.debug("Done computing median")
+            _logger.debug("Median distance = {}".format(med_dist))
             if med_dist is not None:
                 sigma = med_dist * np.sqrt(1./(2. * np.log(1. / self.alpha)))
             else:
