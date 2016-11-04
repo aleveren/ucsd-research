@@ -1,8 +1,12 @@
 import numpy as np
+from set_cover import set_cover_approx_fast
+from scipy.signal import argrelmax
+from collections import defaultdict
 
 def nearby_peaks_slow(wavelengths, target_wavelength, delta):
     '''
     Find indices of wavelengths that are within delta of the target wavelength
+    (Slow implementation for comparison / testing only)
     '''
     if wavelengths[-1] < target_wavelength - delta:
         i_lo = len(wavelengths)
@@ -54,3 +58,78 @@ def nearby_peaks(wavelengths, target_wavelength, delta):
     i_hi = find_hi_index(0, len(wavelengths))
 
     return i_lo, i_hi
+
+def extract_peaks(xs, ys, threshold_fraction, delta):
+    '''
+    Given lists of x and y coordinates, find all local maxima where
+    y is above `threshold_fraction * max(ys)` and x is not within
+    +/-delta of a higher local maximum
+    '''
+    thresh = max(ys) * threshold_fraction
+    max_indices = argrelmax(ys)[0]
+    max_indices = max_indices[ys[max_indices] > thresh]
+    peak_xs = []
+    peak_ys = []
+    for i in max_indices:
+        if len(peak_xs) == 0:
+            peak_xs.append(xs[i])
+            peak_ys.append(ys[i])
+        elif abs(peak_xs[-1] - xs[i]) > delta:
+            peak_xs.append(xs[i])
+            peak_ys.append(ys[i])
+        elif len(peak_xs) > 0 and ys[i] > peak_ys[-1]:
+            peak_xs[-1] = xs[i]
+            peak_ys[-1] = ys[i]
+    return np.array(peak_xs), np.array(peak_ys)
+
+def label_peaks_verbose(peaks, known_emission_lines, delta):
+    '''
+    Label each peak according to the set of elements with
+    known emission lines within +/-delta of the peak
+    '''
+    known_wavelengths = known_emission_lines["wav_mars"]
+    e_to_p = defaultdict(list)
+    p_to_e = defaultdict(list)
+    unlabeled = []
+    for p in peaks:
+        i_lo, i_hi = nearby_peaks(known_wavelengths, p, delta)
+        elts = sorted(list(set(known_emission_lines["elt"][i_lo:i_hi])))
+        for e in elts:
+            e_to_p[e].append(p)
+            p_to_e[p].append(e)
+        if len(elts) == 0:
+            unlabeled.append(p)
+    return e_to_p, p_to_e, unlabeled
+
+def label_peaks_parsimonious(peaks, known_emission_lines, delta):
+    '''
+    Out of all the peaks that are within +/-delta of at least one
+    known emission line, find a minimal set of elements
+    (via unweighted greedy set cover) that "explains" all such peaks
+    '''
+    peaks = sorted(peaks)
+    elts_to_peak_indices = defaultdict(set)
+    for row_index, row in known_emission_lines.iterrows():
+        elt = row["elt"]
+        i_lo, i_hi = nearby_peaks(peaks, row["wav_mars"], delta = delta)
+        for i in xrange(i_lo, i_hi):
+            elts_to_peak_indices[elt].add(i)
+    sets = []
+    elts = sorted(list(np.unique(known_emission_lines["elt"])))
+    for elt in elts:
+        sets.append(list(elts_to_peak_indices[elt]))
+
+    best_cover = set_cover_approx_fast(sets)
+
+    cover_elts_to_peaks = defaultdict(list)
+    cover_peaks_to_elts = defaultdict(list)
+    unlabeled = set(peaks)
+    for i in best_cover:
+        elt = elts[i]
+        for peak_index in elts_to_peak_indices[elt]:
+            peak = peaks[peak_index]
+            cover_elts_to_peaks[elt].append(peak)
+            cover_peaks_to_elts[peak].append(elt)
+            unlabeled -= set([peak])
+
+    return cover_elts_to_peaks, cover_peaks_to_elts, sorted(list(unlabeled))
