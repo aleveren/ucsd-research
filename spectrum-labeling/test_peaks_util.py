@@ -1,4 +1,4 @@
-from nearby_peaks import nearby_peaks, nearby_peaks_slow
+from peaks_util import nearby_peaks, nearby_peaks_slow
 
 w_test = [10, 20, 30, 30, 40, 40, 50, 60]
 
