@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-def show_labeled_spectrum(x, y, px, py, xlo, xhi, p_to_e, ax = None):
+def show_labeled_spectrum(x, y, px, py, xlo, xhi, p_to_e, p_to_e_parsimonious = None, ax = None):
     '''
     Given a spectrum (x, y), locations of peaks (px, py),
     and a dict `p_to_e` that maps each peak's x coordinate
@@ -25,10 +25,17 @@ def show_labeled_spectrum(x, y, px, py, xlo, xhi, p_to_e, ax = None):
         peak_y = py[i]
         if peak_x in p_to_e:
             elts = p_to_e[peak_x]
-            peak_label = " / ".join(sorted(elts))
+            if p_to_e_parsimonious is None:
+                peak_label = " / ".join(elts)
+            else:
+                baseline = p_to_e_parsimonious[peak_x]
+                extra = sorted(list(set(elts) - set(baseline)))
+                peak_label = " / ".join(baseline + extra)
         else:
             peak_label = "?"
+
         text = "{:.2f}: {}".format(peak_x, peak_label)
+
         if peak_x >= xlo and peak_x <= xhi:
             ax.text(peak_x, peak_y + (0.05 * max_height_in_range), text,
                 rotation = "vertical",
