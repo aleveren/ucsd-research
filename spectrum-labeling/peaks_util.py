@@ -1,13 +1,14 @@
 import numpy as np
 from set_cover import set_cover_approx_fast
 from scipy.signal import argrelmax
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 def nearby_peaks_slow(wavelengths, target_wavelength, delta):
     '''
     Find indices of wavelengths that are within delta of the target wavelength
     (Slow implementation for comparison / testing only)
     '''
+    wavelengths = np.asarray(wavelengths)
     if wavelengths[-1] < target_wavelength - delta:
         i_lo = len(wavelengths)
     else:
@@ -24,6 +25,7 @@ def nearby_peaks(wavelengths, target_wavelength, delta):
     '''
     Find indices of wavelengths that are within delta of the target wavelength
     '''
+    wavelengths = np.asarray(wavelengths)
     lo = target_wavelength - delta
     hi = target_wavelength + delta
 
@@ -87,13 +89,14 @@ def label_peaks_verbose(peaks, known_emission_lines, delta):
     Label each peak according to the set of elements with
     known emission lines within +/-delta of the peak
     '''
+    known_emission_lines = known_emission_lines.sort_values(by="wav_mars")
     known_wavelengths = known_emission_lines["wav_mars"]
     e_to_p = defaultdict(list)
     p_to_e = defaultdict(list)
     unlabeled = []
     for p in peaks:
         i_lo, i_hi = nearby_peaks(known_wavelengths, p, delta)
-        elts = sorted(list(set(known_emission_lines["elt"][i_lo:i_hi])))
+        elts = sorted(list(set(known_emission_lines["elt"].iloc[i_lo:i_hi])))
         for e in elts:
             e_to_p[e].append(p)
             p_to_e[p].append(e)
@@ -107,6 +110,7 @@ def label_peaks_parsimonious(peaks, known_emission_lines, delta):
     known emission line, find a minimal set of elements
     (via unweighted greedy set cover) that "explains" all such peaks
     '''
+    known_emission_lines = known_emission_lines.sort_values(by="wav_mars")
     peaks = sorted(peaks)
     elts_to_peak_indices = defaultdict(set)
     for row_index, row in known_emission_lines.iterrows():
@@ -121,14 +125,18 @@ def label_peaks_parsimonious(peaks, known_emission_lines, delta):
 
     best_cover = set_cover_approx_fast(sets)
 
-    cover_elts_to_peaks = defaultdict(list)
-    cover_peaks_to_elts = defaultdict(list)
+    cover_elts_to_peaks = OrderedDict()
+    cover_peaks_to_elts = OrderedDict()
     unlabeled = set(peaks)
     for i in best_cover:
         elt = elts[i]
         for peak_index in elts_to_peak_indices[elt]:
             peak = peaks[peak_index]
+            if elt not in cover_elts_to_peaks:
+                cover_elts_to_peaks[elt] = []
             cover_elts_to_peaks[elt].append(peak)
+            if peak not in cover_peaks_to_elts:
+                cover_peaks_to_elts[peak] = []
             cover_peaks_to_elts[peak].append(elt)
             unlabeled -= set([peak])
 
