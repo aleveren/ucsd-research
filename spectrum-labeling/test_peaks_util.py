@@ -2,7 +2,7 @@ from peaks_util import (nearby_peaks, nearby_peaks_slow, extract_peaks,
     label_peaks_parsimonious, label_peaks_verbose)
 import pandas as pd
 import numpy as np
-from numpy.testing import assert_allclose
+from numpy.testing import assert_array_equal
 
 w_test = [10, 20, 30, 30, 40, 40, 50, 60]
 
@@ -35,19 +35,19 @@ def test_nearby_peaks_slow():
     assert nearby_peaks_slow(w_test, 65, delta = 3) == (8, 8)
 
 def test_extract_peaks():
+    x = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2])
     y = np.array([1., 8., 1., 9., 8., 9., 1., 1., 5., 1., 1., 4., 1.])
-    x = np.array([0.1 * i for i in xrange(len(y))])
     px, py = extract_peaks(x, y, threshold_fraction = 0.5, delta = 0.25)
-    assert_allclose(px, [0.3, 0.8])
-    assert_allclose(py, [9.0, 5.0])
+    assert_array_equal(px, [0.3, 0.8])
+    assert_array_equal(py, [9.0, 5.0])
 
     px, py = extract_peaks(x, y, threshold_fraction = 0.5, delta = 0.01)
-    assert_allclose(px, [0.1, 0.3, 0.5, 0.8])
-    assert_allclose(py, [8.0, 9.0, 9.0, 5.0])
+    assert_array_equal(px, [0.1, 0.3, 0.5, 0.8])
+    assert_array_equal(py, [8.0, 9.0, 9.0, 5.0])
 
     px, py = extract_peaks(x, y, threshold_fraction = 0.2, delta = 0.01)
-    assert_allclose(px, [0.1, 0.3, 0.5, 0.8, 1.1])
-    assert_allclose(py, [8.0, 9.0, 9.0, 5.0, 4.0])
+    assert_array_equal(px, [0.1, 0.3, 0.5, 0.8, 1.1])
+    assert_array_equal(py, [8.0, 9.0, 9.0, 5.0, 4.0])
 
 def test_label_peaks_parsimonious():
     px = [10.1, 20.1, 30.1, 40.1]
