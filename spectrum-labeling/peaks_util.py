@@ -84,6 +84,14 @@ def extract_peaks(xs, ys, threshold_fraction, delta):
             peak_ys[-1] = ys[i]
     return np.array(peak_xs), np.array(peak_ys)
 
+def label_peaks(peaks, known_emission_lines, delta, strategy):
+    if strategy.lower() == 'parsimonious':
+        return label_peaks_parsimonious(peaks, known_emission_lines, delta)
+    elif strategy.lower() == 'verbose':
+        return label_peaks_verbose(peaks, known_emission_lines, delta)
+    else:
+        raise Exception("Unrecognized strategy: '{}'".format(strategy))
+
 def label_peaks_verbose(peaks, known_emission_lines, delta):
     '''
     Label each peak according to the set of elements with
