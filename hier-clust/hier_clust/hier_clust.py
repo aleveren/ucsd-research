@@ -250,7 +250,8 @@ class HierClust(object):
             _logger.debug("Median distance = {}".format(med_dist))
             if med_dist is not None:
                 sigma = med_dist * np.sqrt(1./(2. * np.log(1. / self.alpha)))
-            else:
+            else:  # pragma: no cover
+                _logger.warning("Median calculation failed")
                 sigma = 1.0
         else:
             sigma = self.sigma_similarity
