@@ -33,6 +33,25 @@ class Tree(namedtuple("Tree", ["data", "children"])):
         mapped_data = f(self.data)
         return Tree(data = mapped_data, children = mapped_children)
 
+    def reduce_leaf_data(self, combine, leaf_func = None, list_arg = False):
+        if leaf_func is None:
+            leaf_func = lambda x: x
+        if len(self.children) == 0:
+            return leaf_func(self.data)
+        else:
+            to_combine = [c.reduce_leaf_data(combine, leaf_func, list_arg)
+                for c in self.children]
+            if list_arg:
+                return combine(to_combine)
+            else:
+                return combine(*to_combine)
+
+    def num_leaves(self):
+        return self.reduce_leaf_data(
+            combine = sum,
+            leaf_func = (lambda x: 1),
+            list_arg = True)
+
     def str_display(self, indent = 0):
         result = ' ' * indent + 'Tree(data = {}, children = ['.format(self.data)
         if len(self.children) > 0:

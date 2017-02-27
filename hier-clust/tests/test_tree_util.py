@@ -78,6 +78,34 @@ class Tests(unittest.TestCase):
         result = self.large_tree().map_data(lambda x: x * 10)
         assert result == expected
 
+    def test_reduce_leaf_data(self):
+        result = self.large_tree().reduce_leaf_data(
+            combine = lambda x, y: x + y,
+            leaf_func = lambda x: 1)
+        assert result == 5
+
+        result = self.large_tree().reduce_leaf_data(
+            combine = sum,
+            leaf_func = lambda x: 1,
+            list_arg = True)
+        assert result == 5
+
+        result = self.large_tree().reduce_leaf_data(
+            combine = lambda x, y: x + y,
+            leaf_func = lambda x: x)
+        expected = 32  # (4 + 5) + (6 + (8 + 9))
+        assert result == expected
+
+        # Try omitting leaf_func (equiv. to identity function)
+        result = self.large_tree().reduce_leaf_data(
+            combine = lambda x, y: x + y)
+        expected = 32  # (4 + 5) + (6 + (8 + 9))
+        assert result == expected
+
+    def test_num_leaves(self):
+        result = self.large_tree().num_leaves()
+        assert result == 5
+
     def test_str_display(self):
         result = self.large_tree().str_display()
         expected = textwrap.dedent("""\
