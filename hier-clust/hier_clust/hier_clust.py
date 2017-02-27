@@ -56,7 +56,7 @@ class HierClust(object):
         tree = self._fit_helper(data, orig_indices, tree_path = '',
             num_leaves_done = 0)
         assignments = self._get_assignments(tree)
-        tree_paths = np.array([p for i, p in assignments])
+        tree_paths = np.array([p for i, p in assignments], dtype='object')
 
         return tree, tree_paths
 
