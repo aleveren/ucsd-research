@@ -1,0 +1,116 @@
+\documentclass[11pt]{article}
+
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{algpseudocode}
+\usepackage{float}
+\usepackage{outlines}
+\usepackage{listings}
+
+\begin{document}
+
+\begin{flushright}
+Andrew Leverentz \\
+2017-03-06
+\end{flushright}
+
+\section*{Pseudocode for Top-Down Clustering}
+
+\begin{algorithmic}
+\Function {TopDownClustering}{\texttt{data}}
+  \State $n \gets \textsc{NumRows}(\texttt{data})$
+  \If {$n = 0$}
+    \State \Return empty leaf
+  \ElsIf {$n = 1$}
+    \State \Return leaf containing single data point
+  \ElsIf {$n = 2$}
+    \State $\texttt{partition} \gets [0, 1]$
+  \ElsIf {$n \leq \texttt{smallThreshold}$}
+    \State $\texttt{partition} \gets \textsc{SmallPartition}(\texttt{data})$
+  \Else
+    \State Choose \texttt{subsample} of size $f(n) \in O(n^{1/3})$
+    \State $\texttt{subsamplePartition} \gets \textsc{SmallPartition}(\texttt{subsample})$
+    \State $\texttt{partition} \gets$ extension of \texttt{subsamplePartition} to the full data
+    \State (Use a $K$-nearest-neighbor classifier to extend the partition.)
+  \EndIf
+  \State $\texttt{leftData} \gets $ subset of \texttt{data} corresponding to $\texttt{partition} = 0$
+  \State $\texttt{rightData} \gets $ subset of \texttt{data} corresponding to $\texttt{partition} = 1$
+  \State $\texttt{leftSubtree} \gets \textsc{TopDownClustering}(\texttt{leftData})$
+  \State $\texttt{rightSubtree} \gets \textsc{TopDownClustering}(\texttt{rightData})$
+  \State \Return $\textsc{Tree}(\texttt{leftSubtree}, \texttt{rightSubtree})$
+\EndFunction
+\end{algorithmic}
+
+\begin{algorithmic}
+\Function {SmallPartition}{\texttt{data}}
+  \State $n \gets \textsc{NumRows}(\texttt{data})$
+  \If {$n \leq K$}
+    \State $\texttt{distances} \gets$ dense matrix of pairwise distances
+  \Else
+    \State $\texttt{distances} \gets$ sparse matrix of pairwise distances via $K$-nearest-neighbors
+  \EndIf
+  \State $\sigma \gets \textsc{Median}(\texttt{distances}) / {\sqrt{2 \ln (1/\alpha)}}$
+  \State $\texttt{similarities} \gets \exp(-\texttt{distances}^2 / (2 \sigma^2))$
+  \State $\texttt{similarities} \gets \texttt{similarities} / 2 + \textsc{Transpose}(\texttt{similarities}) / 2$
+  \State $\texttt{partition} \gets \textsc{TwoWaySpectralClustering}(\texttt{similarities})$
+  \State \Return $\texttt{partition}$
+\EndFunction
+\end{algorithmic}
+
+\section*{Notes}
+
+\begin{itemize}
+\item We can use arbitrary distance metrics.
+To do so, we must compute pairwise distances using the desired metric, and we must specify a custom distance metric when constructing the KNN graph and performing KNN classification.
+%
+\item We perform the steps involving KNN using a fast metric-tree implementation (provided by scikit-learn).
+%
+\item In cases where we use sparse distance calculations, we ignore any omitted entries (corresponding to distances of $+\infty$) when computing the median.
+Note that a distance of $+\infty$ corresponds to a similarity of $0$.
+%
+\item If the pairwise distances are too large, then the similarity matrix will be very close to the identity matrix.
+If the pairwise distances are too small, then the similarity matrix will be very close to a matrix of all ones (i.e., $\mathbf{1}\mathbf{1}^\top$).
+In either case, the similarity matrix loses its structure, and spectral clustering will yield nearly random splits.
+The selection of the scaling parameter $\sigma$ ensures that the median similarity is equal to $\alpha$.
+If we choose $\alpha$ sufficiently far from $0$ and $1$, we can reduce the risk of obtaining essentially random splits.
+Based on empirical tests, setting $\alpha = 0.8$ seems effective for preventing trivial similarity distributions.
+%
+\item By subsampling according to a schedule $f$ such that $f(n) \in O(n^{1/3})$, we can guarantee that our partition algorithm runs in sub-quadratic time, even if spectral clustering may, in the worst case, require $O(n^3)$ time.
+%
+\item A similarity matrix derived from a KNN graph may not be symmetric, even if the underlying distance metric is symmetric, so we guarantee symmetry by averaging the similarity matrix with its transpose.
+\end{itemize}
+
+\section*{Runtime analysis (work in progress)}
+
+\lstset{basicstyle=\footnotesize\ttfamily,breaklines=true}
+\begin{lstlisting}
+T[clustering](n)
+  =   T[clustering](nleft)
+    + T[clustering](nright)
+    + T[subsampling](n)
+    + T[small-partition](f(n), K)
+    + T[KNN-classify](n, f(n), K)
+\end{lstlisting}
+
+\begin{outline}
+\1 The runtime for subsampling is $O(n)$.
+\1 The main steps for $\textsc{SmallPartition}$ are computing the KNN graph, computing the median distance, and performing spectral clustering.
+  \2 A naive algorithm for constructing the KNN graph is $O(n^2K)$
+  \2 The median of $n$ elements can be computed in $O(n)$ using quickselect
+  \2 In the worst case, spectral clustering is $O(n^3)$
+  \2 Thus, the overall runtime of $\textsc{SmallPartition}$ applied to inputs of size $n$ is $O(n^3K)$.  When we apply it to a subsample of size $f(n) \in O(n^{1/3})$, the runtime of this step is $O(nK)$.
+\1 The runtime for the KNN classification step is $O(nf(n)K)$ if we use a naive algorithm.
+\1 Assume the splits are sufficiently even.  (Can we prove that this is reasonable?)
+%
+\1 With $f(n) \in O(n^{1/3})$, a naive KNN classifier will yield an overall runtime of $O(n^{4/3}K)$.
+However, if we use a faster KNN classifier such that $T_{\text{KNN-classify}}(n, f(n), K) \in O(nK \log n)$, then the overall runtime will be $O(nK \log^2 n)$.
+%
+\1 TODO: what is the runtime of KNN-classify when using the ball-tree implementation from scikit-learn?
+%
+\1 Faster implementations of KNN-graph and spectral clustering would allow us to use a faster-growing sampling schedule $f(n)$.
+\end{outline}
+\end{document}
