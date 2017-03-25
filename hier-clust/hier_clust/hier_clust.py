@@ -2,9 +2,8 @@
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix, issparse
-from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
-from sklearn.cluster import SpectralClustering
+from scipy.sparse import coo_matrix, dia_matrix, csr_matrix, issparse
+from sklearn.neighbors import NearestNeighbors
 import sklearn.metrics
 from collections import Counter
 import sys
@@ -23,23 +22,21 @@ _logger.addHandler(logging.NullHandler())
 class HierClust(object):
     def __init__(self,
             n_neighbors = 20,
-            n_neighbors_extend_partition = 1,
             mutual_neighbors = False,
-            threshold_for_subset = 500,
-            representative_growth_exponent = 1/3.0,
             sigma_similarity = 'auto',
             sparse_similarity = 'auto',
             alpha = 0.8,
-            leaf_size = 1):
+            leaf_size = 1,
+            metric = 'euclidean',
+            convergence_iterations = 10):
         self.n_neighbors = n_neighbors
-        self.n_neighbors_extend_partition = n_neighbors_extend_partition
         self.mutual_neighbors = mutual_neighbors
-        self.threshold_for_subset = threshold_for_subset
-        self.representative_growth_exponent = representative_growth_exponent
         self.sigma_similarity = sigma_similarity
         self.sparse_similarity = sparse_similarity
         self.alpha = alpha
         self.leaf_size = leaf_size
+        self.metric = metric
+        self.convergence_iterations = convergence_iterations
 
     def fit(self, data):
         '''
@@ -62,10 +59,7 @@ class HierClust(object):
         log_msg = "Partitioning {} observations " \
             "(tree_path = {}, num_leaves_done = {})" \
             .format(len(data), tree_path, num_leaves_done)
-        if len(data) > self.threshold_for_subset:
-            _logger.info(log_msg)
-        else:
-            _logger.debug(log_msg)
+        _logger.debug(log_msg)
 
         if len(data) <= 1 or len(data) <= self.leaf_size:
             return Tree.leaf(data = {
@@ -73,12 +67,8 @@ class HierClust(object):
                 "tree_path": tree_path,
             })
 
-        if len(data) == 2:
-            partition = np.array([0, 1])
-        elif len(data) <= self.threshold_for_subset:
-            partition = self._small_partition(data)
-        else:
-            partition = self._large_partition(data)
+        partition = self._partition(data)
+        _logger.debug("Partition shape: {}".format(partition.shape))
 
         data_subsets = []
         for label in [0, 1]:
@@ -109,62 +99,128 @@ class HierClust(object):
             "tree_path": tree_path,
         })
 
-    def _small_partition(self, data):
-        _logger.debug("Running _small_partition on %s observations", len(data))
+    def _partition(self, data):
+        '''
+        Partitions a dataset into two pieces
+        '''
+        n_obs = data.shape[0]
+        assert n_obs >= 2
 
-        similarity = self._get_similarity(data, sparse = self.sparse_similarity)
-        _logger.debug("Spectral clustering")
-        spc_obj = SpectralClustering(n_clusters = 2, affinity = 'precomputed',
-            assign_labels = 'discretize')
-        partition = spc_obj.fit_predict(similarity)
-        _logger.debug("Done spectral clustering")
+        if n_obs == 2:
+            return np.array([0, 1])
 
-        sizes = [len(partition[partition == x]) for x in [0, 1]]
-        _logger.debug("Result of _small_partition: #0: {}, #1: {}" \
-            .format(*sizes))
+        distances = self._get_distances(data)
+        components, num_components = self._get_connected_components(distances)
+        if num_components == 1:
+            similarity = self._get_similarity(distances)
+            diag = similarity.sum(axis = 0)
+            diag = dia_matrix((diag, [0]), (n_obs, n_obs)).tocsr()
+            laplacian = diag - similarity
+            fiedler_vector = self._get_fiedler_vector(laplacian)
 
-        return partition
+            stats = Counter()
+            for f in fiedler_vector:
+                if f < 0: stats['neg'] += 1
+                elif f == 0: stats['eq'] += 1
+                elif f > 0: stats['pos'] += 1
 
-    def _large_partition(self, data):
-        _logger.debug("Running _large_partition on %s observations", len(data))
-
-        num_representatives = self._num_reps(len(data))
-        assert num_representatives <= len(data)
-
-        # Generate a random subset
-        mask = [True for i in range(num_representatives)] + \
-            [False for i in range(len(data) - num_representatives)]
-        mask = np.random.permutation(mask)
-        subset = data[mask, :]
-        other_subset = data[~mask, :]
-
-        # Partition the small set
-        small_partition = self._small_partition(subset)
-
-        if len(other_subset) == 0:
-            return small_partition
-
-        # Use KNN classifier to extend partition to full data
-        _logger.debug("Running KNN classifier on %s observations", len(data))
-        nn_classifier = KNeighborsClassifier(
-            n_neighbors = self.n_neighbors_extend_partition,
-            algorithm = 'ball_tree',
-            metric = 'euclidean',
-        ).fit(subset, small_partition)
-        other_partition = nn_classifier.predict(other_subset)
-
-        rep_index = 0
-        other_index = 0
-        full_partition = np.zeros(len(mask))
-        for i in xrange(len(data)):
-            if mask[i]:
-                full_partition[i] = small_partition[rep_index]
-                rep_index += 1
+            if stats['neg'] > 0 and stats['pos'] + stats['eq'] > 0:
+                partition = (fiedler_vector >= 0).astype('int')
+            elif stats['neg'] + stats['eq'] > 0 and stats['pos'] > 0:
+                partition = (fiedler_vector > 0).astype('int')
             else:
-                full_partition[i] = other_partition[other_index]
-                other_index += 1
+                print("Bad fiedler stats: {}".format(stats))
+                print("Bad fiedler vector {}".format(fiedler_vector))
+                print("Bad laplacian {}".format(laplacian.todense()))
+                raise Exception("Couldn't properly partition data")
 
-        return full_partition
+            return partition
+        else:
+            _logger.debug("Found {} components".format(num_components))
+            partition = (components > 0).astype('int')
+            return partition
+
+    def _get_connected_components(self, A):
+        '''
+        Use depth-first search to label all connected components
+        '''
+        if not isinstance(A, csr_matrix):
+            A = csr_matrix(A)
+        n_obs = A.shape[0]
+        num_components = 0
+        unvisited = set(range(n_obs))
+        components = -1 * np.ones((n_obs,))
+
+        # TODO: confirm that this runs in linear time
+
+        def dfs(i, component):
+            if i not in unvisited:
+                return
+
+            unvisited.remove(i)
+            components[i] = component
+
+            # Iterate over non-missing elements of current row
+            for offset in range(A.indptr[i], A.indptr[i + 1]):
+                j = A.indices[offset]
+                dfs(j, component)
+
+        while len(unvisited) > 0:
+            # Find an unvisited vertex
+            for current in unvisited:
+                break  # Hacky way to get an arbitrary element from a set
+            dfs(current, num_components)
+            num_components += 1
+
+        return components, num_components
+
+    def _get_fiedler_vector(self, A):
+        '''
+        Compute the eigenvector corresponding to the 2nd smallest eigenvalue
+        '''
+        full_eigendecomposition_threshold = 10
+        if A.shape[0] < full_eigendecomposition_threshold:
+            if issparse(A):
+                A = A.todense()
+            ws, vs = np.linalg.eigh(A)
+            return np.asarray(vs[:, 1]).flatten()
+
+        if not isinstance(A, csr_matrix):
+            A = csr_matrix(A)
+
+        n_obs = A.shape[0]
+        const_vector = np.ones((n_obs,)) / np.sqrt(n_obs)
+        x = np.random.uniform(-1, 1, const_vector.shape)
+        x -= np.dot(const_vector, x) * const_vector
+        x /= np.linalg.norm(x)
+
+        for i in range(self.convergence_iterations):
+            x = self._solve_conjugate_gradient(A, x)
+            x -= np.dot(const_vector, x) * const_vector
+            x /= np.linalg.norm(x)
+            if -np.min(x) > np.max(x):
+                x *= -1
+
+        return x
+
+    def _solve_conjugate_gradient(self, A, b):
+        '''
+        Solve Ax = b using conjugate gradient.  For best performance,
+        A should be a sparse matrix in the CSR format (Compressed Sparse Row).
+        '''
+        input_shape = b.shape
+        b = b.reshape((-1, 1))
+        x = np.zeros_like(b)
+        r = b - A.dot(x)
+        p = r
+        for k in range(self.convergence_iterations):
+            prev_r = r
+            alpha = np.asscalar(r.T.dot(r) / float(p.T.dot(A.dot(p))))
+            x = x + alpha * p
+            r = r - alpha * A.dot(p)
+            beta = np.asscalar(r.T.dot(r) / prev_r.T.dot(prev_r))
+            p = r + beta * p
+        return x.reshape(input_shape)
 
     def _get_assignments(self, tree):
         '''
@@ -225,13 +281,10 @@ class HierClust(object):
         else:
             return self._get_median(above, k - len(below) - len(equal))
 
-    def _get_similarity(self, data, sparse):
+    def _get_similarity(self, dist):
         '''
-        Generate a similarity matrix for the given data
+        Generate a similarity matrix for the given distance matrix
         '''
-        _logger.debug("Computing distances")
-        dist = self._get_distances(data, sparse = sparse)
-        _logger.debug("Done computing distances")
         if self.sigma_similarity == 'auto':
             # Choose the value of sigma that maps the
             # median distance to self.alpha
@@ -284,14 +337,17 @@ class HierClust(object):
         med_sim = self._get_median(nontrivial_sim)
         _logger.debug("Median similarity = {}".format(med_sim))
 
+        similarity = csr_matrix(similarity)
+
         return similarity
 
-    def _get_distances(self, data, sparse):
+    def _get_distances(self, data):
         '''
         Gets a distance matrix.
         For small datasets, return a dense matrix, otherwise return
         a sparse matrix based on K-nearest-neighbors.
         '''
+        sparse = self.sparse_similarity
         if sparse == 'never':
             sparse = False
         elif sparse == 'auto' or sparse is None:
@@ -299,12 +355,12 @@ class HierClust(object):
 
         if not sparse:
             return sklearn.metrics.pairwise.pairwise_distances(
-                data, metric = 'euclidean')
+                data, metric = self.metric)
         else:
             nn_obj = NearestNeighbors(
                 n_neighbors = self.n_neighbors,
                 algorithm = 'ball_tree',
-                metric = 'euclidean',
+                metric = self.metric,
             ).fit(data)
             distances, indices = nn_obj.kneighbors(data)
 
@@ -340,22 +396,6 @@ class HierClust(object):
 
             result = coo_matrix((val_new, (row_new, col_new)))
             return result
-
-    def _num_reps(self, n):
-        '''
-        A function that grows like f(n) but transitions to n below n0.
-        Used for picking the number of representatives for spectral clustering.
-        '''
-        alpha = float(self.representative_growth_exponent)
-        n0 = float(self.threshold_for_subset)
-        def f(x): return x ** alpha
-        def f_prime(x): return alpha * x ** (alpha - 1)
-        a = n0 - f(n0) / f_prime(n0)
-        b = 1.0 / f_prime(n0)
-        if n < n0:  # pragma: no cover
-            return int(n)
-        else:
-            return int(np.ceil(a + b * f(n)))
 
 
 def numeric_logging_level(level_string):
