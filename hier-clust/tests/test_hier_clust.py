@@ -105,7 +105,7 @@ class Tests(unittest.TestCase):
         mock_read_csv.return_value = pd.DataFrame(self.sim_data(),
             columns = ['a1', 'a2'])
 
-        hier_clust.main(['--input', 'bogus.csv', '--feature_columns', 'a.*'])
+        hier_clust.main(['--input', 'bogus.csv'])
         assert not mock_to_csv.called
 
         hier_clust.main(['--input', 'bogus.csv', '--feature_columns', 'a.*',

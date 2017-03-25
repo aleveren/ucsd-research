@@ -41,16 +41,11 @@ class HierClust(object):
         self.alpha = alpha
         self.leaf_size = leaf_size
 
-    def fit(self, data, feature_columns = None):
+    def fit(self, data):
         '''
         Generates a hierarchical clustering on the given data
         '''
-        if feature_columns is None:
-            feature_columns = slice(None, None, None)
-        elif isinstance(feature_columns, basestring):
-            feature_columns = [i for i in range(len(data.columns))
-                if re.match(feature_columns, data.columns[i])]
-        data = np.asarray(data)[:, feature_columns]
+        data = np.asarray(data)
         orig_indices = np.arange(len(data))
 
         tree = self._fit_helper(data, orig_indices, tree_path = '',
@@ -382,6 +377,11 @@ def main(argv):
     args = parser.parse_args(argv)
 
     data = pd.read_csv(args.input)
+    if args.feature_columns is not None:
+        col_indices = [i for i in range(len(data.columns))
+            if re.match(args.feature_columns, data.columns[i])]
+    else:
+        col_indices = slice(None, None, None)
 
     logging.basicConfig(
         level = numeric_logging_level(args.log),
@@ -396,9 +396,7 @@ def main(argv):
         constructor_args = dict()
 
     hc = HierClust(**constructor_args)
-    tree, assignments = hc.fit(
-        data = data,
-        feature_columns = args.feature_columns)
+    tree, assignments = hc.fit(data = data.iloc[:, col_indices])
 
     if args.output is None:
         for i, path in enumerate(assignments):
