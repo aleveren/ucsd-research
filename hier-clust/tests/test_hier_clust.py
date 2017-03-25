@@ -22,10 +22,18 @@ class Tests(unittest.TestCase):
 
     def test_similarity_sparse(self):
         # Test case where sparseness makes a difference
-        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0)
         d = [[0,0], [1,0], [0,2], [1,2], [5,5], [5,5]]
-        sim1 = hc._get_similarity(d, sparse = 'auto')
-        sim2 = hc._get_similarity(d, sparse = 'never')
+
+        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
+            sparse_similarity = 'auto')
+        dist1 = hc._get_distances(d)
+
+        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
+            sparse_similarity = 'never')
+        dist2 = hc._get_distances(d)
+
+        sim1 = hc._get_similarity(dist1)
+        sim2 = hc._get_similarity(dist2)
         x = np.exp(-0.5)
         expected = np.array([
             [1, x, 0, 0, 0, 0],
@@ -36,15 +44,16 @@ class Tests(unittest.TestCase):
             [0, 0, 0, 0, 1, 1]])
         assert np.allclose(sim1.todense(), expected)
         assert sim1.nnz == 12
-        assert not np.allclose(sim1.todense(), sim2)
-        assert not np.allclose(sim2, expected)
+        assert not np.allclose(sim1.todense(), sim2.todense())
+        assert not np.allclose(sim2.todense(), expected)
 
     def test_similarity_sparse_mutual(self):
         # Test case where mutual KNN makes a difference
         hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
             mutual_neighbors = True)
         d = [[0,0], [1,0], [0,2]]
-        sim1 = hc._get_similarity(d, sparse = 'auto')
+        dist1 = hc._get_distances(d)
+        sim1 = hc._get_similarity(dist1)
 
         x = np.exp(-0.5)
         expected = np.array([
@@ -57,7 +66,8 @@ class Tests(unittest.TestCase):
         # Recompute similarities, allowing non-mutual neighbors
         hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
             mutual_neighbors = False)
-        sim2 = hc._get_similarity(d, sparse = 'auto')
+        dist2 = hc._get_distances(d)
+        sim2 = hc._get_similarity(dist2)
 
         x = np.exp(-0.5)
         y = 0.5 * np.exp(-2)
@@ -72,7 +82,6 @@ class Tests(unittest.TestCase):
         data = self.sim_data()
         hc = hier_clust.HierClust(
             n_neighbors = 10,
-            threshold_for_subset = 50,
             sigma_similarity = 'auto')
         tree, assignments = hc.fit(data)
         assert len(tree.data["orig_indices"]) == 100

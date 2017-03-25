@@ -126,13 +126,9 @@ class HierClust(object):
 
             if stats['neg'] > 0 and stats['pos'] + stats['eq'] > 0:
                 partition = (fiedler_vector >= 0).astype('int')
-            elif stats['neg'] + stats['eq'] > 0 and stats['pos'] > 0:
-                partition = (fiedler_vector > 0).astype('int')
-            else:
-                print("Bad fiedler stats: {}".format(stats))
-                print("Bad fiedler vector {}".format(fiedler_vector))
-                print("Bad laplacian {}".format(laplacian.todense()))
-                raise Exception("Couldn't properly partition data")
+            else:  # pragma: no cover
+                raise Exception("Couldn't properly partition data; "
+                    "eigenvector components: {}".format(stats))
 
             return partition
         else:
@@ -185,8 +181,7 @@ class HierClust(object):
             ws, vs = np.linalg.eigh(A)
             return np.asarray(vs[:, 1]).flatten()
 
-        if not isinstance(A, csr_matrix):
-            A = csr_matrix(A)
+        A = csr_matrix(A)
 
         n_obs = A.shape[0]
         const_vector = np.ones((n_obs,)) / np.sqrt(n_obs)
