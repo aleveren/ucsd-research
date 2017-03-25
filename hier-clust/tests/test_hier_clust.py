@@ -2,6 +2,7 @@ import unittest
 from mock import patch
 import numpy as np
 import pandas as pd
+from scipy.sparse import issparse
 
 from context import hier_clust
 
@@ -27,13 +28,18 @@ class Tests(unittest.TestCase):
         hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
             sparse_similarity = 'auto')
         dist1 = hc._get_distances(d)
+        assert issparse(dist1)
 
         hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
             sparse_similarity = 'never')
         dist2 = hc._get_distances(d)
+        assert not issparse(dist2)
 
         sim1 = hc._get_similarity(dist1)
+        assert issparse(sim1)
         sim2 = hc._get_similarity(dist2)
+        assert not issparse(sim2)
+
         x = np.exp(-0.5)
         expected = np.array([
             [1, x, 0, 0, 0, 0],
@@ -44,8 +50,8 @@ class Tests(unittest.TestCase):
             [0, 0, 0, 0, 1, 1]])
         assert np.allclose(sim1.todense(), expected)
         assert sim1.nnz == 12
-        assert not np.allclose(sim1.todense(), sim2.todense())
-        assert not np.allclose(sim2.todense(), expected)
+        assert not np.allclose(sim1.todense(), sim2)
+        assert not np.allclose(sim2, expected)
 
     def test_similarity_sparse_mutual(self):
         # Test case where mutual KNN makes a difference

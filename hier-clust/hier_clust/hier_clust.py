@@ -68,7 +68,7 @@ class HierClust(object):
             })
 
         partition = self._partition(data)
-        _logger.debug("Partition shape: {}".format(partition.shape))
+        assert partition.shape == (len(data),)
 
         data_subsets = []
         for label in [0, 1]:
@@ -130,10 +130,13 @@ class HierClust(object):
                 raise Exception("Couldn't properly partition data; "
                     "eigenvector components: {}".format(stats))
 
+            assert partition.shape == (n_obs,)
             return partition
+
         else:
             _logger.debug("Found {} components".format(num_components))
             partition = (components > 0).astype('int')
+            assert partition.shape == (n_obs,)
             return partition
 
     def _get_connected_components(self, A):
@@ -146,8 +149,6 @@ class HierClust(object):
         num_components = 0
         unvisited = set(range(n_obs))
         components = -1 * np.ones((n_obs,))
-
-        # TODO: confirm that this runs in linear time
 
         def dfs(i, component):
             if i not in unvisited:
@@ -176,12 +177,13 @@ class HierClust(object):
         '''
         full_eigendecomposition_threshold = 10
         if A.shape[0] < full_eigendecomposition_threshold:
-            if issparse(A):
+            if issparse(A):  # pragma: no cover
                 A = A.todense()
             ws, vs = np.linalg.eigh(A)
             return np.asarray(vs[:, 1]).flatten()
 
-        A = csr_matrix(A)
+        if not isinstance(A, csr_matrix):
+            A = csr_matrix(A)
 
         n_obs = A.shape[0]
         const_vector = np.ones((n_obs,)) / np.sqrt(n_obs)
@@ -332,7 +334,8 @@ class HierClust(object):
         med_sim = self._get_median(nontrivial_sim)
         _logger.debug("Median similarity = {}".format(med_sim))
 
-        similarity = csr_matrix(similarity)
+        if issparse(similarity):
+            similarity = csr_matrix(similarity)
 
         return similarity
 
