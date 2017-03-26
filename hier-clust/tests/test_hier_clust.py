@@ -114,6 +114,84 @@ class Tests(unittest.TestCase):
         xs = [2, 3, 2, 3, 2, 3, 3, 1, 3]
         assert hier_clust.HierClust()._get_median(xs) == 3
 
+    def test_conjugate_gradient(self):
+        hc = hier_clust.HierClust()
+        A = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        b = np.array([34, 79, 124])
+        expected = np.array([3, 5, 7])
+        result = hc._solve_conjugate_gradient(A, b)
+        assert np.allclose(result, expected, atol=1e-2)
+
+    def test_fiedler_vector(self):
+        # Fiedler computation via full eigendecomposition
+        hc = hier_clust.HierClust(full_eigen_threshold = 10)
+        W = np.array([
+            [1.0, 0.5, 0.1, 0.1],
+            [0.5, 1.0, 0.1, 0.1],
+            [0.1, 0.1, 1.0, 0.5],
+            [0.1, 0.1, 0.5, 1.0],
+        ])
+        diag = np.diag(W.sum(axis = 0))
+        L = diag - W
+        expected = np.array([0.5, 0.5, -0.5, -0.5])
+        result = hc._get_fiedler_vector(L)
+        assert np.allclose(result, expected, atol=1e-6)
+
+        # Fiedler computation via power iteration
+        hc = hier_clust.HierClust(full_eigen_threshold = 2)
+        result = hc._get_fiedler_vector(L)
+        assert np.allclose(result, expected, atol=1e-3)
+
+    def test_partition_end_to_end(self):
+        hc = hier_clust.HierClust(sigma_similarity = 1.0)
+
+        a = np.sqrt(-2*np.log(0.5))
+        b = np.sqrt(-2*np.log(0.1))
+
+        q = a / 2.
+        r = np.sqrt(b**2 - q**2)
+        y = (-b**2 + 5*a**2/4. + r**2) / (2.*r)
+        z = np.sqrt(a**2 - y**2)
+
+        # Construct a dataset that leads to a simple similarity matrix
+        data = np.array([
+            [-q, 0, 0],
+            [q, 0, 0],
+            [0, r, 0],
+            [0, r-y, z],
+        ])
+
+        expected_dist = np.array([
+            [0, a, b, b],
+            [a, 0, b, b],
+            [b, b, 0, a],
+            [b, b, a, 0],
+        ])
+
+        dist = hc._get_distances(data)
+        assert np.allclose(dist, expected_dist)
+
+        expected_sim = np.array([
+            [1.0, 0.5, 0.1, 0.1],
+            [0.5, 1.0, 0.1, 0.1],
+            [0.1, 0.1, 1.0, 0.5],
+            [0.1, 0.1, 0.5, 1.0],
+        ])
+
+        sim = hc._get_similarity(dist)
+        assert np.allclose(sim, expected_sim)
+
+        expected_fiedler = np.array([0.5, 0.5, -0.5, -0.5])
+
+        diag = np.diag(sim.sum(axis=0))
+        L = diag - sim
+        fiedler = hc._get_fiedler_vector(L)
+        assert np.allclose(fiedler, expected_fiedler)
+
+        expected_partition = np.array([1, 1, 0, 0])
+        partition = hc._partition(data)
+        assert np.array_equal(partition, expected_partition)
+
     @patch('pandas.DataFrame.to_csv')
     @patch('pandas.read_csv')
     def test_main(self, mock_read_csv, mock_to_csv):

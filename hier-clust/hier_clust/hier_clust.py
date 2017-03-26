@@ -28,6 +28,7 @@ class HierClust(object):
             alpha = 0.8,
             leaf_size = 1,
             metric = 'euclidean',
+            full_eigen_threshold = 10,
             convergence_iterations = 10):
         self.n_neighbors = n_neighbors
         self.mutual_neighbors = mutual_neighbors
@@ -36,6 +37,7 @@ class HierClust(object):
         self.alpha = alpha
         self.leaf_size = leaf_size
         self.metric = metric
+        self.full_eigen_threshold = full_eigen_threshold
         self.convergence_iterations = convergence_iterations
 
     def fit(self, data):
@@ -175,8 +177,7 @@ class HierClust(object):
         '''
         Compute the eigenvector corresponding to the 2nd smallest eigenvalue
         '''
-        full_eigendecomposition_threshold = 10
-        if A.shape[0] < full_eigendecomposition_threshold:
+        if A.shape[0] < self.full_eigen_threshold:
             if issparse(A):  # pragma: no cover
                 A = A.todense()
             ws, vs = np.linalg.eigh(A)
