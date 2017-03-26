@@ -142,6 +142,45 @@ class Tests(unittest.TestCase):
         result = hc._get_fiedler_vector(L)
         assert np.allclose(result, expected, atol=1e-3)
 
+    def test_connected_components(self):
+        hc = hier_clust.HierClust()
+
+        z = lambda n, m: np.zeros((n, m))
+        a = lambda n: np.ones((n, n))
+        dist = np.bmat([
+            [3*a(3), z(3,2), z(3,2)],
+            [z(2,3), 5*a(2), z(2,2)],
+            [z(2,3), z(2,2), 7*a(2)],
+        ])
+        components, num_components = hc._get_connected_components(dist)
+
+        assert np.array_equal(np.sort(np.unique(components)), [0, 1, 2])
+        assert len(np.unique(components[:3])) == 1
+        assert len(np.unique(components[3:5])) == 1
+        assert len(np.unique(components[5:])) == 1
+        assert num_components == 3
+
+    def test_custom_metric(self):
+        def metric(x, y):
+            x, y = min(x, y), max(x, y)
+            if x == y: return 0.0
+            elif x == 1 and y == 2: return 3.0
+            elif x == 1 and y == 3: return 5.0
+            elif x == 2 and y == 3: return 7.0
+            else: return 10.0
+
+        hc = hier_clust.HierClust(metric = metric)
+
+        data = np.array([1, 2, 3]).reshape((-1, 1))
+        dist = hc._get_distances(data)
+
+        expected_dist = np.array([
+            [0, 3, 5],
+            [3, 0, 7],
+            [5, 7, 0],
+        ])
+        assert np.array_equal(dist, expected_dist)
+
     def test_partition_end_to_end(self):
         hc = hier_clust.HierClust(sigma_similarity = 1.0)
 
