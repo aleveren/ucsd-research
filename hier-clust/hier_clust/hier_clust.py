@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.sparse import coo_matrix, dia_matrix, csr_matrix, issparse
 from sklearn.neighbors import NearestNeighbors
 import sklearn.metrics
-from collections import Counter
+from collections import Counter, deque
 import sys
 import re
 import json
@@ -152,23 +152,26 @@ class HierClust(object):
         unvisited = set(range(n_obs))
         components = -1 * np.ones((n_obs,))
 
-        def dfs(i, component):
-            if i not in unvisited:
-                return
+        def bfs(start_index, component):
+            q = deque([start_index])
 
-            unvisited.remove(i)
-            components[i] = component
+            while len(q) > 0:
+                i = q.popleft()
+                if i in unvisited:
+                    unvisited.remove(i)
+                    components[i] = component
 
-            # Iterate over non-missing elements of current row
-            for offset in range(A.indptr[i], A.indptr[i + 1]):
-                j = A.indices[offset]
-                dfs(j, component)
+                    # Iterate over unvisited neighbors
+                    for offset in range(A.indptr[i], A.indptr[i + 1]):
+                        j = A.indices[offset]
+                        if j in unvisited:
+                            q.append(j)
 
         while len(unvisited) > 0:
             # Find an unvisited vertex
             for current in unvisited:
                 break  # Hacky way to get an arbitrary element from a set
-            dfs(current, num_components)
+            bfs(current, num_components)
             num_components += 1
 
         return components, num_components
