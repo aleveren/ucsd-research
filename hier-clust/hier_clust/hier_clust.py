@@ -3,16 +3,23 @@
 import numpy as np
 import pandas as pd
 from scipy.sparse import coo_matrix, dia_matrix, csr_matrix, issparse
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors, DistanceMetric
 import sklearn.metrics
 from collections import Counter, deque
 import sys
+import os
 import re
 import json
 import argparse
 import logging
 
 from tree_util import Tree, get_path_element
+
+_dirname = os.path.dirname(__file__)
+_newpath = os.path.abspath(os.path.join(_dirname, '..', '..', 'python-rptree'))
+print("Adding path {}".format(_newpath))
+sys.path.append(_newpath)
+from nearestNeighbor import makeForest
 
 
 _logger = logging.getLogger(__name__)
@@ -27,6 +34,7 @@ class HierClust(object):
             sparse_similarity = 'auto',
             alpha = 0.8,
             leaf_size = 1,
+            neighbor_graph_strategy = 'rptree',
             metric = 'euclidean',
             full_eigen_threshold = 10,
             convergence_iterations = 10):
@@ -36,6 +44,7 @@ class HierClust(object):
         self.sparse_similarity = sparse_similarity
         self.alpha = alpha
         self.leaf_size = leaf_size
+        self.neighbor_graph_strategy = neighbor_graph_strategy
         self.metric = metric
         self.full_eigen_threshold = full_eigen_threshold
         self.convergence_iterations = convergence_iterations
@@ -322,7 +331,7 @@ class HierClust(object):
                 else:
                     sim = np.exp(-val ** 2 / scaling_factor)
                     val_new.append(sim)
-            similarity = coo_matrix((val_new, (row_new, col_new)))
+            similarity = coo_matrix((val_new, (row_new, col_new)), shape=dist.shape)
         else:
             similarity = np.exp(-dist ** 2 / scaling_factor)
 
@@ -358,6 +367,18 @@ class HierClust(object):
         if not sparse:
             return sklearn.metrics.pairwise.pairwise_distances(
                 data, metric = self.metric)
+
+        if self.neighbor_graph_strategy == 'rptree':
+            if isinstance(self.metric, basestring):  # TODO: python3 compatibility
+                local_metric = DistanceMetric.get_metric(self.metric)
+                def func(x, y):
+                    result = local_metric.pairwise([x], [y])
+                    return np.asscalar(result)
+                distanceFunction = func
+            else:
+                distanceFunction = self.metric
+            forest = makeForest(data, maxLeafSize = self.n_neighbors * 2, numTrees = 10, distanceFunction = distanceFunction)
+            distances, indices = forest.kneighbors(data, k = self.n_neighbors)
         else:
             nn_obj = NearestNeighbors(
                 n_neighbors = self.n_neighbors,
@@ -366,38 +387,38 @@ class HierClust(object):
             ).fit(data)
             distances, indices = nn_obj.kneighbors(data)
 
-            row_new = []
-            col_new = []
-            val_new = []
-            entries = Counter()
-            for row_index in xrange(len(data)):
-                for nbr_index in xrange(self.n_neighbors):
-                   col_index = indices[row_index, nbr_index]
+        row_new = []
+        col_new = []
+        val_new = []
+        entries = Counter()
+        for row_index in xrange(len(data)):
+            for nbr_index in xrange(self.n_neighbors):
+               col_index = indices[row_index, nbr_index]
 
-                   dist = distances[row_index, nbr_index]
-                   if dist == 0.0:
-                       # Workaround: prevents sparse format from ignoring zeros
-                       dist = np.nan
+               dist = distances[row_index, nbr_index]
+               if dist == 0.0:
+                   # Workaround: prevents sparse format from ignoring zeros
+                   dist = np.nan
 
-                   a, b = min(row_index, col_index), max(row_index, col_index)
-                   entries[a, b] += 1
+               a, b = min(row_index, col_index), max(row_index, col_index)
+               entries[a, b] += 1
 
-                   if a == b or not self.mutual_neighbors:
-                       row_new.append(row_index)
-                       col_new.append(col_index)
-                       val_new.append(dist)
+               if a == b or not self.mutual_neighbors:
+                   row_new.append(row_index)
+                   col_new.append(col_index)
+                   val_new.append(dist)
 
-                   elif entries[a, b] == 2:
-                       row_new.append(row_index)
-                       col_new.append(col_index)
-                       val_new.append(dist)
+               elif entries[a, b] == 2:
+                   row_new.append(row_index)
+                   col_new.append(col_index)
+                   val_new.append(dist)
 
-                       row_new.append(col_index)
-                       col_new.append(row_index)
-                       val_new.append(dist)
+                   row_new.append(col_index)
+                   col_new.append(row_index)
+                   val_new.append(dist)
 
-            result = coo_matrix((val_new, (row_new, col_new)))
-            return result
+        result = coo_matrix((val_new, (row_new, col_new)), shape=(len(data), len(data)))
+        return result
 
 
 def numeric_logging_level(level_string):
