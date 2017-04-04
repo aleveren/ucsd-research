@@ -2,7 +2,9 @@
 
 import unittest
 import numpy as np
-from bigNearestNeighbor import (
+
+import context
+from rptree.bigNearestNeighbor import (
     selectRank, makeForest, euclidean, Node, Rule,
     projectionsToRulesTree)
 

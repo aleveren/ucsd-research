@@ -2,7 +2,9 @@
 
 import unittest
 import numpy as np
-from nearestNeighbor import selectRank, makeForest, euclidean
+
+import context
+from rptree.nearestNeighbor import selectRank, makeForest, euclidean
 
 class TestNearestNeighbor(unittest.TestCase):
 

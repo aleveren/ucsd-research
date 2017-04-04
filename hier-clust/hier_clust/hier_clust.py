@@ -19,7 +19,7 @@ _dirname = os.path.dirname(__file__)
 _newpath = os.path.abspath(os.path.join(_dirname, '..', '..', 'python-rptree'))
 print("Adding path {}".format(_newpath))
 sys.path.append(_newpath)
-from nearestNeighbor import makeForest
+from rptree.nearestNeighbor import makeForest
 
 
 _logger = logging.getLogger(__name__)

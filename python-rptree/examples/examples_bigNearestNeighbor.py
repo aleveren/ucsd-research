@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import numpy as np
-from bigNearestNeighbor import (LazyDiskData, randomUnitVector, makeForest, euclidean, time, getLastElapsedTime)
 import sys
 import datetime
+
+import context
+from rptree.bigNearestNeighbor import (LazyDiskData, randomUnitVector, makeForest, euclidean, time, getLastElapsedTime)
 
 np.random.seed(1)
 
@@ -15,17 +17,17 @@ else:
 print("Analysis: {}".format(analysis))
 
 if analysis == "subset":
-  exampleData = LazyDiskData("../data/accumDataRDR_subset.csv",
+  exampleData = LazyDiskData("../../data/accumDataRDR_subset.csv",
       columnSlice = slice(3, None))
   query = randomUnitVector(6144)
   numTrees = 1
 elif analysis == "full":
-  exampleData = LazyDiskData("../data/RDR/ALL.CSV",
+  exampleData = LazyDiskData("../../data/RDR/ALL.CSV",
       columnSlice = slice(3, None))
   query = randomUnitVector(6144)
   numTrees = 1
 elif analysis == "sim":
-  exampleData = LazyDiskData("../data/testdata.csv",
+  exampleData = LazyDiskData("../../data/testdata.csv",
       columnSlice = slice(1, None))
   query = np.zeros(10)
   numTrees = 10
@@ -33,7 +35,7 @@ else:
   raise Exception("Unrecognized analysis: {}".format(analysis))
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
-outputDir = "forests/forest_" + analysis + "_" + timestamp
+outputDir = "../forests/forest_" + analysis + "_" + timestamp
 
 with time("naive linear scan query"):
   naiveResult = exampleData.linearScanNearestNeighbor(query,

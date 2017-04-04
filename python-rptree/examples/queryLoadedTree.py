@@ -3,7 +3,9 @@
 import pickle
 import numpy as np
 import sys
-from bigNearestNeighbor import time, loadForest
+
+import context
+from rptree.bigNearestNeighbor import time, loadForest
 
 if len(sys.argv) > 1:
   filename = sys.argv[1]
