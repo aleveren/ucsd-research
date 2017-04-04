@@ -41,18 +41,26 @@ def randomUnitVector(n):
   unit = v / np.linalg.norm(v)
   return unit
 
-def makeTree(data, maxLeafSize, distanceFunction):
+def makeTree(data, orig_indices, maxLeafSize, distanceFunction):
   if len(data) <= maxLeafSize:
-    return Leaf(data, distanceFunction)
+    return Leaf(data, orig_indices, distanceFunction)
   rule = chooseRule(data)
   leftSelections = np.apply_along_axis(rule, 1, data)
-  leftTree = makeTree(data[leftSelections], maxLeafSize, distanceFunction)
-  rightTree = makeTree(data[np.logical_not(leftSelections)], maxLeafSize,
+  leftTree = makeTree(
+      data[leftSelections],
+      orig_indices[leftSelections],
+      maxLeafSize,
+      distanceFunction)
+  rightTree = makeTree(
+      data[~leftSelections],
+      orig_indices[~leftSelections],
+      maxLeafSize,
       distanceFunction)
   return Node(rule, leftTree, rightTree)
 
 def makeForest(data, maxLeafSize, numTrees, distanceFunction):
-  trees = [makeTree(data, maxLeafSize, distanceFunction)
+  indices = np.arange(len(data))
+  trees = [makeTree(data, indices, maxLeafSize, distanceFunction)
       for i in range(numTrees)]
   return NearestNeighborForest(trees, distanceFunction)
 
@@ -74,8 +82,9 @@ class Rule(object):
     return np.dot(self.direction, row) <= self.threshold
 
 class Leaf(object):
-  def __init__(self, data, distanceFunction):
+  def __init__(self, data, orig_indices, distanceFunction):
     self.data = data
+    self.orig_indices = orig_indices
     self.distanceFunction = distanceFunction
 
   def getLeaf(self, row):
@@ -91,10 +100,11 @@ class Leaf(object):
     for i in range(n_obs):
       distances[i] = self.distanceFunction(query, self.data[i, :])
     if k >= n_obs:
-      closest_indices = np.arange(n_obs)
+      closest_ind = np.arange(n_obs)
     else:
-      closest_indices = np.argpartition(distances, k)[:k]
-    return distances[closest_indices], closest_indices
+      closest_ind = np.argpartition(distances, k)[:k]
+    ii = np.argsort(distances[closest_ind])
+    return distances[closest_ind[ii]], self.orig_indices[closest_ind[ii]]
 
 class Node(object):
   def __init__(self, rule, leftTree, rightTree):
@@ -141,7 +151,7 @@ class NearestNeighborForest(object):
         indices[j, :] = i
       return distances, indices
 
-    elif query.ndim > 2:
+    elif query.ndim > 2:  # pragma: no cover
       raise Exception("Query shape cannot have > 2 dimensions (found {})".format(query.ndim))
 
     distances = []
@@ -157,7 +167,8 @@ class NearestNeighborForest(object):
     distances = np.array(distances)
     indices = np.array(indices)
     if len(distances) <= k:
-      closest = np.arange(len(distances))
+      closest_ind = np.arange(len(distances))
     else:
-      closest = np.argpartition(distances, k)[:k]
-    return distances[closest], indices[closest]
+      closest_ind = np.argpartition(distances, k)[:k]
+    ii = np.argsort(distances[closest_ind])
+    return distances[closest_ind[ii]], indices[closest_ind[ii]]

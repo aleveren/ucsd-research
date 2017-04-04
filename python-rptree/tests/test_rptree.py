@@ -18,6 +18,7 @@ class TestNearestNeighbor(unittest.TestCase):
       row = np.random.uniform(0, 1, [1, dims])
       row[0, i % dims] = M
       data = np.vstack((data, row))
+
     forest = makeForest(data, maxLeafSize = 100, numTrees = 20,
         distanceFunction = euclidean)
     query = np.zeros(dims)
@@ -25,6 +26,46 @@ class TestNearestNeighbor(unittest.TestCase):
     expected = np.ones(dims)
 
     self.assertTrue(np.array_equal(expected, result))
+
+  def test_kneighbors(self):
+    np.random.seed(1)
+
+    isolated_points = np.array([
+        [110, 110],
+        [113, 114],
+        [119, 122],
+    ], dtype='float')
+
+    n_obs = 100
+    n_col = isolated_points.shape[1]
+    data = np.vstack([
+        isolated_points,
+        np.random.normal(0, 1, (n_obs - len(isolated_points), n_col)),
+    ])
+    perm = np.random.permutation(n_obs)
+    data = data[perm, :]  # shuffle rows
+
+    forest = makeForest(data, maxLeafSize = 10, numTrees = 20,
+        distanceFunction = euclidean)
+
+    distances, indices = forest.kneighbors(isolated_points, k = 3)
+
+    expected = np.array([
+        [0, 5, 15],
+        [0, 5, 10],
+        [0, 10, 15],
+    ], dtype='float')
+    np.testing.assert_allclose(distances, expected)
+
+    # Extract indices corresponding to isolated points
+    i1, i2, i3 = [list(perm).index(i) for i in range(3)]
+
+    expected = np.array([
+        [i1, i2, i3],
+        [i2, i1, i3],
+        [i3, i2, i1],
+    ], dtype='int')
+    np.testing.assert_array_equal(indices, expected)
 
   def test_selection(self):
     np.random.seed(1)
