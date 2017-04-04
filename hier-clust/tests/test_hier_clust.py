@@ -35,6 +35,30 @@ class Tests(unittest.TestCase):
         dist2 = hc._get_distances(d)
         assert not issparse(dist2)
 
+        # Check distance calculations
+        z = np.nan
+        expected = np.array([
+            [ z,  1,  0,  0,  0,  0],
+            [ 1,  z,  0,  0,  0,  0],
+            [ 0,  0,  z,  1,  0,  0],
+            [ 0,  0,  1,  z,  0,  0],
+            [ 0,  0,  0,  0,  z,  z],
+            [ 0,  0,  0,  0,  z,  z],
+        ], dtype='float')
+        dist1_squared = np.asarray(np.square(dist1.todense()))
+        assert np.allclose(dist1_squared, expected, equal_nan=True)
+
+        expected = np.array([
+            [ 0,  1,  4,  5, 50, 50],
+            [ 1,  0,  5,  4, 41, 41],
+            [ 4,  5,  0,  1, 34, 34],
+            [ 5,  4,  1,  0, 25, 25],
+            [50, 41, 34, 25,  0,  0],
+            [50, 41, 34, 25,  0,  0],
+        ], dtype='float')
+        assert np.allclose(np.square(dist2), expected)
+
+        # Check similarity calculations
         sim1 = hc._get_similarity(dist1)
         assert issparse(sim1)
         sim2 = hc._get_similarity(dist2)
@@ -53,12 +77,26 @@ class Tests(unittest.TestCase):
         assert not np.allclose(sim1.todense(), sim2)
         assert not np.allclose(sim2, expected)
 
+        expected = np.exp(-dist2 ** 2 / 2.0)
+        assert np.allclose(sim2, expected)
+
     def test_similarity_sparse_mutual(self):
         # Test case where mutual KNN makes a difference
         hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
             mutual_neighbors = True)
         d = np.array([[0,0], [1,0], [0,2]])
+
         dist1 = hc._get_distances(d)
+
+        z = np.nan
+        expected = np.array([
+            [z, 1, 0],
+            [1, z, 0],
+            [0, 0, z]])
+        dist1_squared = np.asarray(np.square(dist1.todense()))
+        assert np.allclose(dist1_squared, expected, equal_nan=True)
+        assert dist1.nnz == 5
+
         sim1 = hc._get_similarity(dist1)
 
         x = np.exp(-0.5)
@@ -72,11 +110,22 @@ class Tests(unittest.TestCase):
         # Recompute similarities, allowing non-mutual neighbors
         hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
             mutual_neighbors = False)
+
         dist2 = hc._get_distances(d)
+
+        z = np.nan
+        expected = np.array([
+            [z, 1, 4],
+            [1, z, 0],
+            [4, 0, z]])
+        dist2_squared = np.asarray(np.square(dist2.todense()))
+        assert np.allclose(dist2_squared, expected, equal_nan=True)
+        assert dist2.nnz == 7
+
         sim2 = hc._get_similarity(dist2)
 
         x = np.exp(-0.5)
-        y = 0.5 * np.exp(-2)
+        y = np.exp(-2.0)
         expected = np.array([
             [1, x, y],
             [x, 1, 0],

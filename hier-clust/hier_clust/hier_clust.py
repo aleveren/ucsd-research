@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.sparse import coo_matrix, dia_matrix, csr_matrix, issparse
 from sklearn.neighbors import NearestNeighbors, DistanceMetric
 import sklearn.metrics
-from collections import Counter, deque
+from collections import defaultdict, Counter, deque
 import sys
 import os
 import re
@@ -34,7 +34,7 @@ class HierClust(object):
             sparse_similarity = 'auto',
             alpha = 0.8,
             leaf_size = 1,
-            neighbor_graph_strategy = 'rptree',
+            neighbor_graph_strategy = 'balltree',
             metric = 'euclidean',
             full_eigen_threshold = 10,
             convergence_iterations = 10):
@@ -377,9 +377,14 @@ class HierClust(object):
                 distanceFunction = func
             else:
                 distanceFunction = self.metric
-            forest = makeForest(data, maxLeafSize = self.n_neighbors * 2, numTrees = 10, distanceFunction = distanceFunction)
+            forest = makeForest(
+                data,
+                maxLeafSize = self.n_neighbors * 2,
+                numTrees = 10,  # TODO: parameterize
+                distanceFunction = distanceFunction)
             distances, indices = forest.kneighbors(data, k = self.n_neighbors)
-        else:
+
+        elif self.neighbor_graph_strategy == 'balltree':
             nn_obj = NearestNeighbors(
                 n_neighbors = self.n_neighbors,
                 algorithm = 'ball_tree',
@@ -387,10 +392,10 @@ class HierClust(object):
             ).fit(data)
             distances, indices = nn_obj.kneighbors(data)
 
-        row_new = []
-        col_new = []
-        val_new = []
-        entries = Counter()
+        else:  # pragma: no cover
+            raise Exception("Unrecognized neighbor_graph_strategy: {}".format(self.neighbor_graph_strategy))
+
+        entries = defaultdict(list)
         for row_index in xrange(len(data)):
             for nbr_index in xrange(self.n_neighbors):
                col_index = indices[row_index, nbr_index]
@@ -401,21 +406,28 @@ class HierClust(object):
                    dist = np.nan
 
                a, b = min(row_index, col_index), max(row_index, col_index)
-               entries[a, b] += 1
+               entries[a, b].append(dist)
 
-               if a == b or not self.mutual_neighbors:
-                   row_new.append(row_index)
-                   col_new.append(col_index)
-                   val_new.append(dist)
+        row_new = []
+        col_new = []
+        val_new = []
+        for (a, b), dists in entries.items():
+            count = len(dists)
+            assert count == 1 or count == 2
 
-               elif entries[a, b] == 2:
-                   row_new.append(row_index)
-                   col_new.append(col_index)
-                   val_new.append(dist)
+            if a == b:
+                assert count == 1
+                row_new.append(a)
+                col_new.append(b)
+                val_new.append(dists[0])
 
-                   row_new.append(col_index)
-                   col_new.append(row_index)
-                   val_new.append(dist)
+            if a != b and (not self.mutual_neighbors or count == 2):
+                row_new.append(a)
+                col_new.append(b)
+                val_new.append(dists[0])
+                row_new.append(b)
+                col_new.append(a)
+                val_new.append(dists[0])
 
         result = coo_matrix((val_new, (row_new, col_new)), shape=(len(data), len(data)))
         return result
