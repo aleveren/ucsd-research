@@ -46,7 +46,7 @@ class Tests(unittest.TestCase):
             [ 0,  0,  0,  0,  z,  z],
         ], dtype='float')
         dist1_squared = np.asarray(np.square(dist1.todense()))
-        assert np.allclose(dist1_squared, expected, equal_nan=True)
+        np.testing.assert_allclose(dist1_squared, expected, equal_nan=True)
 
         expected = np.array([
             [ 0,  1,  4,  5, 50, 50],
@@ -56,7 +56,7 @@ class Tests(unittest.TestCase):
             [50, 41, 34, 25,  0,  0],
             [50, 41, 34, 25,  0,  0],
         ], dtype='float')
-        assert np.allclose(np.square(dist2), expected)
+        np.testing.assert_allclose(np.square(dist2), expected)
 
         # Check similarity calculations
         sim1 = hc._get_similarity(dist1)
@@ -72,13 +72,13 @@ class Tests(unittest.TestCase):
             [0, 0, x, 1, 0, 0],
             [0, 0, 0, 0, 1, 1],
             [0, 0, 0, 0, 1, 1]])
-        assert np.allclose(sim1.todense(), expected)
+        np.testing.assert_allclose(sim1.todense(), expected)
         assert sim1.nnz == 12
         assert not np.allclose(sim1.todense(), sim2)
         assert not np.allclose(sim2, expected)
 
         expected = np.exp(-dist2 ** 2 / 2.0)
-        assert np.allclose(sim2, expected)
+        np.testing.assert_allclose(sim2, expected)
 
     def test_similarity_sparse_mutual(self):
         # Test case where mutual KNN makes a difference
@@ -94,7 +94,7 @@ class Tests(unittest.TestCase):
             [1, z, 0],
             [0, 0, z]])
         dist1_squared = np.asarray(np.square(dist1.todense()))
-        assert np.allclose(dist1_squared, expected, equal_nan=True)
+        np.testing.assert_allclose(dist1_squared, expected, equal_nan=True)
         assert dist1.nnz == 5
 
         sim1 = hc._get_similarity(dist1)
@@ -104,7 +104,7 @@ class Tests(unittest.TestCase):
             [1, x, 0],
             [x, 1, 0],
             [0, 0, 1]])
-        assert np.allclose(sim1.todense(), expected)
+        np.testing.assert_allclose(sim1.todense(), expected)
         assert sim1.nnz == 5
 
         # Recompute similarities, allowing non-mutual neighbors
@@ -119,7 +119,7 @@ class Tests(unittest.TestCase):
             [1, z, 0],
             [4, 0, z]])
         dist2_squared = np.asarray(np.square(dist2.todense()))
-        assert np.allclose(dist2_squared, expected, equal_nan=True)
+        np.testing.assert_allclose(dist2_squared, expected, equal_nan=True)
         assert dist2.nnz == 7
 
         sim2 = hc._get_similarity(dist2)
@@ -130,7 +130,7 @@ class Tests(unittest.TestCase):
             [1, x, y],
             [x, 1, 0],
             [y, 0, 1]])
-        assert np.allclose(sim2.todense(), expected)
+        np.testing.assert_allclose(sim2.todense(), expected)
         assert sim2.nnz == 7
 
     def test_cluster(self):
@@ -169,7 +169,7 @@ class Tests(unittest.TestCase):
         b = np.array([34, 79, 124])
         expected = np.array([3, 5, 7])
         result = hc._solve_conjugate_gradient(A, b)
-        assert np.allclose(result, expected, atol=1e-2)
+        np.testing.assert_allclose(result, expected, atol=1e-2)
 
     def test_fiedler_vector(self):
         # Fiedler computation via full eigendecomposition
@@ -184,12 +184,12 @@ class Tests(unittest.TestCase):
         L = diag - W
         expected = np.array([0.5, 0.5, -0.5, -0.5])
         result = hc._get_fiedler_vector(L)
-        assert np.allclose(result, expected, atol=1e-6)
+        np.testing.assert_allclose(result, expected, atol=1e-6)
 
         # Fiedler computation via power iteration
         hc = hier_clust.HierClust(full_eigen_threshold = 2)
         result = hc._get_fiedler_vector(L)
-        assert np.allclose(result, expected, atol=1e-3)
+        np.testing.assert_allclose(result, expected, atol=1e-3)
 
     def test_connected_components(self):
         hc = hier_clust.HierClust()
@@ -257,7 +257,7 @@ class Tests(unittest.TestCase):
         ])
 
         dist = hc._get_distances(data)
-        assert np.allclose(dist, expected_dist)
+        np.testing.assert_allclose(dist, expected_dist)
 
         expected_sim = np.array([
             [1.0, 0.5, 0.1, 0.1],
@@ -267,14 +267,14 @@ class Tests(unittest.TestCase):
         ])
 
         sim = hc._get_similarity(dist)
-        assert np.allclose(sim, expected_sim)
+        np.testing.assert_allclose(sim, expected_sim)
 
         expected_fiedler = np.array([0.5, 0.5, -0.5, -0.5])
 
         diag = np.diag(sim.sum(axis=0))
         L = diag - sim
         fiedler = hc._get_fiedler_vector(L)
-        assert np.allclose(fiedler, expected_fiedler)
+        np.testing.assert_allclose(fiedler, expected_fiedler)
 
         expected_partition = np.array([1, 1, 0, 0])
         partition = hc._partition(data)
