@@ -133,11 +133,22 @@ class Tests(unittest.TestCase):
         np.testing.assert_allclose(sim2.todense(), expected)
         assert sim2.nnz == 7
 
-    def test_cluster(self):
+    def test_cluster_balltree(self):
         data = self.sim_data()
         hc = hier_clust.HierClust(
             n_neighbors = 10,
-            sigma_similarity = 'auto')
+            sigma_similarity = 'auto',
+            neighbor_graph_strategy = 'balltree')
+        tree, assignments = hc.fit(data)
+        assert len(tree.data["orig_indices"]) == 100
+        assert len(assignments) == 100
+
+    def test_cluster_rptree(self):
+        data = self.sim_data()
+        hc = hier_clust.HierClust(
+            n_neighbors = 10,
+            sigma_similarity = 'auto',
+            neighbor_graph_strategy = 'rptree')
         tree, assignments = hc.fit(data)
         assert len(tree.data["orig_indices"]) == 100
         assert len(assignments) == 100
@@ -229,6 +240,22 @@ class Tests(unittest.TestCase):
             [5, 7, 0],
         ])
         assert np.array_equal(dist, expected_dist)
+
+        # Test again with rptree
+        hc = hier_clust.HierClust(metric = metric, n_neighbors = 2,
+            neighbor_graph_strategy = 'rptree')
+
+        data = np.array([1, 2, 3]).reshape((-1, 1))
+        dist = hc._get_distances(data)
+        result = hc._partition(data)
+
+        z = np.nan
+        expected_dist = np.array([
+            [z, 3, 5],
+            [3, z, 0],
+            [5, 0, z],
+        ])
+        np.testing.assert_allclose(dist.todense(), expected_dist, equal_nan = True)
 
     def test_partition_end_to_end(self):
         hc = hier_clust.HierClust(sigma_similarity = 1.0)
