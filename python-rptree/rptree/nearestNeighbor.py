@@ -3,7 +3,7 @@
 import numpy as np
 
 def selectQuantile(values, alpha):
-  rank = round(len(values) * alpha)
+  rank = int(round(len(values) * alpha))
   return selectRank(values, rank)
 
 def selectRank(values, rank):
@@ -11,17 +11,9 @@ def selectRank(values, rank):
     return min(values)
   elif rank >= len(values) - 1:
     return max(values)
-  pivot = np.random.choice(values, 1)[0]
-  N = len(values)
-  lower = values[values < pivot]
-  higher = values[values > pivot]
-  if rank < len(lower):
-    return selectRank(lower, rank)
-  elif rank >= N - len(higher):
-    numLowerOrEqual = N - len(higher)
-    return selectRank(higher, rank - numLowerOrEqual)
   else:
-    return pivot
+    partition = np.partition(values, rank)
+    return partition[rank]
 
 def euclidean(a, b):
   return np.linalg.norm(a - b)
