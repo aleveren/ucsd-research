@@ -17,7 +17,6 @@ from tree_util import Tree, get_path_element
 
 _dirname = os.path.dirname(__file__)
 _newpath = os.path.abspath(os.path.join(_dirname, '..', '..', 'python-rptree'))
-print("Adding path {}".format(_newpath))
 sys.path.append(_newpath)
 from rptree.nearestNeighbor import makeForest
 
