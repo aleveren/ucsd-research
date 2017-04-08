@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+from collections import namedtuple
 
 def selectQuantile(values, alpha):
   rank = int(round(len(values) * alpha))
@@ -37,7 +38,7 @@ def makeTree(data, orig_indices, maxLeafSize, distanceFunction):
   if len(data) <= maxLeafSize:
     return Leaf(data, orig_indices, distanceFunction)
   rule = chooseRule(data)
-  leftSelections = np.apply_along_axis(rule, 1, data)
+  leftSelections = rule(data)
   leftTree = makeTree(
       data[leftSelections],
       orig_indices[leftSelections],
@@ -50,6 +51,17 @@ def makeTree(data, orig_indices, maxLeafSize, distanceFunction):
       distanceFunction)
   return Node(rule, leftTree, rightTree)
 
+def repopulateTree(tree, data, orig_indices = None):
+  if orig_indices is None:
+    orig_indices = np.arange(len(data))
+  if isinstance(tree, Leaf):
+    tree.data = data
+    tree.orig_indices = orig_indices
+  else:
+    left_mask = tree.rule(data)
+    repopulateTree(tree.leftTree, data[left_mask], orig_indices[left_mask])
+    repopulateTree(tree.rightTree, data[~left_mask], orig_indices[~left_mask])
+
 def makeForest(data, maxLeafSize, numTrees, distanceFunction):
   indices = np.arange(len(data))
   trees = [makeTree(data, indices, maxLeafSize, distanceFunction)
@@ -57,27 +69,28 @@ def makeForest(data, maxLeafSize, numTrees, distanceFunction):
   return NearestNeighborForest(trees, distanceFunction)
 
 def chooseRule(data):
-  ncols = len(data[0, :])
+  ncols = data.shape[1]
   u = randomUnitVector(ncols)
   beta = np.random.uniform(0.25, 0.75)
-  proj = np.apply_along_axis(lambda x: np.dot(u, x), 1, data)
+  proj = np.dot(data, u)
   split = selectQuantile(proj, beta)
   return Rule(u, split)
 
-class Rule(object):
-  def __init__(self, direction, threshold):
-    self.direction = direction
-    self.threshold = threshold
-
-  def __call__(self, row):
-    '''Apply this rule to a row of data'''
-    return np.dot(self.direction, row) <= self.threshold
+class Rule(namedtuple("Rule", ["direction", "threshold"])):
+  def __call__(self, data):
+    '''Apply this rule to one or more rows of data'''
+    return np.dot(data, self.direction) <= self.threshold
 
 class Leaf(object):
   def __init__(self, data, orig_indices, distanceFunction):
     self.data = data
     self.orig_indices = orig_indices
     self.distanceFunction = distanceFunction
+
+  def getLeaves(self, rows):
+    assert rows.ndim == 2
+    n_rows = rows.shape[0]
+    return np.full((n_rows,), self, dtype='object')
 
   def getLeaf(self, row):
     return self
@@ -87,22 +100,47 @@ class Leaf(object):
         query, self.data, self.distanceFunction)
 
   def kneighbors(self, query, k):
+    query = np.atleast_2d(query)
+    n_query = query.shape[0]
     n_obs = self.data.shape[0]
-    distances = np.zeros((n_obs,))
-    for i in range(n_obs):
-      distances[i] = self.distanceFunction(query, self.data[i, :])
-    if k >= n_obs:
-      closest_ind = np.arange(n_obs)
-    else:
-      closest_ind = np.argpartition(distances, k)[:k]
-    ii = np.argsort(distances[closest_ind])
-    return distances[closest_ind[ii]], self.orig_indices[closest_ind[ii]]
+
+    distances = np.ma.masked_all((n_query, k,))
+    indices = np.ma.masked_all((n_query, k,))
+    for i in xrange(n_query):
+      qd = np.zeros((n_obs,))
+      for j in xrange(n_obs):
+        qd[j] = self.distanceFunction(query[i, :], self.data[j, :])
+      if k >= n_obs:
+        closest_ind = np.arange(n_obs)
+      else:
+        closest_ind = np.argpartition(qd, k)[:k]
+      ii = np.argsort(qd[closest_ind])
+      qd = qd[closest_ind[ii]]
+      qi = self.orig_indices[closest_ind[ii]]
+      distances[i, :len(qd)] = qd
+      indices[i, :len(qi)] = qi
+
+    return distances, indices
 
 class Node(object):
   def __init__(self, rule, leftTree, rightTree):
     self.rule = rule
     self.leftTree = leftTree
     self.rightTree = rightTree
+
+  def getLeaves(self, rows):
+    assert rows.ndim == 2
+    n_rows = rows.shape[0]
+    rule_outcomes = self.rule(rows)
+    left_rows = rows[rule_outcomes, :]
+    right_rows = rows[~rule_outcomes, :]
+    left_leaves = self.leftTree.getLeaves(left_rows)
+    right_leaves = self.rightTree.getLeaves(right_rows)
+
+    leaves = np.full((n_rows,), None, dtype='object')
+    leaves[rule_outcomes] = left_leaves
+    leaves[~rule_outcomes] = right_leaves
+    return leaves
 
   def getLeaf(self, row):
     if self.rule(row):
@@ -115,8 +153,21 @@ class Node(object):
     return leaf.nearestNeighbor(query)
 
   def kneighbors(self, query, k):
-    leaf = self.getLeaf(query)
-    return leaf.kneighbors(query, k)
+    query = np.atleast_2d(query)
+    n_query = query.shape[0]
+
+    leaves = self.getLeaves(query)
+
+    distances = np.ma.masked_all((n_query, k), dtype='float')
+    indices = np.ma.masked_all((n_query, k), dtype='int')
+
+    for q_index in range(n_query):
+      d, i = leaves[q_index].kneighbors(query[q_index, :], k)
+      num_found = d.size
+      distances[q_index, :d.size] = d
+      indices[q_index, :d.size] = i
+
+    return distances, indices
 
 class NearestNeighborForest(object):
   def __init__(self, trees, distanceFunction):
@@ -131,36 +182,40 @@ class NearestNeighborForest(object):
     '''
     Find closest k neighbors, using union of results across all trees in forest
     '''
-    if query.ndim == 2:
-      # Handle batches of queries
-      num_queries = query.shape[0]
-      out_shape = (num_queries, k)
-      distances = np.zeros(out_shape, dtype = 'float')
-      indices = np.zeros(out_shape, dtype = 'int')
-      for j in range(num_queries):
-        d, i = self.kneighbors(query[j, :], k)
-        distances[j, :] = d
-        indices[j, :] = i
-      return distances, indices
+    query = np.atleast_2d(query)
+    n_query = query.shape[0]
 
-    elif query.ndim > 2:  # pragma: no cover
-      raise Exception("Query shape cannot have > 2 dimensions (found {})".format(query.ndim))
+    results = [tree.kneighbors(query, k) for tree in self.trees]
 
-    distances = []
-    indices = []
-    indices_set = set()
-    for tree in self.trees:
-        current_distances, current_indices = tree.kneighbors(query, k)
-        for d, i in zip(current_distances, current_indices):
-            if i not in indices_set:
-                indices_set.add(i)
-                distances.append(d)
-                indices.append(i)
-    distances = np.array(distances)
-    indices = np.array(indices)
-    if len(distances) <= k:
-      closest_ind = np.arange(len(distances))
-    else:
-      closest_ind = np.argpartition(distances, k)[:k]
-    ii = np.argsort(distances[closest_ind])
-    return distances[closest_ind[ii]], indices[closest_ind[ii]]
+    distances = np.ma.masked_all((n_query, k), dtype='float')
+    indices = np.ma.masked_all((n_query, k), dtype='int')
+
+    for q_index in range(n_query):
+        qd = []
+        qi = []
+        indices_set = set()
+        for tree_index in range(len(self.trees)):
+            current_distances, current_indices = results[tree_index]
+            current_distances = current_distances[q_index].compressed()
+            current_indices = current_indices[q_index].compressed()
+            for d, i in zip(current_distances, current_indices):
+                if i not in indices_set:
+                    indices_set.add(i)
+                    qd.append(d)
+                    qi.append(i)
+        qd = np.array(qd)
+        qi = np.array(qi)
+        if k >= len(qd):
+          closest_ind = np.arange(len(qd))
+        else:
+          # This handles the case where trees disagree on k-nearest set
+          # (that is, there are more than k unique "candidates")
+          closest_ind = np.argpartition(qd, k)[:k]
+        ii = np.argsort(qd[closest_ind])
+        qd = qd[closest_ind[ii]]
+        qi = qi[closest_ind[ii]]
+
+        distances[q_index, :len(qd)] = qd
+        indices[q_index, :len(qi)] = qi
+
+    return distances, indices
