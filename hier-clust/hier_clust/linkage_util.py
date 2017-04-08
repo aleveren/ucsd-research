@@ -1,5 +1,7 @@
 import numpy as np
 from collections import namedtuple
+import scipy.cluster.hierarchy as sch
+from .tree_util import Tree
 
 '''
 Utilities for converting a tree into a "linkage" matrix of the form required
@@ -57,3 +59,20 @@ def get_linkage_helper(tree, next_node_id, height):
     entry = Split(next_node_id, node_ids[0], node_ids[1], height, len(indices))
     links.append(entry)
     return links
+
+def linkage_to_tree(link):
+    sch_tree = sch.to_tree(link)
+
+    def convert(t):
+        if t.is_leaf():
+            return Tree.leaf({"orig_indices": [t.get_id()]})
+        else:
+            t1 = convert(t.left)
+            t2 = convert(t.right)
+            combined_indices = sorted(
+                t1.data["orig_indices"] + t2.data["orig_indices"])
+            return Tree(
+                data = {"orig_indices": combined_indices},
+                children = [t1, t2])
+
+    return convert(sch_tree)
