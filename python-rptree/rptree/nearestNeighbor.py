@@ -37,8 +37,7 @@ def randomUnitVector(n):
 def makeTree(data, orig_indices, maxLeafSize, distanceFunction):
   if len(data) <= maxLeafSize:
     return Leaf(data, orig_indices, distanceFunction)
-  rule = chooseRule(data)
-  leftSelections = rule(data)
+  rule, leftSelections = chooseRule(data)
   leftTree = makeTree(
       data[leftSelections],
       orig_indices[leftSelections],
@@ -74,7 +73,8 @@ def chooseRule(data):
   beta = np.random.uniform(0.25, 0.75)
   proj = np.dot(data, u)
   split = selectQuantile(proj, beta)
-  return Rule(u, split)
+  leftSelections = (proj <= split)
+  return Rule(u, split), leftSelections
 
 class Rule(namedtuple("Rule", ["direction", "threshold"])):
   def __call__(self, data):
