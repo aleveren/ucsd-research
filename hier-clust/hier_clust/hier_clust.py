@@ -2,7 +2,8 @@
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix, dia_matrix, csr_matrix, issparse
+from scipy.sparse import (coo_matrix, dia_matrix, csr_matrix,
+    dok_matrix, issparse)
 from sklearn.neighbors import NearestNeighbors, DistanceMetric
 import sklearn.metrics
 from collections import defaultdict, Counter, deque
@@ -55,63 +56,123 @@ class HierClust(object):
         data = np.asarray(data)
         orig_indices = np.arange(len(data))
 
-        tree = self._fit_helper(data, orig_indices, tree_path = '',
-            num_leaves_done = 0)
+        tree = self._clustering(data, orig_indices, tree_path = '')
         assignments = self._get_assignments(tree)
         tree_paths = np.array([p for i, p in assignments], dtype='object')
 
         return tree, tree_paths
 
-    def _fit_helper(self, data, orig_indices, tree_path, num_leaves_done):
+    def _clustering(self, data, orig_indices, tree_path):
         '''
         Recursive helper function for partitioning a dataset into 2 parts
         '''
-        log_msg = "Partitioning {} observations " \
-            "(tree_path = {}, num_leaves_done = {})" \
-            .format(len(data), tree_path, num_leaves_done)
+        log_msg = "Partitioning {} observations (tree_path = {})" \
+            .format(len(data), tree_path)
         _logger.debug(log_msg)
 
+        distances = self._get_distances(data)
+        components = self._get_connected_components(distances)
+        grouped_by_component = self._group_data_by_component(
+            data = data,
+            distances = distances,
+            components = components,
+            orig_indices = orig_indices)
+
+        return self._cluster_multiple_components(
+            groups = grouped_by_component,
+            tree_path = tree_path)
+
+    def _cluster_multiple_components(self, groups, tree_path):
+        if len(groups) == 1:
+            only_group = groups[groups.keys()[0]]
+            return self._cluster_single_component(
+                data = only_group["data"],
+                distances = only_group["distances"],
+                orig_indices = only_group["orig_indices"],
+                tree_path = tree_path)
+
+        unique_components = []
+        component_sizes = []
+        all_orig_indices = []
+        for comp in groups:
+            unique_components.append(comp)
+            component_sizes.append(groups[comp]["size"])
+            all_orig_indices.extend(groups[comp]["orig_indices"])
+
+        # Heuristic: put largest 2 components in separate branches
+        top_component_indices = np.argpartition(component_sizes, -2)[-2:]
+        top_components = np.array(unique_components)[top_component_indices]
+
+        new_groups = {"left": dict(), "right": dict()}
+        new_sizes = {"left": 0, "right": 0}
+        for i, name in enumerate(["left", "right"]):
+            comp = top_components[i]
+            new_groups[name][comp] = groups[comp]
+            new_sizes[name] += groups[comp]["size"]
+
+        # Divide the remaining components naively
+        for comp, current_group in groups.items():
+            if comp not in top_components:
+                if new_sizes["left"] < new_sizes["right"]:
+                    side = "left"
+                else:
+                    side = "right"
+                new_groups[side][comp] = current_group
+                new_sizes[side] += current_group["size"]
+
+        assert len(new_groups["left"]) > 0
+        assert len(new_groups["right"]) > 0
+
+        left_tree = self._cluster_multiple_components(
+            groups = new_groups["left"],
+            tree_path = tree_path + get_path_element(0))
+        right_tree = self._cluster_multiple_components(
+            groups = new_groups["right"],
+            tree_path = tree_path + get_path_element(0))
+        children = [left_tree, right_tree]
+
+        return Tree(children = children, data = {
+            "orig_indices": all_orig_indices,
+            "tree_path": tree_path,
+        })
+
+    def _cluster_single_component(self, data, distances,
+            orig_indices, tree_path):
         if len(data) <= 1 or len(data) <= self.leaf_size:
             return Tree.leaf(data = {
                 "orig_indices": orig_indices,
                 "tree_path": tree_path,
             })
 
-        partition = self._partition(data)
+        partition = self._partition_within_component(
+            data = data, distances = distances)
+
         assert partition.shape == (len(data),)
-
-        data_subsets = []
-        for label in [0, 1]:
-            data_subset = data[partition == label]
-            data_subsets.append(data_subset)
-            size = len(data_subset)
-            if size == 0 or size == len(data): # pragma: no cover
-                raise Exception("Bad partition: ({} of {})" \
-                    .format(size, len(data)))
-
-        _logger.debug("Partition result: #0: {}, #1: {}" \
-            .format(len(data_subsets[0]), len(data_subsets[1])))
+        partition_sizes = Counter(partition)
+        assert len(partition_sizes) == 2 and partition_sizes[0] > 0 and \
+            partition_sizes[1] > 0,  \
+            "Bad partition sizes: {}".format(partition_sizes)
+        _logger.debug("Partition result: {}".format(partition_sizes))
 
         children = []
         for label in [0, 1]:
-            data_subset = data_subsets[label]
-            orig_indices_subset = orig_indices[partition == label]
-            subtree = self._fit_helper(
+            partition_mask = partition == label
+            data_subset = data[partition_mask]
+            orig_indices_subset = orig_indices[partition_mask]
+            subtree = self._clustering(
                 data_subset,
                 orig_indices_subset,
-                tree_path + get_path_element(label),
-                num_leaves_done = num_leaves_done)
+                tree_path + get_path_element(label))
             children.append(subtree)
-            num_leaves_done += len(data_subset)
 
         return Tree(children = children, data = {
             "orig_indices": orig_indices,
             "tree_path": tree_path,
         })
 
-    def _partition(self, data):
+    def _partition_within_component(self, data, distances):
         '''
-        Partitions a dataset into two pieces
+        Partitions a connected component into two pieces
         '''
         n_obs = data.shape[0]
         assert n_obs >= 2
@@ -119,39 +180,31 @@ class HierClust(object):
         if n_obs == 2:
             return np.array([0, 1])
 
-        distances = self._get_distances(data)
-        components, num_components = self._get_connected_components(distances)
-        if num_components == 1:
-            similarity = self._get_similarity(distances)
-            diag = similarity.sum(axis = 0)
-            diag = dia_matrix((diag, [0]), (n_obs, n_obs)).tocsr()
-            laplacian = diag - similarity
-            fiedler_vector = self._get_fiedler_vector(laplacian)
+        similarity = self._get_similarity(distances)
+        diag = similarity.sum(axis = 0)
+        diag = dia_matrix((diag, [0]), (n_obs, n_obs)).tocsr()
+        laplacian = diag - similarity
+        fiedler_vector = self._get_fiedler_vector(laplacian)
 
-            stats = Counter()
-            for f in fiedler_vector:
-                if f < 0: stats['neg'] += 1
-                elif f == 0: stats['eq'] += 1
-                elif f > 0: stats['pos'] += 1
+        stats = Counter()
+        for f in fiedler_vector:
+            if f < 0: stats['neg'] += 1
+            elif f == 0: stats['eq'] += 1
+            elif f > 0: stats['pos'] += 1
 
-            if stats['neg'] > 0 and stats['pos'] + stats['eq'] > 0:
-                partition = (fiedler_vector >= 0).astype('int')
-            else:  # pragma: no cover
-                raise Exception("Couldn't properly partition data; "
-                    "eigenvector components: {}".format(stats))
+        if stats['neg'] > 0 and stats['pos'] + stats['eq'] > 0:
+            partition = (fiedler_vector >= 0).astype('int')
+        else:  # pragma: no cover
+            # TODO: fall back to some other partitioning method?
+            raise Exception("Couldn't properly partition data; "
+                "eigenvector components: {}".format(stats))
 
-            assert partition.shape == (n_obs,)
-            return partition
-
-        else:
-            _logger.debug("Found {} components".format(num_components))
-            partition = (components > 0).astype('int')
-            assert partition.shape == (n_obs,)
-            return partition
+        assert partition.shape == (n_obs,)
+        return partition
 
     def _get_connected_components(self, A):
         '''
-        Use depth-first search to label all connected components
+        Use breadth-first search to label all connected components
         '''
         if not isinstance(A, csr_matrix):
             A = csr_matrix(A)
@@ -182,7 +235,34 @@ class HierClust(object):
             bfs(current, num_components)
             num_components += 1
 
-        return components, num_components
+        return components
+
+    def _group_data_by_component(self, data, distances, orig_indices, components):
+        indices_by_component = defaultdict(list)
+        for i, c in enumerate(components):
+            indices_by_component[c].append(i)
+        grouped_by_component = dict()
+        for c, indices in indices_by_component.items():
+            grouped_by_component[c] = {
+                "size": len(indices),
+                "data": data[indices],
+                "orig_indices": orig_indices[indices],
+                "distances": self._distance_subset(distances, indices),
+            }
+        return grouped_by_component
+
+    def _distance_subset(self, distances, indices):
+        '''
+        Extract the submatrix of a sparse distance matrix corresponding
+        to the given indices, slicing along both rows and columns.
+        '''
+        assert isinstance(distances, csr_matrix)
+        indices = np.asarray(indices)
+        # First, slice CSR by rows
+        result = distances[indices, :]
+        # Then, slice CSC by columns and convert back to CSR
+        result = result.tocsc()[:, indices].tocsr()
+        return result
 
     def _get_fiedler_vector(self, A):
         '''
@@ -294,13 +374,12 @@ class HierClust(object):
         '''
         Generate a similarity matrix for the given distance matrix
         '''
+        assert isinstance(dist, csr_matrix)
+
         if self.sigma_similarity == 'auto':
             # Choose the value of sigma that maps the
             # median distance to self.alpha
-            if issparse(dist):
-                flat_dist = np.asarray(dist.data)
-            else:
-                flat_dist = dist.flatten()
+            flat_dist = np.asarray(dist.data)
             nontrivial_dist = flat_dist[(flat_dist != 0) & np.isfinite(flat_dist)]
             _logger.debug("Computing median distance")
             med_dist = self._get_median(nontrivial_dist)
@@ -314,40 +393,24 @@ class HierClust(object):
             sigma = self.sigma_similarity
         scaling_factor = 2. * sigma ** 2
 
-        if issparse(dist):
-            row_new = []
-            col_new = []
-            val_new = []
-            for i in xrange(len(dist.data)):
-                row = dist.row[i]
-                col = dist.col[i]
-                val = dist.data[i]
-                row_new.append(row)
-                col_new.append(col)
-                if row == col or np.isnan(val):
-                    # Workaround: NaN prevents sparse format from ignoring zeros
-                    val_new.append(1.0)
-                else:
-                    sim = np.exp(-val ** 2 / scaling_factor)
-                    val_new.append(sim)
-            similarity = coo_matrix((val_new, (row_new, col_new)), shape=dist.shape)
-        else:
-            similarity = np.exp(-dist ** 2 / scaling_factor)
+        sim_data = np.zeros_like(dist.data)
+        mask = np.isfinite(dist.data)
+        sim_data[mask] = np.exp(-dist.data[mask] ** 2 / scaling_factor)
+
+        similarity = dist.copy()
+        similarity.data = sim_data
 
         # Enforce symmetry
+        # TODO: make sure that this operation is still efficient when sparse
         similarity = 0.5 * similarity + 0.5 * similarity.T
 
-        if issparse(dist):
-            flat_sim = np.asarray(similarity.data)
-        else:
-            flat_sim = similarity.flatten()
+        flat_sim = np.asarray(similarity.data)
         nontrivial_sim = flat_sim[(flat_sim != 0) & (flat_sim != 1.0) & np.isfinite(flat_sim)]
         _logger.debug("Computing median similarity")
         med_sim = self._get_median(nontrivial_sim)
         _logger.debug("Median similarity = {}".format(med_sim))
 
-        if issparse(similarity):
-            similarity = csr_matrix(similarity)
+        assert isinstance(similarity, csr_matrix)
 
         return similarity
 
@@ -364,8 +427,8 @@ class HierClust(object):
             sparse = (len(data) > self.n_neighbors)
 
         if not sparse:
-            return sklearn.metrics.pairwise.pairwise_distances(
-                data, metric = self.metric)
+            return csr_matrix(sklearn.metrics.pairwise.pairwise_distances(
+                data, metric = self.metric))
 
         if self.neighbor_graph_strategy == 'rptree':
             if isinstance(self.metric, basestring):  # TODO: python3 compatibility
@@ -429,6 +492,7 @@ class HierClust(object):
                 val_new.append(dists[0])
 
         result = coo_matrix((val_new, (row_new, col_new)), shape=(len(data), len(data)))
+        result = result.tocsr()
         return result
 
 
