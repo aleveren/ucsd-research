@@ -2,7 +2,7 @@ import unittest
 from mock import patch
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse
+from scipy.sparse import issparse, dia_matrix
 
 import context
 import hier_clust
@@ -23,18 +23,11 @@ class Tests(unittest.TestCase):
         return data
 
     def test_similarity_sparse(self):
-        # Test case where sparseness makes a difference
         d = np.array([[0,0], [1,0], [0,2], [1,2], [5,5], [5,5]])
 
-        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
-            sparse_similarity = 'auto')
+        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0)
         dist1 = hc._get_distances(d)
         assert issparse(dist1)
-
-        hc = hier_clust.HierClust(n_neighbors = 2, sigma_similarity = 1.0,
-            sparse_similarity = 'never')
-        dist2 = hc._get_distances(d)
-        assert not issparse(dist2)
 
         # Check distance calculations
         z = np.nan
@@ -46,24 +39,12 @@ class Tests(unittest.TestCase):
             [ 0,  0,  0,  0,  z,  z],
             [ 0,  0,  0,  0,  z,  z],
         ], dtype='float')
-        dist1_squared = np.asarray(np.square(dist1.todense()))
+        dist1_squared = np.asarray(np.square(np.asarray(dist1.todense())))
         np.testing.assert_allclose(dist1_squared, expected, equal_nan=True)
-
-        expected = np.array([
-            [ 0,  1,  4,  5, 50, 50],
-            [ 1,  0,  5,  4, 41, 41],
-            [ 4,  5,  0,  1, 34, 34],
-            [ 5,  4,  1,  0, 25, 25],
-            [50, 41, 34, 25,  0,  0],
-            [50, 41, 34, 25,  0,  0],
-        ], dtype='float')
-        np.testing.assert_allclose(np.square(dist2), expected)
 
         # Check similarity calculations
         sim1 = hc._get_similarity(dist1)
         assert issparse(sim1)
-        sim2 = hc._get_similarity(dist2)
-        assert not issparse(sim2)
 
         x = np.exp(-0.5)
         expected = np.array([
@@ -73,13 +54,8 @@ class Tests(unittest.TestCase):
             [0, 0, x, 1, 0, 0],
             [0, 0, 0, 0, 1, 1],
             [0, 0, 0, 0, 1, 1]])
-        np.testing.assert_allclose(sim1.todense(), expected)
+        np.testing.assert_allclose(np.asarray(sim1.todense()), expected)
         assert sim1.nnz == 12
-        assert not np.allclose(sim1.todense(), sim2)
-        assert not np.allclose(sim2, expected)
-
-        expected = np.exp(-dist2 ** 2 / 2.0)
-        np.testing.assert_allclose(sim2, expected)
 
     def test_similarity_sparse_mutual(self):
         # Test case where mutual KNN makes a difference
@@ -105,7 +81,7 @@ class Tests(unittest.TestCase):
             [1, x, 0],
             [x, 1, 0],
             [0, 0, 1]])
-        np.testing.assert_allclose(sim1.todense(), expected)
+        np.testing.assert_allclose(np.asarray(sim1.todense()), expected)
         assert sim1.nnz == 5
 
         # Recompute similarities, allowing non-mutual neighbors
@@ -131,7 +107,7 @@ class Tests(unittest.TestCase):
             [1, x, y],
             [x, 1, 0],
             [y, 0, 1]])
-        np.testing.assert_allclose(sim2.todense(), expected)
+        np.testing.assert_allclose(np.asarray(sim2.todense()), expected)
         assert sim2.nnz == 7
 
     def test_cluster_balltree(self):
@@ -140,16 +116,6 @@ class Tests(unittest.TestCase):
             n_neighbors = 10,
             sigma_similarity = 'auto',
             neighbor_graph_strategy = 'balltree')
-        tree, assignments = hc.fit(data)
-        assert len(tree.data["orig_indices"]) == 100
-        assert len(assignments) == 100
-
-    def test_cluster_rptree(self):
-        data = self.sim_data()
-        hc = hier_clust.HierClust(
-            n_neighbors = 10,
-            sigma_similarity = 'auto',
-            neighbor_graph_strategy = 'rptree')
         tree, assignments = hc.fit(data)
         assert len(tree.data["orig_indices"]) == 100
         assert len(assignments) == 100
@@ -192,7 +158,7 @@ class Tests(unittest.TestCase):
             [0.1, 0.1, 1.0, 0.5],
             [0.1, 0.1, 0.5, 1.0],
         ])
-        diag = np.diag(W.sum(axis = 0))
+        diag = np.diagflat(W.sum(axis = 0))
         L = diag - W
         expected = np.array([0.5, 0.5, -0.5, -0.5])
         result = hc._get_fiedler_vector(L)
@@ -213,17 +179,16 @@ class Tests(unittest.TestCase):
             [z(2,3), 5*a(2), z(2,2)],
             [z(2,3), z(2,2), 7*a(2)],
         ])
-        components, num_components = hc._get_connected_components(dist)
+        components = hc._get_connected_components(dist)
 
-        assert np.array_equal(np.sort(np.unique(components)), [0, 1, 2])
+        np.testing.assert_array_equal(np.sort(np.unique(components)), [0, 1, 2])
         assert len(np.unique(components[:3])) == 1
         assert len(np.unique(components[3:5])) == 1
         assert len(np.unique(components[5:])) == 1
-        assert num_components == 3
 
     def test_custom_metric(self):
         def metric(x, y):
-            x, y = min(x, y), max(x, y)
+            x, y = min(x[0], y[0]), max(x[0], y[0])
             if x == y: return 0.0
             elif x == 1 and y == 2: return 3.0
             elif x == 1 and y == 3: return 5.0
@@ -235,28 +200,13 @@ class Tests(unittest.TestCase):
         data = np.array([1, 2, 3]).reshape((-1, 1))
         dist = hc._get_distances(data)
 
+        x = np.nan
         expected_dist = np.array([
-            [0, 3, 5],
-            [3, 0, 7],
-            [5, 7, 0],
+            [x, 3, 5],
+            [3, x, 7],
+            [5, 7, x],
         ])
-        assert np.array_equal(dist, expected_dist)
-
-        # Test again with rptree
-        hc = hier_clust.HierClust(metric = metric, n_neighbors = 2,
-            neighbor_graph_strategy = 'rptree')
-
-        data = np.array([1, 2, 3]).reshape((-1, 1))
-        dist = hc._get_distances(data)
-        result = hc._partition(data)
-
-        z = np.nan
-        expected_dist = np.array([
-            [z, 3, 5],
-            [3, z, 0],
-            [5, 0, z],
-        ])
-        np.testing.assert_allclose(dist.todense(), expected_dist, equal_nan = True)
+        np.testing.assert_array_equal(np.asarray(dist.todense()), expected_dist)
 
     def test_partition_end_to_end(self):
         hc = hier_clust.HierClust(sigma_similarity = 1.0)
@@ -277,15 +227,16 @@ class Tests(unittest.TestCase):
             [0, r-y, z],
         ])
 
+        x = np.nan
         expected_dist = np.array([
-            [0, a, b, b],
-            [a, 0, b, b],
-            [b, b, 0, a],
-            [b, b, a, 0],
+            [x, a, b, b],
+            [a, x, b, b],
+            [b, b, x, a],
+            [b, b, a, x],
         ])
 
         dist = hc._get_distances(data)
-        np.testing.assert_allclose(dist, expected_dist)
+        np.testing.assert_allclose(np.asarray(dist.todense()), expected_dist)
 
         expected_sim = np.array([
             [1.0, 0.5, 0.1, 0.1],
@@ -295,18 +246,19 @@ class Tests(unittest.TestCase):
         ])
 
         sim = hc._get_similarity(dist)
-        np.testing.assert_allclose(sim, expected_sim)
+        np.testing.assert_allclose(np.asarray(sim.todense()), expected_sim)
 
         expected_fiedler = np.array([0.5, 0.5, -0.5, -0.5])
 
-        diag = np.diag(sim.sum(axis=0))
+        diag = sim.sum(axis=0)
+        diag = dia_matrix((diag, [0]), (4, 4)).tocsr()
         L = diag - sim
         fiedler = hc._get_fiedler_vector(L)
         np.testing.assert_allclose(fiedler, expected_fiedler)
 
         expected_partition = np.array([1, 1, 0, 0])
-        partition = hc._partition(data)
-        assert np.array_equal(partition, expected_partition)
+        partition = hc._partition_within_component(data, dist)
+        np.testing.assert_array_equal(partition, expected_partition)
 
     @patch('pandas.DataFrame.to_csv')
     @patch('pandas.read_csv')

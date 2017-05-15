@@ -16,11 +16,6 @@ import logging
 
 from tree_util import Tree, get_path_element
 
-_dirname = os.path.dirname(__file__)
-_newpath = os.path.abspath(os.path.join(_dirname, '..', '..', 'python-rptree'))
-sys.path.append(_newpath)
-from rptree.nearestNeighbor import makeForest
-
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())
@@ -31,7 +26,6 @@ class HierClust(object):
             n_neighbors = 20,
             mutual_neighbors = False,
             sigma_similarity = 'auto',
-            sparse_similarity = 'auto',
             alpha = 0.8,
             leaf_size = 1,
             neighbor_graph_strategy = 'balltree',
@@ -41,7 +35,6 @@ class HierClust(object):
         self.n_neighbors = n_neighbors
         self.mutual_neighbors = mutual_neighbors
         self.sigma_similarity = sigma_similarity
-        self.sparse_similarity = sparse_similarity
         self.alpha = alpha
         self.leaf_size = leaf_size
         self.neighbor_graph_strategy = neighbor_graph_strategy
@@ -270,7 +263,7 @@ class HierClust(object):
         '''
         if A.shape[0] < self.full_eigen_threshold:
             if issparse(A):  # pragma: no cover
-                A = A.todense()
+                A = np.asarray(A.todense())
             ws, vs = np.linalg.eigh(A)
             return np.asarray(vs[:, 1]).flatten()
 
@@ -393,7 +386,7 @@ class HierClust(object):
             sigma = self.sigma_similarity
         scaling_factor = 2. * sigma ** 2
 
-        sim_data = np.zeros_like(dist.data)
+        sim_data = np.ones_like(dist.data)
         mask = np.isfinite(dist.data)
         sim_data[mask] = np.exp(-dist.data[mask] ** 2 / scaling_factor)
 
@@ -416,39 +409,14 @@ class HierClust(object):
 
     def _get_distances(self, data):
         '''
-        Gets a distance matrix.
-        For small datasets, return a dense matrix, otherwise return
-        a sparse matrix based on K-nearest-neighbors.
+        Gets a distance matrix based on K-nearest neighbors.
         '''
-        sparse = self.sparse_similarity
-        if sparse == 'never':
-            sparse = False
-        elif sparse == 'auto' or sparse is None:
-            sparse = (len(data) > self.n_neighbors)
+        n_obs = data.shape[0]
+        n_neighbors = min(self.n_neighbors, n_obs)
 
-        if not sparse:
-            return csr_matrix(sklearn.metrics.pairwise.pairwise_distances(
-                data, metric = self.metric))
-
-        if self.neighbor_graph_strategy == 'rptree':
-            if isinstance(self.metric, basestring):  # TODO: python3 compatibility
-                local_metric = DistanceMetric.get_metric(self.metric)
-                def func(x, y):
-                    result = local_metric.pairwise([x], [y])
-                    return np.asscalar(result)
-                distanceFunction = func
-            else:
-                distanceFunction = self.metric
-            forest = makeForest(
-                data,
-                maxLeafSize = self.n_neighbors * 2,
-                numTrees = 10,  # TODO: parameterize
-                distanceFunction = distanceFunction)
-            distances, indices = forest.kneighbors(data, k = self.n_neighbors)
-
-        elif self.neighbor_graph_strategy == 'balltree':
+        if self.neighbor_graph_strategy == 'balltree':
             nn_obj = NearestNeighbors(
-                n_neighbors = self.n_neighbors,
+                n_neighbors = n_neighbors,
                 algorithm = 'ball_tree',
                 metric = self.metric,
             ).fit(data)
@@ -459,7 +427,7 @@ class HierClust(object):
 
         entries = defaultdict(list)
         for row_index in xrange(len(data)):
-            for nbr_index in xrange(self.n_neighbors):
+            for nbr_index in xrange(n_neighbors):
                col_index = indices[row_index, nbr_index]
 
                dist = distances[row_index, nbr_index]
