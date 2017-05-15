@@ -1,7 +1,8 @@
 import unittest
 import numpy as np
 
-from context import tree_util, linkage_util
+import context
+from hier_clust import tree_util, linkage_util
 
 Tree = tree_util.Tree
 

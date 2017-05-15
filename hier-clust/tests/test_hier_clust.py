@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import issparse
 
-from context import hier_clust
+import context
+import hier_clust
 
 
 class Tests(unittest.TestCase):

@@ -2,7 +2,8 @@ import unittest
 import numpy as np
 import textwrap
 
-from context import tree_util
+import context
+from hier_clust import tree_util
 
 Tree = tree_util.Tree
 
