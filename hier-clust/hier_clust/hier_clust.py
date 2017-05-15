@@ -199,8 +199,7 @@ class HierClust(object):
         '''
         Use breadth-first search to label all connected components
         '''
-        if not isinstance(A, csr_matrix):
-            A = csr_matrix(A)
+        assert isinstance(A, csr_matrix)
         n_obs = A.shape[0]
         num_components = 0
         unvisited = set(range(n_obs))

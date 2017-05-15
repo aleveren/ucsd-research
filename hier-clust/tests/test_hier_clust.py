@@ -2,7 +2,7 @@ import unittest
 from mock import patch
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse, dia_matrix
+from scipy.sparse import issparse, dia_matrix, csr_matrix
 
 import context
 import hier_clust
@@ -170,21 +170,86 @@ class Tests(unittest.TestCase):
         np.testing.assert_allclose(result, expected, atol=1e-3)
 
     def test_connected_components(self):
-        hc = hier_clust.HierClust()
-
+        # Test computing connected components
         z = lambda n, m: np.zeros((n, m))
         a = lambda n: np.ones((n, n))
-        dist = np.bmat([
+        dist = csr_matrix(np.bmat([
             [3*a(3), z(3,2), z(3,2)],
             [z(2,3), 5*a(2), z(2,2)],
             [z(2,3), z(2,2), 7*a(2)],
-        ])
+        ]))
+
+        hc = hier_clust.HierClust()
         components = hc._get_connected_components(dist)
 
         np.testing.assert_array_equal(np.sort(np.unique(components)), [0, 1, 2])
         assert len(np.unique(components[:3])) == 1
         assert len(np.unique(components[3:5])) == 1
         assert len(np.unique(components[5:])) == 1
+
+        data = np.arange(7 * 4).reshape(7, 4)
+
+        # Test grouping of data by component
+        groups = hc._group_data_by_component(
+            data = data,
+            distances = dist,
+            orig_indices = np.arange(len(data)),
+            components = components)
+
+        assert sorted(groups.keys()) == [0, 1, 2]
+        assert sorted(groups[0].keys()) \
+            == ["data", "distances", "orig_indices", "size"]
+
+        assert groups[0]["data"].shape == (3, 4)
+        assert groups[0]["size"] == 3
+        np.testing.assert_array_equal(groups[0]["orig_indices"], [0, 1, 2])
+        np.testing.assert_array_equal(
+            np.asarray(groups[0]["distances"].todense()), 3*np.ones((3, 3)))
+
+        assert groups[1]["data"].shape == (2, 4)
+        assert groups[1]["size"] == 2
+        np.testing.assert_array_equal(groups[1]["orig_indices"], [3, 4])
+        np.testing.assert_array_equal(
+            np.asarray(groups[1]["distances"].todense()), 5*np.ones((2, 2)))
+
+        assert groups[2]["data"].shape == (2, 4)
+        assert groups[2]["size"] == 2
+        np.testing.assert_array_equal(groups[2]["orig_indices"], [5, 6])
+        np.testing.assert_array_equal(
+            np.asarray(groups[2]["distances"].todense()), 7*np.ones((2, 2)))
+
+    def test_cluster_multiple_components(self):
+        # Test partitioning by cluster
+        data = np.arange(3 * 4).reshape(3, 4)
+        x = np.nan
+        dist = csr_matrix(np.array([[x, 0, 0], [0, x, 0], [0, 0, x]]))
+
+        hc = hier_clust.HierClust()
+        components = hc._get_connected_components(dist)
+        np.testing.assert_array_equal(np.sort(np.unique(components)), [0, 1, 2])
+
+        groups = hc._group_data_by_component(
+            data = data,
+            distances = dist,
+            orig_indices = np.arange(len(data)),
+            components = components)
+
+        tree = hc._cluster_multiple_components(groups = groups, tree_path = '')
+        np.testing.assert_array_equal(tree.data["orig_indices"], [0, 1, 2])
+
+        assert len(tree.children) == 2
+        assert len(tree.children[0].children) == 0
+        assert len(tree.children[1].children) == 2
+        assert len(tree.children[1].children[0].children) == 0
+        assert len(tree.children[1].children[1].children) == 0
+
+        l1 = tree.children[0]
+        l2 = tree.children[1].children[0]
+        l3 = tree.children[1].children[1]
+
+        np.testing.assert_array_equal(l1.data["orig_indices"], [1])
+        np.testing.assert_array_equal(l2.data["orig_indices"], [0])
+        np.testing.assert_array_equal(l3.data["orig_indices"], [2])
 
     def test_custom_metric(self):
         def metric(x, y):
