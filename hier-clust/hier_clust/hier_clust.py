@@ -71,6 +71,10 @@ class HierClust(object):
             components = components,
             orig_indices = orig_indices)
 
+        if len(grouped_by_component) > 1:
+            _logger.info("Found {} components at tree_path '{}'".format(
+                len(grouped_by_component), tree_path))
+
         return self._cluster_multiple_components(
             groups = grouped_by_component,
             tree_path = tree_path)
