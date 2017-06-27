@@ -1,4 +1,15 @@
 import numpy as np
+from collections import Counter, defaultdict
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib import animation
+except:
+    plt = None
+    animation = None
+try:
+    import networkx as nx
+except:
+    nx = None
 
 class CRP(object):
     def __init__(self, alpha):
@@ -46,3 +57,75 @@ class NCRP(object):
             next_seat = self.simulate_round(seating, truncate_level)
             seating.append(next_seat)
         return seating
+
+def plot_ncrp_subtree(seating, highlight_last = False, ax = None):
+    assert plt is not None, "Could not import matplotlib.pyplot"
+    assert nx is not None, "Could not import networkx"
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(10, 8))
+
+    if not seating:
+        return
+
+    last = seating[-1]
+
+    g = nx.Graph()
+    pos = dict()
+    labels = dict()
+    node_list = []
+    node_color = []
+    x_by_parent = defaultdict(list)
+
+    truncate_level = len(seating[0])
+    while True:
+        count = Counter(seating)
+        for node_index, node in enumerate(sorted(count.keys())):
+            g.add_node(node)
+            if node not in x_by_parent:
+                x = 2 * node_index
+            else:
+                x = 0.5 * (np.min(x_by_parent[node]) + np.max(x_by_parent[node]))
+
+            node_list.append(node)
+            if highlight_last and last[:len(node)] == node:
+                node_color.append('#00ff00')
+            else:
+                node_color.append('white')
+
+            pos[node] = (x, -truncate_level)
+            labels[node] = count[node]
+            if len(node) > 0:
+                g.add_edge(tuple(node[:-1]), node)
+                x_by_parent[tuple(node[:-1])].append(x)
+
+        if truncate_level == 0:
+            break
+        seating = [s[:-1] for s in seating]
+        truncate_level = len(seating[0])
+
+    nx.draw(g, nodelist=node_list, pos=pos, labels=labels, ax=ax, node_color=node_color, node_size=600)
+
+def plot_ncrp_animation(seating):
+    t_max = len(seating)
+
+    fig = plt.figure(figsize=(8, 6))
+
+    class AnimManager(object):
+        def init_anim(self):
+            self.ax = fig.gca()
+
+        def animate(self, i):
+            self.ax.clear()
+            plot_ncrp_subtree(seating = seating[:i], highlight_last = True, ax = self.ax)
+            self.ax.autoscale()
+
+    mgr = AnimManager()
+
+    anim = animation.FuncAnimation(fig,
+        func=mgr.animate,
+        init_func=mgr.init_anim,
+        frames=range(1, t_max+1),
+        interval=500,
+        repeat_delay=1000)
+    return anim
