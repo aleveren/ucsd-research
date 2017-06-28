@@ -200,3 +200,81 @@ class GEMDraw(object):
             if cumulative > p:
                 return i
             i += 1
+
+class TopicGenerator(object):
+    def __init__(self, eta, gamma, m, pi, vocab):
+        self.eta = eta
+        self.vocab = vocab
+        self.gem = GEM(m = m, pi = pi)
+        self.ncrp = NCRP(alpha = gamma)
+        self.m = m
+        self.pi = pi
+        self.gamma = gamma
+        self.reset()
+
+    def reset(self):
+        self.path_history = []
+        self.depth_history_by_document = []
+        self.max_depth = 0
+        self.depth_distrib_by_document = []
+        self.cached_topics = dict()
+
+    def lookup_topic(self, path):
+        if path not in self.cached_topics:
+            if np.iterable(self.eta):
+                i = min(len(path), len(self.eta) - 1)
+                current_eta = self.eta[i]
+            else:
+                current_eta = self.eta
+            topic = np.random.dirichlet(current_eta * np.ones(len(self.vocab)))
+            self.cached_topics[path] = topic
+        return self.cached_topics[path]
+
+    def draw_word(self, path):
+        topic = self.lookup_topic(path)
+        return np.random.choice(self.vocab, p = topic)
+
+    def extend_paths(self, length):
+        '''Make sure each path in path history has been extended to the proper length'''
+        if len(self.path_history) == 0:
+            return
+        while len(self.path_history[0]) < length:
+            target_len = len(self.path_history[0]) + 1
+            for i, h in enumerate(self.path_history):
+                seating_at_level = [t[target_len - 1]
+                    for t in self.path_history
+                    if len(t) >= target_len and t[:target_len-1] == h]
+                next_seat = self.ncrp.crp.simulate_round(seating = seating_at_level)
+                self.path_history[i] = h + (next_seat,)
+
+    def draw_document(self, doc_length):
+        doc = []
+        thetas = self.gem.draw()
+        self.depth_distrib_by_document.append(thetas)
+        depth_history = []
+        for word_index in range(doc_length):
+            depth_history.append(thetas.draw())
+
+        self.max_depth = max(self.max_depth, np.max(depth_history))
+        self.depth_history_by_document.append(depth_history)
+
+        self.extend_paths(length = self.max_depth)
+        path = self.ncrp.simulate_round(
+            seating = self.path_history,
+            truncate_level = self.max_depth)
+        self.path_history.append(path)
+
+        for word_index in range(doc_length):
+            level = depth_history[word_index]
+            word = self.draw_word(path[:level])
+            doc.append(word)
+        return doc
+
+    def draw_corpus(self, n_documents, doc_length):
+        if not np.iterable(doc_length):
+            doc_length = [doc_length for i in range(n_documents)]
+        corpus = []
+        for doc_index, current_length in enumerate(doc_length):
+            doc = self.draw_document(current_length)
+            corpus.append(doc)
+        return corpus
