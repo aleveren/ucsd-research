@@ -1,11 +1,7 @@
 import numpy as np
 from collections import Counter, defaultdict
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib import animation
-except:
-    plt = None
-    animation = None
+import matplotlib.pyplot as plt
+from matplotlib import animation
 try:
     import networkx as nx
 except:
@@ -58,12 +54,12 @@ class NCRP(object):
             seating.append(next_seat)
         return seating
 
-def plot_ncrp_subtree(seating, highlight_last = False, depth_last = None, ax = None):
+def plot_ncrp_subtree(seating, highlight_last = False, depth_last = None, figsize = (8, 6), ax = None):
     assert plt is not None, "Could not import matplotlib.pyplot"
     assert nx is not None, "Could not import networkx"
 
     if ax is None:
-        _, ax = plt.subplots(figsize=(10, 8))
+        _, ax = plt.subplots(figsize=figsize)
 
     if len(seating) == 0:
         return
@@ -109,30 +105,49 @@ def plot_ncrp_subtree(seating, highlight_last = False, depth_last = None, ax = N
 
     nx.draw(g, nodelist=node_list, pos=pos, labels=labels, ax=ax, node_color=node_color, node_size=600)
 
-def plot_ncrp_animation(path_history, depth_history = None):
-    t_max = len(path_history)
+def plot_ncrp_animation(path_history, depth_history = None, figsize = (8, 6),
+        interval = 500, repeat_delay = 1000):
+    fig = plt.figure(figsize=figsize)
 
-    fig = plt.figure(figsize=(8, 6))
+    steps = []
+    for p_index, p in enumerate(path_history):
+        if depth_history is None:
+            steps.append((p_index, None))
+        else:
+            for d in depth_history[p_index]:
+                steps.append((p_index, d))
 
     class AnimManager(object):
+        def __init__(self, steps):
+            self.steps = steps
+
         def init_anim(self):
             self.ax = fig.gca()
 
         def animate(self, i):
             self.ax.clear()
-            depth = None if depth_history is None else depth_history[i-1]
-            plot_ncrp_subtree(seating = path_history[:i], highlight_last = True,
-                depth_last = depth, ax = self.ax)
+            if depth_history is None:
+                p_index, depth_last = self.steps[i]
+            else:
+                p_index, depth = self.steps[i // 2]
+                depth_last = depth if (i % 2 == 0) else None
+            plot_ncrp_subtree(
+                seating = path_history[:p_index+1],
+                highlight_last = True,
+                depth_last = depth_last,
+                ax = self.ax)
             self.ax.autoscale()
 
-    mgr = AnimManager()
+    mgr = AnimManager(steps)
+
+    frames = range(2*len(steps)) if depth_history is not None else range(len(steps))
 
     anim = animation.FuncAnimation(fig,
         func=mgr.animate,
         init_func=mgr.init_anim,
-        frames=range(1, t_max+1),
-        interval=500,
-        repeat_delay=1000)
+        frames=frames,
+        interval=interval,
+        repeat_delay=repeat_delay)
     return anim
 
 def nice_hist(x, bin_width = 1.0, ax = None, **kwargs):
