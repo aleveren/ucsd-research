@@ -138,3 +138,39 @@ def nice_hist(x, bin_width = 1.0, ax = None, **kwargs):
         high = np.max(x) + bin_width*2
         kwargs["bins"] = np.arange(low, high, bin_width)
     return ax.hist(x, **kwargs)
+
+class GEM(object):
+    '''Represents a 2-parameter version of the GEM distribution
+    (defined in terms of a stick-breaking construction).'''
+    def __init__(self, pi, m):
+        self.pi = pi
+        self.m = m
+
+    def draw(self):
+        return GEMDraw(pi = self.pi, m = self.m)
+
+class GEMDraw(object):
+    '''Represents a lazily-evaluated instance of a single draw from a GEM distribution.
+    Note: lazy evaluation is required, because a single evaluation'''
+    def __init__(self, pi, m):
+        self.pi = pi
+        self.m = m
+        self.cached_thetas = []
+        self.sum_thetas = 0.0
+
+    def draw(self):
+        '''Draw a random non-negative integer based on the distribution
+        defined by this instance.'''
+        cumulative = 0.0
+        p = np.random.uniform(0.0, 1.0)
+        i = 0
+        while True:
+            if i == len(self.cached_thetas):
+                remaining = 1.0 - self.sum_thetas
+                next_theta = remaining * np.random.beta(self.m * self.pi, (1 - self.m) * self.pi)
+                self.cached_thetas.append(next_theta)
+                self.sum_thetas += next_theta
+            cumulative += self.cached_thetas[i]
+            if cumulative > p:
+                return i
+            i += 1
