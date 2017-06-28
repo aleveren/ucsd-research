@@ -27,7 +27,7 @@ class CRP(object):
         return np.array(seating)
 
     def simulate_round(self, seating):
-        if not seating:
+        if len(seating) == 0:
             return 0  # First customer sits at table 0
         n_occupied = max(seating) + 1
         distrib = np.zeros(n_occupied + 1)
@@ -58,14 +58,14 @@ class NCRP(object):
             seating.append(next_seat)
         return seating
 
-def plot_ncrp_subtree(seating, highlight_last = False, ax = None):
+def plot_ncrp_subtree(seating, highlight_last = False, depth_last = None, ax = None):
     assert plt is not None, "Could not import matplotlib.pyplot"
     assert nx is not None, "Could not import networkx"
 
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 8))
 
-    if not seating:
+    if len(seating) == 0:
         return
 
     last = seating[-1]
@@ -89,7 +89,10 @@ def plot_ncrp_subtree(seating, highlight_last = False, ax = None):
 
             node_list.append(node)
             if highlight_last and last[:len(node)] == node:
-                node_color.append('#00ff00')
+                if depth_last == len(node):
+                    node_color.append('#ffff00')
+                else:
+                    node_color.append('#00ff00')
             else:
                 node_color.append('white')
 
@@ -106,8 +109,8 @@ def plot_ncrp_subtree(seating, highlight_last = False, ax = None):
 
     nx.draw(g, nodelist=node_list, pos=pos, labels=labels, ax=ax, node_color=node_color, node_size=600)
 
-def plot_ncrp_animation(seating):
-    t_max = len(seating)
+def plot_ncrp_animation(path_history, depth_history = None):
+    t_max = len(path_history)
 
     fig = plt.figure(figsize=(8, 6))
 
@@ -117,7 +120,9 @@ def plot_ncrp_animation(seating):
 
         def animate(self, i):
             self.ax.clear()
-            plot_ncrp_subtree(seating = seating[:i], highlight_last = True, ax = self.ax)
+            depth = None if depth_history is None else depth_history[i-1]
+            plot_ncrp_subtree(seating = path_history[:i], highlight_last = True,
+                depth_last = depth, ax = self.ax)
             self.ax.autoscale()
 
     mgr = AnimManager()
