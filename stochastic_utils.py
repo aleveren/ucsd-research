@@ -171,12 +171,21 @@ class GEM(object):
 
 class GEMDraw(object):
     '''Represents a lazily-evaluated instance of a single draw from a GEM distribution.
-    Note: lazy evaluation is required, because a single evaluation'''
-    def __init__(self, pi, m):
+    Note: lazy evaluation is required, because a single evaluation represents an
+    infinite distribution over all non-negative ingeters.'''
+    def __init__(self, pi, m, prepopulate = 10):
         self.pi = pi
         self.m = m
         self.cached_thetas = []
         self.sum_thetas = 0.0
+        for i in range(prepopulate):
+            self.extend_thetas()
+
+    def extend_thetas(self):
+        remaining = 1.0 - self.sum_thetas
+        next_theta = remaining * np.random.beta(self.m * self.pi, (1 - self.m) * self.pi)
+        self.cached_thetas.append(next_theta)
+        self.sum_thetas += next_theta
 
     def draw(self):
         '''Draw a random non-negative integer based on the distribution
@@ -186,10 +195,7 @@ class GEMDraw(object):
         i = 0
         while True:
             if i == len(self.cached_thetas):
-                remaining = 1.0 - self.sum_thetas
-                next_theta = remaining * np.random.beta(self.m * self.pi, (1 - self.m) * self.pi)
-                self.cached_thetas.append(next_theta)
-                self.sum_thetas += next_theta
+                self.extend_thetas()
             cumulative += self.cached_thetas[i]
             if cumulative > p:
                 return i
