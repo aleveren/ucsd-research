@@ -129,3 +129,12 @@ def plot_ncrp_animation(seating):
         interval=500,
         repeat_delay=1000)
     return anim
+
+def nice_hist(x, bin_width = 1.0, ax = None, **kwargs):
+    if ax is None:
+        _, ax = plt.subplots()
+    if "bins" not in kwargs:
+        low = bin_width * np.floor(np.min(x) / float(bin_width))
+        high = np.max(x) + bin_width*2
+        kwargs["bins"] = np.arange(low, high, bin_width)
+    return ax.hist(x, **kwargs)
