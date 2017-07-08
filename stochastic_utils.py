@@ -160,22 +160,32 @@ def nice_hist(x, bin_width = 1.0, ax = None, **kwargs):
     return ax.hist(x, **kwargs)
 
 class GEM(object):
-    '''Represents a 2-parameter version of the GEM distribution
-    (defined in terms of a stick-breaking construction).'''
     def __init__(self, pi, m):
         self.pi = pi
         self.m = m
+        self.stick_breaking = BetaStickBreaking(m * pi, (1 - m) * pi)
 
     def draw(self):
-        return GEMDraw(pi = self.pi, m = self.m)
+        return self.stick_breaking.draw()
 
-class GEMDraw(object):
-    '''Represents a lazily-evaluated instance of a single draw from a GEM distribution.
-    Note: lazy evaluation is required, because a single evaluation represents an
-    infinite distribution over all non-negative ingeters.'''
-    def __init__(self, pi, m, prepopulate = 10):
-        self.pi = pi
-        self.m = m
+class BetaStickBreaking(object):
+    '''Represents a distribution over distributions over integers,
+    based on a stick-breaking construction that uses beta distributions.'''
+    def __init__(self, a, b):
+        self.a = a
+        self.b = b
+
+    def draw(self):
+        return BetaStickBreakingDraw(a = self.a, b = self.b)
+
+class BetaStickBreakingDraw(object):
+    '''Represents a lazily-evaluated instance of a single draw from a
+    stick-breaking contruction based on beta distributions.
+    Note: lazy evaluation is required, because a single evaluation represents
+    an infinite distribution over all non-negative ingeters.'''
+    def __init__(self, a, b, prepopulate = 10):
+        self.a = a
+        self.b = b
         self.cached_thetas = []
         self.sum_thetas = 0.0
         for i in range(prepopulate):
@@ -183,7 +193,7 @@ class GEMDraw(object):
 
     def extend_thetas(self):
         remaining = 1.0 - self.sum_thetas
-        next_theta = remaining * np.random.beta(self.m * self.pi, (1 - self.m) * self.pi)
+        next_theta = remaining * np.random.beta(self.a, self.b)
         self.cached_thetas.append(next_theta)
         self.sum_thetas += next_theta
 
