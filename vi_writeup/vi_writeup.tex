@@ -1,0 +1,455 @@
+\documentclass[11pt]{article}
+
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage[hyphens]{url}
+
+\input{preamble.tex}
+
+\newcommand{\KL}[2]{\textsc{KL}\left( {#1} , {#2} \right)}
+%\newcommand{\KL}[2]{\textsc{KL}\left( {#1} \; \middle\Vert \; {#2} \right)}
+\newcommand{\rKL}[2]{\textsc{ReversedKL}\left( {#1} , {#2} \right)}
+\newcommand*{\placeholder}{\makebox[1ex]{$\cdot$}}
+\newcommand{\sL}{\mathscr{L}}
+
+\newcommand{\Discrete}{\mathrm{Discrete}}
+\newcommand{\Gaussian}{\mathrm{Gaussian}}
+\newcommand{\LogNormal}{\mathrm{LogNormal}}
+
+\title{Notes on Coordinate Ascent Variational Inference}
+\author{Andrew Leverentz}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{sloppypar}
+This document draws heavily upon David Blei's lecture notes on Variational Inference, available at \url{https://www.cs.princeton.edu/courses/archive/fall11/cos597C/lectures/variational-inference-i.pdf}.
+However, I've modified some of the notation and expanded on some of the derivations in an attempt to make it more explicit and (I hope) a bit friendlier to newcomers.
+\end{sloppypar}
+
+\section{Introduction}
+
+Variational inference is a technique that can be used to approximate difficult-to-compute probability distributions.
+Such distributions arise in Bayesian inference, where there is some vector $Z = (Z_1, \ldots, Z_m)$ of ``latent variables'' (or ``unobserved variables'') and some vector $X = (X_1, \ldots, X_n)$ of ``observed variables'' (often simply referred to as the observed data).
+If we have a generative model for the joint distribution of $X$ and $Z$, we can express the posterior distribution (the probability of the latent variables given the observed variables) as
+\begin{align}
+p(Z = z \mid X = x) = \frac{p(Z=z, X=x)}{p(X=x)} = \frac{p(Z=z, X=x)}{\int p(Z = \tilde{z}, X = x) \, d\tilde{z}}.
+\end{align}
+Often, the denominator is intractable because it either involves integrals that cannot be evaluated directly or contains sums with a prohibitively large number of terms.
+
+When computing the posterior, we assume that we have an observed set of data $x = (x_1, \ldots, x_n)$ which is fixed throughout the analysis.
+Thus, the function we wish to approximate is a univariate function which maps vectors $z$ to $p(Z = z \mid X = x)$.
+For conciseness, we will express this function as $p(\placeholder \mid X = x)$.
+In order to find an approximation to $p(\placeholder \mid X = x)$, we will define a mathematically convenient family of functions, from which we then search for the function which most closely resembles our target distribution.
+
+\section{Minimizing KL Divergence}
+
+The notion of closeness that we will use for comparing probability distributions is \emph{reversed Kullback-Leibler divergence}.
+Given two functions $a$ and $b$ which define probability distributions over some set $S$ (often $\mathbb R^d$ for some $d \geq 1$), the Kullback-Leibler divergence is defined as
+\begin{align}
+\KL{a}{b}
+&= \int_S a(z) \log \left( \frac{a(z)}{b(z)} \right) \, dz.
+\end{align}
+Sometimes, this is written more concisely as
+\begin{align}
+\KL{a}{b}
+&= \expectOver{Z \sim a}{ \log \left( \frac{a(z)}{b(z)} \right) }.
+\end{align}
+If $S$ is a discrete set, then the integrals are replaced by sums.
+Reversed KL divergence is nearly identical, but with the arguments swapped:
+\[ \rKL{a}{b} = \KL{b}{a}. \]
+
+For convenience, we assume that $p(\placeholder \mid X = x)$ can be reasonably well approximated by one or more members from a family $Q$, which we define below.
+
+For each latent variable $Z_k$, choose a parameterized family of distributions, such as gaussians or beta distributions.%
+\footnote{Later, we'll see that it is often convenient to choose distributions which belong to the \emph{exponential family}, which is actually a set of sets of distributions.}
+Let $q_k(z_k; \nu_k)$ denote the distribution we have selected corresponding to the $k\nth$ latent variable, parameterized by a vector $\nu_k$.
+We refer to the components of $\nu_k$ as the \emph{variational parameters} corresponding to the latent variable $Z_k$.
+Note that we can associate different variables with different parameterized families, and their underlying variational parameters can have different dimensions.
+
+For example, we might choose $q_1$ to be a normal distribution, which requires two parameters ($\nu_{1,1} =$ the mean and $\nu_{1,2} =$ the standard deviation), while $q_2$ might be a Bernoulli distribution, which requires just one parameter ($\nu_{2,1} =$ the probability that the outcome equals 1).
+In this case, we would write
+\begin{align}
+q_1(z_1; \nu_1) &= \frac{1}{\nu_{1,2} \sqrt{2 \pi}} \exp\left( -\frac{(z_1 - \nu_{1,1})^2}{2 (\nu_{1,2})^2} \right), \\
+q_2(z_2; \nu_2) &=
+    \begin{cases}
+    1-\nu_{2,1}, & z_2 = 0, \\
+    \nu_{2,1},   & z_2 = 1.
+    \end{cases}
+\end{align}
+In this case, $\nu_{1,1}$ can be any real number, $\nu_{1,2}$ can be any positive real number, and $\nu_{2,1}$ can be any number in the interval $[0,1]$.
+
+Once we select a parameterized family of distributions for each latent variable, we define $Q$ to be the set of functions of the form
+\begin{align}
+q(z; \nu_1, \ldots, \nu_m) = \prod_{j=1}^m q_j(z_j; \nu_j).
+\end{align}
+By restricting ourselves to functions that can be written as a product of $m$ functions $q_1(z_1; \nu_1)$ through $q_m(z_m; \nu_m)$, we are using what is known as the ``mean field'' approximation.
+In order to make our notation less cumbersome, we will occasionally omit the variational parameters $\nu_j$.
+In those cases, $q(z)$ should be interpreted to mean $q(z; \nu_1, \ldots, \nu_m)$, and $q_j(z_j)$ should be interpreted to mean $q_j(z_j; \nu_j)$.
+
+Finally, we can formulate our approximation problem as the following:
+given a target distribution $p(\placeholder \mid X=x)$ and a variational family of functions $Q$, find the function $q \in Q$ which minimizes the reversed KL divergence between $p(\placeholder \mid X = x)$ and $q$.
+In mathematical notation, we wish to find
+\begin{align}
+q^*
+&= \argmin_{q \in Q} \rKL{p(\placeholder \mid X = x)}{q} \\
+&= \argmin_{q \in Q} \KL{q}{p(\placeholder \mid X = x)} \\
+&= \argmin_{q \in Q} \int q(z) \log \left( \frac{q(z)}{p(Z = z \mid X = x)} \right) \, dz.
+\end{align}
+We can use the fact that $q$ is a probability distribution (since products of probability distributions are also probability distributions) to express this more concisely:
+\begin{align}
+\Aboxed{
+q^*
+&= \argmin_{q \in Q} \expectOver{Z \sim q}{ \log \left( \frac{q(Z)}{p(Z \mid X = x)} \right) }.
+}
+\label{eq:qstarUnsimplified}
+\end{align}
+
+There are two useful ways to rewrite equation \eqref{eq:qstarUnsimplified}.
+First, we can write $q^*$ without any conditional probabilities:
+\begin{align}
+q^*
+&= \argmin_{q \in Q} \expectOver{Z \sim q}{ \log \left( \frac{q(Z) \, p(X = x)}{p(Z, X = x)} \right) } \\
+&= \argmin_{q \in Q} \expectOver{Z \sim q}{ \log q(Z) + \log p(X = x) - \log p(Z, X = x) } \\
+\label{eq:takePXout}
+&= \argmin_{q \in Q} \left(
+    \log p(X = x) + \expectOver{Z \sim q}{ \log q(Z) } - \expectOver{Z \sim q}{ \log p(Z, X = x) }
+    \right) \\
+\label{eq:removePX}
+&= \argmin_{q \in Q} \left(
+    \expectOver{Z \sim q}{ \log q(Z) } - \expectOver{Z \sim q}{ \log p(Z, X = x) }
+    \right) \\
+\label{eq:switchToMax}
+&= \argmax_{q \in Q} \left(
+    \expectOver{Z \sim q}{ \log p(Z, X = x) } - \expectOver{Z \sim q}{ \log q(Z) }
+\right).
+\end{align}
+In \eqref{eq:takePXout}, we take $\log p(X = x)$ out of the expectation because it does not depend on $Z$.
+Then, in \eqref{eq:removePX}, we drop that term completely, because it does not depend on $q$ at all, and therefore it does not affect the optimal value.
+In \eqref{eq:switchToMax}, we see that minimizing the reversed KL divergence is equivalent to maximizing the following quantity:
+\begin{align}
+\mathrm{ELBO}
+&= \expectOver{Z \sim q}{ \log p(Z, X = x) } - \expectOver{Z \sim q}{ \log q(Z) }.
+\end{align}
+This quantity is known as the ``evidence lower bound'' (abbreviated ELBO) because it lower-bounds the logarithm of the probability of the observed data, $\log p(X = x)$.
+To see why, note that
+\begin{align}
+\log p(X = x)
+&= \log \int p(Z = z, X = x) \, dz \\
+&= \log \int p(Z = z, X = x) \frac{q(z)}{q(z)} \, dz \\
+&= \log \expectOver{Z \sim q}{ \frac{p(Z, X=x)}{q(Z)} } \\
+\label{eq:elboFromJensen}
+&\geq \expectOver{Z \sim q}{ \log \frac{p(Z, X=x)}{q(Z)} } \\
+&= \mathrm{ELBO}.
+\end{align}
+The inequality in \eqref{eq:elboFromJensen} comes from Jensen's inequality, since $\log(\placeholder)$ is a concave function.
+When implementing variational inference, it can be useful to track the ELBO over the course of the optimization to assess convergence.
+The ELBO is easier to compute than the reversed KL divergence, because (1) we know the joint probability of $Z$ and $X$, and (2) since $q$ is assumed to be in a nicely factorable form, computing $q(Z)$ is tractable.
+
+Returning to \eqref{eq:qstarUnsimplified}, we can rewrite our expression for $q^*$ by noting that $q(Z) = \prod_{j=1}^m q_j(Z_j)$:
+\begin{align}
+q^*
+&= \argmin_{q \in Q} \left(
+    \left[ \sum_{j=1}^m \expectOver{Z_j \sim q_j}{\log q_j(Z_j; \nu_j)} \right]
+    -
+    \expectOver{Z \sim q}{\log p(Z \mid X = x)}
+\right).
+\end{align}
+
+Let $\sL$ denote the quantity to be optimized; that is,
+\begin{align}
+\label{eq:beforeRemovingConstWrtK}
+\sL
+&=
+\left[ \sum_{j=1}^m \expectOver{Z_j \sim q_j}{\log q_j(Z_j; \nu_j)} \right]
+    -
+    \expectOver{Z \sim q}{\log p(Z \mid X = x)}.
+\end{align}
+
+\section{Coordinate Ascent}
+
+At this point, a common approach is to search for the optimal value $q^*$ using coordinate ascent.
+That is, we first optimize the parameters $\nu_1$ corresponding to $q_1$, holding all other variational parameters fixed.
+Then, we optimize the parameters $\nu_2$ corresponding to $q_2$, holding all others fixed, and so on.
+We repeatedly optimize $\nu_1, \ldots, \nu_m$ until we reach convergence (which we can roughly assess by monitoring the ELBO).
+
+Let $Z_{-k}$ denote all random variables in the vector $Z$ except for $Z_k$.
+That is, \begin{equation} Z_{-k} = (Z_1, \ldots, Z_{k-1}, Z_{k+1}, \ldots, Z_m). \end{equation}
+Similarly, let $\mathbb E_{Z_{-k} \sim q_{-k}}$ denote an expectation where $Z_j \sim q_j$ for all $j \neq k$.
+(Thus, if $z_k$ appears in such an expression, it is treated as a constant.)
+Then, note that for each $k \in \{1, \ldots, m\}$, we can write
+\begin{align}
+\expectOver{Z \sim q}{\log p(Z \mid X = x)}
+&= \expectOver{Z \sim q}{ \log \left( p(Z_{-k} \mid X = x) \, p(Z_k \mid Z_{-k}, X = x) \right) } \\
+%&= \expectOver{Z \sim q}{ \log p(Z_{-k} \mid X = x) + \log p(Z_k \mid Z_{-k}, X = x) } \\
+%
+&= \begin{aligned}[t]
+&\expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_{-k} \mid X = x) } \\
+&+ \expectOver{Z \sim q}{ \log p(Z_k \mid Z_{-k}, X = x) }
+\end{aligned} \\
+%
+&= \begin{aligned}[t]
+&\expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_{-k} \mid X = x) } \\
+&+ \expectOver{Z_k \sim q_k}{ \expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_k \mid Z_{-k}, X = x) } }.
+\end{aligned}
+\end{align}
+In the last step, we have simply split an expectation over all of $Z$ into an expectation over all variables except $Z_k$, followed by an expectation over $Z_k$.
+
+Next, we return to \eqref{eq:beforeRemovingConstWrtK} and rewrite $\sL$ as
+\begin{align}
+\sL
+&= C_k
+    + \expectOver{Z_k \sim q_k}{\log q_k(Z_k; \nu_k)}
+    - \expectOver{Z_k \sim q_k}{ \expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_k \mid Z_{-k}, X = x) } },
+\end{align}
+where $C_k$ is the sum of all the terms that do not depend on $q_k$.
+This is equivalent to
+\begin{align}
+\sL
+&= \begin{aligned}[t]
+    & C_k + \int
+       q_k(z_k; \nu_k) \log q_k(z_k; \nu_k) \, dz_k \\
+    & - \int q_k(z_k; \nu_k) \, \expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_k = z_k \mid Z_{-k}, X = x) } dz_k.
+    \end{aligned}
+\end{align}
+
+Thus, for any $k \in \{1, \ldots, m\}$, we can express the quantity to be optimized as a functional%
+\footnote{In this context, a functional is a function that takes as input a function $\mathbb R \to \mathbb R$ and returns a real value.  The ``type signature'' of a functional is $(\mathbb R \to \mathbb R) \to \mathbb R$.}
+of $q_k$.
+To find the value of $q_k$ that yields the minimal value of $\sL$ (while holding $q_j$ fixed for all $j \neq k$), we will compute the functional derivative of $\sL$ with respect to $q_k$.
+Then, we will compute the value of $q_k$ that causes the functional derivative of $\sL$ to be zero.
+
+The functional derivative $\delta\sL / \delta q_k$ is the functional which satisfies the following equation,%
+    \footnote{Note that $\sL$ has the type signature $\sL : (\mathbb R \to \mathbb R) \to \mathbb R$, whereas the functional derivative of $\sL$ with respect to $q_k$ has the type signature $\delta\sL/\delta q_k : (\mathbb R \to \mathbb R) \to (\mathbb R \to \mathbb R)$.
+    In other words, the functional derivative is a function which takes two inputs, (1) a function $\mathbb R \to \mathbb R$ and (2) a real number, and outputs a real number.}
+for any function $\phi : \mathbb R \to \mathbb R$:%
+\begin{align}
+\int \left( \frac{\delta \sL}{\delta q_k}[q_k](z_k) \right) \phi(z_k) \, dz_k
+&=
+\frac{d}{d\epsilon} \biggl[
+    \sL[q_k + \epsilon \phi]
+\biggr]_{\epsilon = 0}
+\end{align}
+
+We can compute the right-hand side and extract an expression for $\delta\sL / \delta q_k$, or we can take a shortcut by noting that the functional derivative of $\int f(q_k(z_k)) \, dz_k$ with respect to $q_k$ is simply $f'(q_k(z_k))$, for any $f$.
+The result is that
+\begin{align}
+\frac{\delta \sL}{\delta q_k}[q_k](z_k)
+&= 1 + \log q_k(z_k; \nu_k)
+- \expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_k = z_k \mid Z_{-k}, X = x) }.
+\end{align}
+
+Setting this equal to zero and solving for $q_k$, we have
+\begin{align}
+\label{eq:generalCoordAscentCond}
+\Aboxed{
+q_k(z_k; \nu_k)
+&= C_0 \exp \left( \expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_k = z_k \mid Z_{-k}, X = x) } \right),
+}
+\end{align}
+where $C_0$ is a normalizing constant that does not depend on $z_k$.
+
+We can also eliminate the conditional probability in this formula by noting that
+\begin{align}
+p(Z_k = z_k \mid Z_{-k}, X = x)
+&= \frac{p(Z_k = z_k, Z_{-k}, X = x)}{p(Z_{-k}, X = x)}.
+\end{align}
+Since the denominator does not depend on $z_k$, we can instead write
+\begin{align}
+\label{eq:generalCoordAscentNoCond}
+\Aboxed{
+q_k(z_k; \nu_k)
+&= C'_0 \exp \left( \expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_k = z_k, Z_{-k}, X = x) } \right),
+}
+\end{align}
+where $C'_0$ is a new normalizing constant; in particular,
+\begin{align}
+C'_0 = C_0 \exp \left( -\expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_{-k}, X = x) }\right).
+\end{align}
+
+Therefore, each coordinate-ascent update step consists of computing either \eqref{eq:generalCoordAscentCond} or \eqref{eq:generalCoordAscentNoCond}, whichever happens to be more convenient for the given model.
+
+\section{The Exponential Family}
+
+At this point, we note that finding this optimal update becomes straightforward if we make careful choices in the structure of our model and the corresponding variational family $Q$.
+In particular, suppose that we can construct our model so that the conditional probabilities are all in the exponential family.
+Furthermore, suppose that we select each $q_k$ to belong to the same parameterized family of distributions as the corresponding conditional of $Z_k$.
+Under these assumptions, we will see that there is a simple formula for updating the variational parameters.
+
+The \emph{exponential family} is a collection of parameterized sets of distributions whose probability densities can be written in the following form:
+\begin{align}
+p(X = x) = h(x) \exp\left[ \eta(\theta) \cdot T(x) - A(\eta(\theta)) \right].
+\end{align}
+Here, $\eta$ is a vector-valued function that depends only on the parameters $\theta$ of the model.
+The components of the vector $\eta(\theta)$ are called the \emph{natural parameters} of the distribution.
+The parameterization in terms of $\eta(\theta)$ is more mathematically convenient for many purposes, but the natural parameters may lack an intuitive interpretation, which is why they may differ from our chosen parameterization in terms of $\theta$.
+(In the special case where $\eta(\theta) = \theta$, then the distribution is said to be in \emph{canonical form}.)
+Furthermore, $h$ and $T$ are functions that depend only on the random variable.
+Note that $h$ is scalar-valued, but $T$ may be vector-valued.
+The components of $T(x)$ are known as the \emph{sufficient statistics} of the distribution.
+The function $A$ is essentially a normalizing factor that causes the distribution to integrate to $1$.
+A wide range of distributions, including gaussian distribtions, categorical distributions, and many others, can be written in this form.
+
+If we assume that each conditional distribution in the model can be expressed as a member of the exponential family, then we have
+\begin{align}
+p(Z_k = z_k \mid Z_{-k} = z_{-k}, X = x) = h_k(z_k) \exp\left[ \eta_k(z_{-k}, x) \cdot T_k(z_k) - A_k(\eta_k(z_{-k}, x) \right].
+\end{align}
+Note that we have expressed the natural parameters of this distribution as a function of $z_{-k}$ and $x$.
+Moreover, we have written $h_k$, $\eta_k$, $T_k$, and $A_k$ to emphasize that these functions can differ for distinct latent variabes $Z_k$.
+We may occasionally write these functions without the subscript $k$, but we should keep in mind that there may be different functions for different latent variables.
+
+In this context, we can write the update rule from \eqref{eq:generalCoordAscentCond} in a simpler form.
+First, note that
+\begin{align}
+\expectOver{Z_{-k} \sim q_{-k}}{ \log p(z_k \mid Z_{-k}, X = x) }
+&= \begin{aligned}[t]
+    &\log h_k(z_k) \\
+    &+ \expectOver{Z_{-k} \sim q_{-k}}{ \eta_k(Z_{-k}, x) } \cdot T_k(z_k) \\
+    &- \expectOver{Z_{-k} \sim q_{-k}}{ A_k(\eta_k(Z_{-k}, x)) }.
+    \end{aligned}
+\end{align}
+The final term is constant with respect to $z_k$, and so we can rewrite \eqref{eq:generalCoordAscentCond} as
+\begin{align}
+q_k(z_k; \nu_k)
+&=
+C''_0 \, h_k(z_k) \exp\left( \expectOver{Z_{-k} \sim q_{-k}}{\eta_k(Z_{-k}, x)} \cdot T_k(z_k) \right).
+\end{align}
+This shows that $q_k$ belongs to the same family as the distribution $p(Z_k = z_k \mid Z_{-k} = z_{-k}, X = x)$.
+Thus, the optimal update for the parameters $\nu_k$ corresponding to $q_k$ can be extracted directly from the dot product in the previous equation:
+\begin{align}
+\Aboxed{
+\nu_k
+&=
+\eta_k^{-1} \left(
+    \expectOver{Z_{-k} \sim q_{-k}}{ \eta_k(Z_{-k}, x) }
+\right).
+}
+\end{align}
+Here, $\eta_k^{-1}$ is the inverse parameter mapping associated with $Z_k$, which maps the natural parameters back to our chosen parameterization.
+
+Note that if we wish to use \eqref{eq:generalCoordAscentNoCond} instead of \eqref{eq:generalCoordAscentCond},
+we simply replace $p(Z_k = z_k \mid Z_{-k} = z_{-k}, X = x)$ with $p(Z_k = z_k, Z_{-k} = z_{-k}, X = x)$ in the above analysis.
+
+\section{Example: Mixture of Multivariate Gaussians}
+
+Consider the following model:
+\begin{alignat}{2}
+c_i &\sim \Discrete(r), &&\text{ for } i = 1, \ldots, n, \\
+\mu_{k, \ell} &\sim \Gaussian(0, \alpha), &&\text{ for } k = 1, \ldots, K, \; \ell = 1, \ldots, d, \\
+\sigma_{k, \ell} &\sim \LogNormal(\beta, \gamma), &&\text{ for } k = 1, \ldots, K, \; \ell = 1, \ldots, d, \\
+x_i \mid c_i, \mu_{1:K,1:d}, \sigma_{1:K,1:d} &\sim \Gaussian(\mu_{c_i}, \Sigma_{c_i}), &&\text{ for } i = 1, \ldots, n.
+\end{alignat}
+
+Here, $x_i$ represents the observed data, whereas $c_i$, $\mu_{k, \ell}$, and $\sigma_{k,\ell}$ are latent variables.
+The values $r$, $\alpha$, $\beta$, and $\gamma$ are fixed hyperparameters (in particular, $r$ is a $K$-dimensional vector which sums to $1$).
+Furthermore, we define $\Sigma_{c_i}$ in terms of the random variables $\sigma_{k,\ell}$:
+\begin{align}
+\Sigma_{c_i}
+= \begin{bmatrix}
+    \sigma_{c_i, 1}^2 & 0 & 0 & 0 \\
+    0 & \sigma_{c_i, 2}^2 & 0 & 0 \\
+    0 & 0 & \ddots & 0 \\
+    0 & 0 & 0 & \sigma_{c_i, d}^2
+  \end{bmatrix}
+\end{align}
+
+This yields the following probability densities:
+\begin{align}
+p(c_i) &= r_{c_i}, \\
+p(\mu_{k, \ell}) &= (2\pi)^{-1/2} \, \alpha^{-1} \exp\left( -\frac{\mu_{k, \ell}^2}{2 \alpha^2} \right), \\
+p(\sigma_{k,\ell}) &= \frac{1}{\sigma_{k,\ell} \, \gamma \sqrt{2\pi}} \exp \left( -\frac{(\log(\sigma_{k,\ell}) - \beta)^2}{2\gamma^2} \right), \\
+p(x_i \mid c_i, \mu_{1:K,1:d}, \sigma_{1:K,1:d}) &= (2\pi)^{-d/2} \, \abs{\Sigma_{c_i}}^{-1/2} \exp \left( -\frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right).
+\end{align}
+
+Later, we will use the log joint probability to determine the natural parameters $\eta$ corresponding to each latent variable:
+\begin{align}
+J
+&= \log p(c_{1:n}, \mu_{1:K,1:d}, \sigma_{1:K,1:d}, x_{1:n}) \\
+&= \log \left[
+        \left( \prod_{i=1}^n p(c_i) \right)
+        \left( \prod_{k=1}^K \prod_{\ell=1}^d p(\mu_{k, \ell}) \right)
+        \left( \prod_{k=1}^K \prod_{\ell=1}^d p(\sigma_{k, \ell}) \right)
+        \left( \prod_{i=1}^n p(x_i \mid c_i, \mu_{1:K,1:d}, \sigma_{1:K,1:d}) \right)
+    \right] \\
+\label{eq:logJointExample}
+&= \begin{aligned}[t]
+    &C + \sum_{i=1}^n \log r_{c_i}
+    - \sum_{k=1}^K \frac{\mu_{k, \ell}^2}{2\alpha^2}
+    - \sum_{k=1}^K \sum_{\ell=1}^d \left( \log \sigma_{k,\ell} + \frac{ (\log(\sigma_{k,\ell}) - \beta)^2 }{2\gamma^2} \right) \\
+    &- \sum_{i=1}^n \left( \frac{1}{2} \log \abs{ \Sigma_{c_i} } + \frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right).
+    \end{aligned}
+\end{align}
+Here, $C$ is a constant which does not depend on any of the random variables.
+
+\subsection{Choosing a set of variational distributions}
+
+Note that in total we have $m = n + 2Kd$ latent variables, which means we need the same number of variational distributions.
+The variational distributions are described in Table~\ref{table:varDists}.
+Along with these, we must introduce $m = n + 2Kd$ variational parameters:
+\begin{itemize}
+    \item $\phi_i$ corresponding to $c_i$,
+    \item $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$, and
+    \item $a_{k,\ell}$ and $b_{k,\ell}$ corresponding to $\sigma_{k,\ell}$.
+\end{itemize}
+Note that each $\phi_i$ is a $K$-vector of non-negative values summing to $1$; the other variational parameters are scalar values.
+
+\begin{table}[h!]
+\caption{Summary of variational distributions for mixture of Gaussians.}
+\label{table:varDists}
+\centering
+\bgroup
+\def\arraystretch{1.5}%
+\begin{tabular}{c|c|l}
+Shorthand & Interpretation & Definition \\ \hline
+%
+$q(c_i)$
+& $q_i(c_i; \phi_i)$
+& $\Discrete(\phi_i)(c_i)$ \\
+& $(i = 1, \ldots, n)$
+& $\qquad= \phi_{i,c_i}$ \\ \hline
+%
+$q(\mu_{k,\ell})$
+& $q_{n+(k-1)d+\ell}(\mu_{k, \ell}; m_{k,\ell}, s_{k,\ell})$
+& $\Gaussian(m_{k,\ell}, s_{k,\ell})(\mu_{k, \ell})$ \\
+& $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
+& $\qquad= \dfrac{\exp(-(\mu_{k,\ell}-m_{k,\ell})^2) / (2 s_{k,\ell}^2) )}{s_{k,\ell} \sqrt{2\pi}}$ \\ \hline
+%
+$q(\sigma_{k,\ell})$
+& $q_{n+Kd+(k-1)d+\ell}(\sigma_{k,\ell}; a_{k,\ell}, b_{k,\ell})$
+& $\LogNormal(a_{k,\ell}, b_{k,\ell})(\sigma_{k,\ell})$ \\
+& $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
+& $\qquad= \dfrac{\exp(-(\log(\sigma_{k,\ell})-a_{k,\ell})^2 / (2 b_{k,\ell}^2))} {\sigma_{k,\ell} \, b_{k,\ell} \sqrt{2\pi}}$ \\
+\end{tabular}
+\egroup
+\end{table}
+
+\subsection{Variational updates for categorical variables}
+
+In this section, we derive the variational updates for the parameters corresponding to the categorical latent variables in our model.
+That is, we derive an update rule for the parameters $\phi_i$ corresponding to each $c_i$.
+Returning to the expression for the log joint probability of our model given in \eqref{eq:logJointExample}, we ignore all terms that do not depend on $c_i$ (here, we treat $i$ as fixed):
+\begin{align}
+J
+&= C' + \log r_{c_i} - \frac{1}{2} \log \abs{ \Sigma_{c_i} } - \frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \\
+&= C' + \log r_{c_i} - \sum_{\ell=1}^d \left(
+    \log \sigma_{c_i, \ell} - \frac{\sigma_{c_i, \ell}^{-2}}{2}
+        \left[
+            x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{c_i,\ell} + \mu_{c_i,\ell}^2
+        \right]
+    \right)
+\end{align}
+
+Now, we treat the joint probability as a function of $c_i$ and express it in the form of an exponential-family distribution.
+In particular, we want to derive the natural parameters $\eta$ for this function.
+This is equivalent to finding a way to express the log joint probability as $\eta \cdot T + \log h(c_i) - A(\eta)$, where $\eta$ does not depend on $c_i$, and $T$ depends \emph{only} on $c_i$.
+We can ignore ** that 
+
+\subsection{Variational updates for Gaussian variables}
+
+\subsection{Variational updates for log-normal variables}
+
+% TODO: work through an example?
+
+\end{document}

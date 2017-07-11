@@ -1,0 +1,156 @@
+\usepackage{mathtools}
+%\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage[nomessages]{fp}
+\usepackage{adjustbox}
+\usepackage{outlines}
+%\usepackage{times}
+\usepackage{graphicx,color}
+\usepackage{array,float}
+\usepackage{url}
+%\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{amstext,amssymb,amsmath}
+\usepackage{hyphenat}
+\usepackage{amsthm}
+\usepackage{verbatim}
+\usepackage{bm}
+\usepackage{paralist}
+\usepackage{ulem}\normalem
+\usepackage[numbers]{natbib}
+\usepackage{todonotes}
+\usepackage{paralist}
+\usepackage{wrapfig}
+\usepackage{hyperref}
+\usepackage[noend]{algorithmic}
+\usepackage{algorithm}
+\usepackage{commath}
+\usepackage{needspace}
+\usepackage{mathrsfs}
+
+\newcommand{\rb}[1]{\textcolor{blue}{RB:#1}}
+\newcommand{\al}[1]{\textcolor{blue}{AL:#1}}
+\newcommand{\cz}[1]{\textcolor{blue}{CZ:#1}}
+
+
+\newtheorem{lem}{Lemma}[section]
+\newtheorem{thm}[lem]{Theorem}
+\newtheorem{cor}[lem]{Corollary}
+\newtheorem{problem}[lem]{Problem}
+\newtheorem{defn}[lem]{Definition}
+\newtheorem{fact}[lem]{Fact}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+\newtheorem{assumption}[lem]{Assumption}
+\newtheorem{claim}[lem]{Claim}
+\newcommand{\ip}[2]{\left\langle #1,#2 \right\rangle}
+
+\usepackage{dsfont}
+
+\newcommand{\err}{\mathrm{err}}
+\newcommand{\emperr}{\widehat{\err}}
+\newcommand{\pr}[2]{\underset{#1}{\mathbb{P}}\left[ #2 \right]}
+\newcommand{\ex}[2]{\underset{#1}{\mathbb{E}}\left[ #2 \right]}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\B}{\mathrm{B}}
+
+\newcommand{\deriv}[2]{\frac{d #1}{d #2}}
+\newcommand{\pDeriv}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\pDerivTwo}[3]{\frac{\partial^2 #1}{\partial #2 \partial #3}}
+
+\newcommand{\cond}{\,|\,}
+
+\newcommand{\quickFig}[2]{ %
+  \begin{figure}[H] %
+  \centering %
+  \includegraphics[width=#1 \linewidth,natwidth=600]{#2} %
+  \end{figure} %
+}
+
+\newcommand{\nth}{^{\mathrm{th}}}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argsup}{arg\,sup}
+\DeclareMathOperator*{\arginf}{arg\,inf}
+
+\newcommand{\domain}{\mathop{\mathrm{domain}}}
+
+\newcommand{\VC}{\mathop{\mathrm{VC}}}
+\newcommand{\var}{\mathop{\mathrm{var}}}
+\newcommand{\cov}{\mathop{\mathrm{cov}}}
+\newcommand{\sign}{\mathop{\mathrm{sign}}}
+\newcommand{\eps}{\varepsilon}
+
+
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\bu}{\mathbf{u}}
+\newcommand{\bv}{\mathbf{v}}
+\newcommand{\bp}{\mathbf{p}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cH}{\mathcal{H}}
+\newcommand{\cG}{\mathcal{G}}
+\newcommand{\cF}{\mathcal{F}}
+\newcommand{\cA}{\mathcal{A}}
+\newcommand{\cX}{\mathcal{X}}
+\newcommand{\zeroB}{\ensuremath{\mathbf{0}}}
+
+\newcommand{\bigO}[1]{O\left(#1\right)}
+\newcommand{\indi}[1]{\mathbf{1}\left(#1\right)}
+
+\newcommand{\midvert}{\mathrel{}\middle\vert\mathrel{}}
+
+\newcommand{\expect}[1]{\mathbb{E} \left[ #1 \right]}
+\newcommand{\expectCond}[2]{\mathbb{E}%
+    \left[ #1 \midvert #2 \right]}
+\newcommand{\expectOver}[2]{\mathbb{E}_{\substack{#1}}\left[ #2 \right]}
+\newcommand{\expectOverCond}[3]{\mathbb{E}_{\substack{#1}}%
+    \left[ #2 \midvert #3 \right]}
+
+\newcommand{\prob}[1]{\mathbb{P} \left( #1 \right)}
+\newcommand{\probCond}[2]{\mathbb{P}%
+    \left( #1 \midvert #2 \right)}
+\newcommand{\probOver}[2]{\mathbb{P}_{\substack{#1}}\left( #2 \right)}
+\newcommand{\probOverCond}[3]{\mathbb{P}_{\substack{#1}}%
+    \left( #2 \midvert #3 \right)}
+
+\lstset{basicstyle=\ttfamily}
+
+\usepackage{etoolbox}
+
+\newcommand{\surround}[2][r]%
+  {\ifstrequal{#1}{round}%
+    {\left( #2 \right)}%
+    {\ifstrequal{#1}{square}%
+      {\left[ #2 \right]}%
+      {\ifstrequal{#1}{curly}%
+        {\left\{ #2 \right\}}%
+        {\ifstrequal{#1}{angle}%
+          {\left\langle #2 \right\rangle}%
+          {\ifstrequal{#1}{|}%
+            {\left\lvert #2 \right\rvert}%
+            {\ifstrequal{#1}{||}%
+              {\left\lVert #2 \right\rVert}%
+              {\ifstrequal{#1}{floor}%
+                {\left\lfloor #2 \right\rfloor}%
+                {\ifstrequal{#1}{ceil}%
+                  {\left\lceil #2 \right\rceil}%
+                  {\ifstrequal{#1}{.}%
+                    {\left. #2 \right.}%
+                    {\left( #2 \right)}%
+                  }%
+                }%
+              }%
+            }%
+          }%
+        }%
+      }%
+    }%
+  }
+
+\newcommand{\innerProduct}[2]{\surround[angle]{{#1}, {#2}}}
