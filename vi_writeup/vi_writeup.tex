@@ -319,6 +319,7 @@ C''_0 \, h_k(z_k) \exp\left( \expectOver{Z_{-k} \sim q_{-k}}{\eta_k(Z_{-k}, x)} 
 This shows that $q_k$ belongs to the same family as the distribution $p(Z_k = z_k \mid Z_{-k} = z_{-k}, X = x)$.
 Thus, the optimal update for the parameters $\nu_k$ corresponding to $q_k$ can be extracted directly from the dot product in the previous equation:
 \begin{align}
+\label{eq:paramUpdate}
 \Aboxed{
 \nu_k
 &=
@@ -373,15 +374,22 @@ J
         \left( \prod_{k=1}^K \prod_{\ell=1}^d p(\sigma_{k, \ell}) \right)
         \left( \prod_{i=1}^n p(x_i \mid c_i, \mu_{1:K,1:d}, \sigma_{1:K,1:d}) \right)
     \right] \\
-\label{eq:logJointExample}
 &= \begin{aligned}[t]
     &C + \sum_{i=1}^n \log r_{c_i}
     - \sum_{k=1}^K \frac{\mu_{k, \ell}^2}{2\alpha^2}
     - \sum_{k=1}^K \sum_{\ell=1}^d \left( \log \sigma_{k,\ell} + \frac{ (\log(\sigma_{k,\ell}) - \beta)^2 }{2\gamma^2} \right) \\
-    &- \sum_{i=1}^n \left( \frac{1}{2} \log \abs{ \Sigma_{c_i} } + \frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right).
+    &- \sum_{i=1}^n \left( \frac{1}{2} \log \abs{ \Sigma_{c_i} } + \frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right)
+    \end{aligned} \\
+\label{eq:logJointExample}
+&= \begin{aligned}[t]
+    &C + \sum_{i=1}^n \sum_{k=1}^K \mathds{1}[c_i = k] \log r_k
+    - \sum_{k=1}^K \frac{\mu_{k, \ell}^2}{2\alpha^2}
+    - \sum_{k=1}^K \sum_{\ell=1}^d \left( \log \sigma_{k,\ell} + \frac{ (\log(\sigma_{k,\ell}) - \beta)^2 }{2\gamma^2} \right) \\
+    &- \sum_{i=1}^n \sum_{k=1}^K \mathds{1}[c_i = k] \left( \frac{1}{2} \log \abs{ \Sigma_k } + \frac{1}{2} (x_i - \mu_k)^\top \Sigma_k^{-1} (x_i - \mu_k) \right).
     \end{aligned}
 \end{align}
 Here, $C$ is a constant which does not depend on any of the random variables.
+Also, note that in the last step, we have rewritten some expressions involving $c_i$ using indicator functions; this will eventually make it easier to compute expectations.
 
 \subsection{Choosing a set of variational distributions}
 
@@ -432,19 +440,73 @@ That is, we derive an update rule for the parameters $\phi_i$ corresponding to e
 Returning to the expression for the log joint probability of our model given in \eqref{eq:logJointExample}, we ignore all terms that do not depend on $c_i$ (here, we treat $i$ as fixed):
 \begin{align}
 J
-&= C' + \log r_{c_i} - \frac{1}{2} \log \abs{ \Sigma_{c_i} } - \frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \\
-&= C' + \log r_{c_i} - \sum_{\ell=1}^d \left(
-    \log \sigma_{c_i, \ell} - \frac{\sigma_{c_i, \ell}^{-2}}{2}
+&= C' + \sum_{k=1}^K \left[ \mathds{1}[c_i = k] \left( \log r_k - \frac{1}{2} \log \abs{ \Sigma_k } - \frac{1}{2} (x_i - \mu_k)^\top \Sigma_k^{-1} (x_i - \mu_k) \right) \right] \\
+&= C' + \sum_{k=1}^K \left[ \mathds{1}[c_i = k] \left( \log r_k - \sum_{\ell=1}^d \left(
+    \log \sigma_{k, \ell} + \frac{\sigma_{k, \ell}^{-2}}{2}
         \left[
-            x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{c_i,\ell} + \mu_{c_i,\ell}^2
+            x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2
         \right]
-    \right)
+    \right) \right) \right]
 \end{align}
 
 Now, we treat the joint probability as a function of $c_i$ and express it in the form of an exponential-family distribution.
 In particular, we want to derive the natural parameters $\eta$ for this function.
 This is equivalent to finding a way to express the log joint probability as $\eta \cdot T + \log h(c_i) - A(\eta)$, where $\eta$ does not depend on $c_i$, and $T$ depends \emph{only} on $c_i$.
-We can ignore ** that 
+The terms that do not depend on $c_i$ can all be absorbed into either $h$ or $A$, which is why we can ignore them for now.
+
+The parameterization for a categorical distribution dictates that $T$ is a $K$-vector in which the $k\nth$ component is $\mathds{1}[c_i = k]$.
+Therefore, we can derive the following natural parameters for this distribution:
+\begin{align}
+\eta &= \left(
+    \log r_k - \sum_{\ell=1}^d \left(
+    \log \sigma_{k, \ell} + \frac{\sigma_{k, \ell}^{-2}}{2}
+        \left[
+            x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2
+        \right]
+    \right)
+\right)_{k = 1, \ldots, K}
+\end{align}
+
+Following \eqref{eq:paramUpdate}, we take the expectation of $\eta$ with respect to the variational distributions $q$:
+\begin{align}
+\left( \expectOver{q}{\eta} \right)_k
+&=
+    \log r_k - \sum_{\ell=1}^d \left[
+    \expectOver{q}{\log \sigma_{k, \ell}} + \frac{1}{2} \expectOver{q}{\sigma_{k, \ell}^{-2}}
+        \left(
+            x_{i,\ell}^2 - 2 x_{i,\ell} \expectOver{q}{\mu_{k,\ell}} + \expectOver{q}{\mu_{k,\ell}^2}
+        \right)
+    \right]
+\end{align}
+
+The remaining expectations over $q$ can be evaluated in terms of our variational parameters:
+\begin{align}
+\expectOver{q}{\mu_{k,\ell}}
+&= m_{k,\ell}, \\
+\expectOver{q}{\mu_{k,\ell}^2}
+&= s_{k,\ell}^2 + m_{k,\ell}^2, \\
+\expectOver{q}{\log\sigma_{k,\ell}}
+&= a_{k,\ell}, \\
+\expectOver{q}{\sigma_{k,\ell}^{-2}}
+&= \exp\left( 2b_{k,\ell}^2 - 2a_{k,\ell} \right).
+\end{align}
+
+The inverse parameter mapping $\eta^{-1}$ simply maps $\eta$ to $\exp(\eta)$, where the exponential is applied elementwise.
+Therefore, the parameter update for $\phi_i$ is
+\begin{align}
+\phi_{i,k}
+%&= \eta^{-1}\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
+&= \exp\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
+&= r_k \exp \left\{
+    - \sum_{\ell=1}^d \left[
+        a_{k, \ell} + \frac{1}{2}\exp\left(2b_{k,\ell}^2 - 2a_{k,\ell}\right)
+            \left(
+                x_{i,\ell}^2 - 2 x_{i,\ell} m_{k,\ell} + s_{k,\ell}^2 + m_{k,\ell}^2
+            \right)
+      \right]
+    \right\}
+\end{align}
+Note: after computing these values, we should normalize each $\phi_i$ to sum to $1$.
 
 \subsection{Variational updates for Gaussian variables}
 
