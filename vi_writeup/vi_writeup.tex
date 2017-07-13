@@ -14,7 +14,7 @@
 
 \newcommand{\Discrete}{\mathrm{Discrete}}
 \newcommand{\Gaussian}{\mathrm{Gaussian}}
-\newcommand{\LogNormal}{\mathrm{LogNormal}}
+\newcommand{\InverseGamma}{\mathrm{InverseGamma}}
 
 \title{Notes on Coordinate Ascent Variational Inference}
 \author{Andrew Leverentz}
@@ -222,8 +222,9 @@ To find the value of $q_k$ that yields the minimal value of $\sL$ (while holding
 Then, we will compute the value of $q_k$ that causes the functional derivative of $\sL$ to be zero.
 
 The functional derivative $\delta\sL / \delta q_k$ is the functional which satisfies the following equation,%
-    \footnote{Note that $\sL$ has the type signature $\sL : (\mathbb R \to \mathbb R) \to \mathbb R$, whereas the functional derivative of $\sL$ with respect to $q_k$ has the type signature $\delta\sL/\delta q_k : (\mathbb R \to \mathbb R) \to (\mathbb R \to \mathbb R)$.
-    In other words, the functional derivative is a function which takes two inputs, (1) a function $\mathbb R \to \mathbb R$ and (2) a real number, and outputs a real number.}
+    \footnote{Source: \url{https://en.wikipedia.org/wiki/Functional_derivative}.
+    Note that $\sL$ has the type signature ${(\mathbb R \to \mathbb R) \to \mathbb R}$, whereas the functional derivative of $\sL$ with respect to $q_k$ has the type signature ${(\mathbb R \to \mathbb R) \to (\mathbb R \to \mathbb R)}$.
+    In other words, the functional derivative is a function which takes two inputs, (1) a function ${\mathbb R \to \mathbb R}$ and (2) a real number, and outputs a real number.}
 for any function $\phi : \mathbb R \to \mathbb R$:%
 \begin{align}
 \int \left( \frac{\delta \sL}{\delta q_k}[q_k](z_k) \right) \phi(z_k) \, dz_k
@@ -339,20 +340,20 @@ Consider the following model:
 \begin{alignat}{2}
 c_i &\sim \Discrete(r), &&\text{ for } i = 1, \ldots, n, \\
 \mu_{k, \ell} &\sim \Gaussian(0, \alpha), &&\text{ for } k = 1, \ldots, K, \; \ell = 1, \ldots, d, \\
-\sigma_{k, \ell} &\sim \LogNormal(\beta, \gamma), &&\text{ for } k = 1, \ldots, K, \; \ell = 1, \ldots, d, \\
-x_i \mid c_i, \mu_{1:K,1:d}, \sigma_{1:K,1:d} &\sim \Gaussian(\mu_{c_i}, \Sigma_{c_i}), &&\text{ for } i = 1, \ldots, n.
+\lambda_{k, \ell} &\sim \InverseGamma(\beta_1, \beta_2), &&\text{ for } k = 1, \ldots, K, \; \ell = 1, \ldots, d, \\
+x_i \mid c_i, \mu_{1:K,1:d}, \lambda_{1:K,1:d} &\sim \Gaussian(\mu_{c_i}, \Sigma_{c_i}), &&\text{ for } i = 1, \ldots, n.
 \end{alignat}
 
-Here, $x_i$ represents the observed data, whereas $c_i$, $\mu_{k, \ell}$, and $\sigma_{k,\ell}$ are latent variables.
-The values $r$, $\alpha$, $\beta$, and $\gamma$ are fixed hyperparameters (in particular, $r$ is a $K$-dimensional vector which sums to $1$).
-Furthermore, we define $\Sigma_{c_i}$ in terms of the random variables $\sigma_{k,\ell}$:
+Here, $x_i$ represents the observed data, whereas $c_i$, $\mu_{k, \ell}$, and $\lambda_{k,\ell}$ are latent variables.
+The values $r$, $\alpha$, $\beta_1$, and $\beta_2$ are fixed hyperparameters (in particular, $r$ is a $K$-dimensional vector which sums to $1$).
+Furthermore, we define $\Sigma_k$ in terms of the random variables $\lambda_{k,\ell}$:
 \begin{align}
-\Sigma_{c_i}
+\Sigma_k
 = \begin{bmatrix}
-    \sigma_{c_i, 1}^2 & 0 & 0 & 0 \\
-    0 & \sigma_{c_i, 2}^2 & 0 & 0 \\
+    \lambda_{k, 1} & 0 & 0 & 0 \\
+    0 & \lambda_{k, 2} & 0 & 0 \\
     0 & 0 & \ddots & 0 \\
-    0 & 0 & 0 & \sigma_{c_i, d}^2
+    0 & 0 & 0 & \lambda_{k, d}
   \end{bmatrix}
 \end{align}
 
@@ -360,36 +361,51 @@ This yields the following probability densities:
 \begin{align}
 p(c_i) &= r_{c_i}, \\
 p(\mu_{k, \ell}) &= (2\pi)^{-1/2} \, \alpha^{-1} \exp\left( -\frac{\mu_{k, \ell}^2}{2 \alpha^2} \right), \\
-p(\sigma_{k,\ell}) &= \frac{1}{\sigma_{k,\ell} \, \gamma \sqrt{2\pi}} \exp \left( -\frac{(\log(\sigma_{k,\ell}) - \beta)^2}{2\gamma^2} \right), \\
-p(x_i \mid c_i, \mu_{1:K,1:d}, \sigma_{1:K,1:d}) &= (2\pi)^{-d/2} \, \abs{\Sigma_{c_i}}^{-1/2} \exp \left( -\frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right).
+p(\lambda_{k,\ell}) &= \frac{\beta_2^{\beta_1}}{\Gamma(\beta_1)} \lambda_{k,\ell}^{-\beta_1 - 1} \exp\left( -\frac{\beta_2}{\lambda_{k,\ell}} \right), \\
+p(x_i \mid c_i, \mu_{1:K,1:d}, \lambda_{1:K,1:d}) &= (2\pi)^{-d/2} \, \abs{\Sigma_{c_i}}^{-1/2} \exp \left( -\frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right).
 \end{align}
 
 Later, we will use the log joint probability to determine the natural parameters $\eta$ corresponding to each latent variable:
 \begin{align}
 J
-&= \log p(c_{1:n}, \mu_{1:K,1:d}, \sigma_{1:K,1:d}, x_{1:n}) \\
+&= \log p(c_{1:n}, \mu_{1:K,1:d}, \lambda_{1:K,1:d}, x_{1:n}) \\
 &= \log \left[
         \left( \prod_{i=1}^n p(c_i) \right)
         \left( \prod_{k=1}^K \prod_{\ell=1}^d p(\mu_{k, \ell}) \right)
-        \left( \prod_{k=1}^K \prod_{\ell=1}^d p(\sigma_{k, \ell}) \right)
-        \left( \prod_{i=1}^n p(x_i \mid c_i, \mu_{1:K,1:d}, \sigma_{1:K,1:d}) \right)
+        \left( \prod_{k=1}^K \prod_{\ell=1}^d p(\lambda_{k, \ell}) \right)
+        \left( \prod_{i=1}^n p(x_i \mid c_i, \mu_{1:K,1:d}, \lambda_{1:K,1:d}) \right)
     \right] \\
 &= \begin{aligned}[t]
     &C + \sum_{i=1}^n \log r_{c_i}
-    - \sum_{k=1}^K \frac{\mu_{k, \ell}^2}{2\alpha^2}
-    - \sum_{k=1}^K \sum_{\ell=1}^d \left( \log \sigma_{k,\ell} + \frac{ (\log(\sigma_{k,\ell}) - \beta)^2 }{2\gamma^2} \right) \\
-    &- \sum_{i=1}^n \left( \frac{1}{2} \log \abs{ \Sigma_{c_i} } + \frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right)
-    \end{aligned} \\
-\label{eq:logJointExample}
-&= \begin{aligned}[t]
-    &C + \sum_{i=1}^n \sum_{k=1}^K \mathds{1}[c_i = k] \log r_k
-    - \sum_{k=1}^K \frac{\mu_{k, \ell}^2}{2\alpha^2}
-    - \sum_{k=1}^K \sum_{\ell=1}^d \left( \log \sigma_{k,\ell} + \frac{ (\log(\sigma_{k,\ell}) - \beta)^2 }{2\gamma^2} \right) \\
-    &- \sum_{i=1}^n \sum_{k=1}^K \mathds{1}[c_i = k] \left( \frac{1}{2} \log \abs{ \Sigma_k } + \frac{1}{2} (x_i - \mu_k)^\top \Sigma_k^{-1} (x_i - \mu_k) \right).
+    - \sum_{k=1}^K \sum_{\ell=1}^d \frac{\mu_{k, \ell}^2}{2\alpha^2}
+    - \sum_{k=1}^K \sum_{\ell=1}^d \left( (\beta_1 + 1) \log \lambda_{k,\ell} + \frac{\beta_2}{\lambda_{k,\ell}} \right) \\
+    &- \frac{1}{2} \sum_{i=1}^n \left( \log \abs{ \Sigma_{c_i} } + (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right)
     \end{aligned}
 \end{align}
 Here, $C$ is a constant which does not depend on any of the random variables.
-Also, note that in the last step, we have rewritten some expressions involving $c_i$ using indicator functions; this will eventually make it easier to compute expectations.
+
+Note that we can rewrite expressions involving $c_i$ using indicator functions, which will eventually make it easier to compute expectations.
+In particular, we have
+\begin{align}
+\log r_{c_i}
+&= \sum_{k=1}^K \mathds{1}[c_i = k] \log r_k \\
+\log \abs{\Sigma_{c_i}}
+&= \sum_{k=1}^K \sum_{\ell=1}^d \mathds{1}[c_i = k] \log \lambda_{k,\ell}, \\
+(x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i})
+&= \sum_{k=1}^K \sum_{\ell=1}^d \mathds{1}[c_i = k] \lambda_{k,\ell}^{-1} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2 \right).
+\end{align}
+Thus, we obtain the following expression for the log joint probability:
+\begin{align}
+J
+&= \log p(c_{1:n}, \mu_{1:K,1:d}, \lambda_{1:K,1:d}, x_{1:n}) \\
+\label{eq:logJointExample}
+&= \begin{aligned}[t]
+    & C - \sum_{k=1}^K \sum_{\ell=1}^d \left( \frac{\mu_{k, \ell}^2}{2\alpha^2} + (\beta_1 + 1) \log \lambda_{k,\ell} + \frac{\beta_2}{\lambda_{k,\ell}} \right) \\
+    & + \sum_{i=1}^n \sum_{k=1}^K \mathds{1}[c_i = k] \left( \log r_k - \frac{1}{2}
+        \sum_{\ell=1}^d \left[ \log \lambda_{k,\ell} + \lambda_{k,\ell}^{-1} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2 \right) \right]
+    \right).
+    \end{aligned}
+\end{align}
 
 \subsection{Choosing a set of variational distributions}
 
@@ -399,12 +415,12 @@ Along with these, we must introduce $m = n + 2Kd$ variational parameters:
 \begin{itemize}
     \item $\phi_i$ corresponding to $c_i$,
     \item $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$, and
-    \item $a_{k,\ell}$ and $b_{k,\ell}$ corresponding to $\sigma_{k,\ell}$.
+    \item $a_{k,\ell}$ and $b_{k,\ell}$ corresponding to $\lambda_{k,\ell}$.
 \end{itemize}
 Note that each $\phi_i$ is a $K$-vector of non-negative values summing to $1$; the other variational parameters are scalar values.
 
 \begin{table}[h!]
-\caption{Summary of variational distributions for mixture of Gaussians.}
+\caption{Summary of variational distributions for a mixture of Gaussians.}
 \label{table:varDists}
 \centering
 \bgroup
@@ -424,11 +440,11 @@ $q(\mu_{k,\ell})$
 & $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
 & $\qquad= \dfrac{\exp(-(\mu_{k,\ell}-m_{k,\ell})^2) / (2 s_{k,\ell}^2) )}{s_{k,\ell} \sqrt{2\pi}}$ \\ \hline
 %
-$q(\sigma_{k,\ell})$
-& $q_{n+Kd+(k-1)d+\ell}(\sigma_{k,\ell}; a_{k,\ell}, b_{k,\ell})$
-& $\LogNormal(a_{k,\ell}, b_{k,\ell})(\sigma_{k,\ell})$ \\
+$q(\lambda_{k,\ell})$
+& $q_{n+Kd+(k-1)d+\ell}(\lambda_{k,\ell}; a_{k,\ell}, b_{k,\ell})$
+& $\InverseGamma(a_{k,\ell}, b_{k,\ell})(\lambda_{k,\ell})$ \\
 & $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
-& $\qquad= \dfrac{\exp(-(\log(\sigma_{k,\ell})-a_{k,\ell})^2 / (2 b_{k,\ell}^2))} {\sigma_{k,\ell} \, b_{k,\ell} \sqrt{2\pi}}$ \\
+& $\qquad\propto \lambda_{k,\ell}^{-a_{k,\ell} - 1} \exp\left( -b_{k,\ell} / \lambda_{k,\ell} \right)$ \\
 \end{tabular}
 \egroup
 \end{table}
@@ -440,30 +456,21 @@ That is, we derive an update rule for the parameters $\phi_i$ corresponding to e
 Returning to the expression for the log joint probability of our model given in \eqref{eq:logJointExample}, we ignore all terms that do not depend on $c_i$ (here, we treat $i$ as fixed):
 \begin{align}
 J
-&= C' + \sum_{k=1}^K \left[ \mathds{1}[c_i = k] \left( \log r_k - \frac{1}{2} \log \abs{ \Sigma_k } - \frac{1}{2} (x_i - \mu_k)^\top \Sigma_k^{-1} (x_i - \mu_k) \right) \right] \\
-&= C' + \sum_{k=1}^K \left[ \mathds{1}[c_i = k] \left( \log r_k - \sum_{\ell=1}^d \left(
-    \log \sigma_{k, \ell} + \frac{\sigma_{k, \ell}^{-2}}{2}
-        \left[
-            x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2
-        \right]
-    \right) \right) \right]
+&= C' + \sum_{k=1}^K \mathds{1}[c_i = k] \left( \log r_k - \frac{1}{2}
+        \sum_{\ell=1}^d \left[ \log \lambda_{k,\ell} + \lambda_{k,\ell}^{-1} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2 \right) \right]
+    \right).
 \end{align}
 
 Now, we treat the joint probability as a function of $c_i$ and express it in the form of an exponential-family distribution.
 In particular, we want to derive the natural parameters $\eta$ for this function.
 This is equivalent to finding a way to express the log joint probability as $\eta \cdot T + \log h(c_i) - A(\eta)$, where $\eta$ does not depend on $c_i$, and $T$ depends \emph{only} on $c_i$.
-The terms that do not depend on $c_i$ can all be absorbed into either $h$ or $A$, which is why we can ignore them for now.
+The terms that do not depend on $c_i$ can all be absorbed into either $h$ or $A$, which is why we can ignore them in this context.
 
 The parameterization for a categorical distribution dictates that $T$ is a $K$-vector in which the $k\nth$ component is $\mathds{1}[c_i = k]$.
 Therefore, we can derive the following natural parameters for this distribution:
 \begin{align}
 \eta &= \left(
-    \log r_k - \sum_{\ell=1}^d \left(
-    \log \sigma_{k, \ell} + \frac{\sigma_{k, \ell}^{-2}}{2}
-        \left[
-            x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2
-        \right]
-    \right)
+    \log r_k - \frac{1}{2} \sum_{\ell=1}^d \left[ \log \lambda_{k,\ell} + \lambda_{k,\ell}^{-1} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2 \right) \right]
 \right)_{k = 1, \ldots, K}
 \end{align}
 
@@ -471,12 +478,7 @@ Following \eqref{eq:paramUpdate}, we take the expectation of $\eta$ with respect
 \begin{align}
 \left( \expectOver{q}{\eta} \right)_k
 &=
-    \log r_k - \sum_{\ell=1}^d \left[
-    \expectOver{q}{\log \sigma_{k, \ell}} + \frac{1}{2} \expectOver{q}{\sigma_{k, \ell}^{-2}}
-        \left(
-            x_{i,\ell}^2 - 2 x_{i,\ell} \expectOver{q}{\mu_{k,\ell}} + \expectOver{q}{\mu_{k,\ell}^2}
-        \right)
-    \right]
+\log r_k - \frac{1}{2} \sum_{\ell=1}^d \left[ \expectOver{q}{\log \lambda_{k,\ell}} + \expectOver{q}{\lambda_{k,\ell}^{-1}} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \expectOver{q}{\mu_{k,\ell}} + \expectOver{q}{\mu_{k,\ell}^2} \right) \right]
 \end{align}
 
 The remaining expectations over $q$ can be evaluated in terms of our variational parameters:
@@ -485,33 +487,116 @@ The remaining expectations over $q$ can be evaluated in terms of our variational
 &= m_{k,\ell}, \\
 \expectOver{q}{\mu_{k,\ell}^2}
 &= s_{k,\ell}^2 + m_{k,\ell}^2, \\
-\expectOver{q}{\log\sigma_{k,\ell}}
-&= a_{k,\ell}, \\
-\expectOver{q}{\sigma_{k,\ell}^{-2}}
-&= \exp\left( 2b_{k,\ell}^2 - 2a_{k,\ell} \right).
+\expectOver{q}{\lambda_{k,\ell}^{-1}}
+&= a_{k,\ell} / b_{k,\ell}, \\
+\expectOver{q}{\log \lambda_{k,\ell}}
+&= \log(b_{k,\ell}) - \psi(a_{k,\ell}).
+\end{align}
+Here, $\psi$ is the digamma function, defined by
+\begin{align}
+\psi(x) &= \frac{\Gamma'(x)}{\Gamma(x)}.
 \end{align}
 
-The inverse parameter mapping $\eta^{-1}$ simply maps $\eta$ to $\exp(\eta)$, where the exponential is applied elementwise.
-Therefore, the parameter update for $\phi_i$ is
+The inverse parameter mapping $\eta^{-1}$ is the softmax function, which applies $\exp(\placeholder)$ to each element of $\eta$ and normalizes the values to sum to $1$.
+Therefore, the parameter update for $\phi_i$, prior to normalization, is
 \begin{align}
 \phi_{i,k}
 %&= \eta^{-1}\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
 &= \exp\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
-&= r_k \exp \left\{
-    - \sum_{\ell=1}^d \left[
-        a_{k, \ell} + \frac{1}{2}\exp\left(2b_{k,\ell}^2 - 2a_{k,\ell}\right)
-            \left(
-                x_{i,\ell}^2 - 2 x_{i,\ell} m_{k,\ell} + s_{k,\ell}^2 + m_{k,\ell}^2
-            \right)
-      \right]
-    \right\}
+&=
+\exp \left(
+\log r_k - \frac{1}{2} \sum_{\ell=1}^d
+    \left[
+        \log(b_{k,\ell}) - \psi(a_{k,\ell}) + \frac{a_{k,\ell}}{b_{k,\ell}}
+        \left(
+            x_{i,\ell}^2 - 2 x_{i,\ell} m_{k,\ell} + s_{k,\ell}^2 + m_{k,\ell}^2
+        \right)
+    \right]
+\right)
 \end{align}
-Note: after computing these values, we should normalize each $\phi_i$ to sum to $1$.
+To avoid numerical overflow when normalizing these values, we can use the ``exp-normalize'' trick,%
+\footnote{For example, see \url{http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/}}
+which uses the following identity:
+\begin{align}
+\frac{\exp(v_i)}{\sum_j \exp(v_j)}
+&= \frac{\exp(v_i - \max_k v_k)}{\sum_j \exp(v_j - \max_k v_k)}.
+\end{align}
 
 \subsection{Variational updates for Gaussian variables}
 
-\subsection{Variational updates for log-normal variables}
+Next, we perform a similar analysis for the Gaussian latent variables $\mu_{k,\ell}$.
+Returning to \eqref{eq:logJointExample}, we ignore all terms that do not depend on $\mu_{k,\ell}$ (here, we treat $k$ and $\ell$ as fixed):
+\begin{align}
+J
+&=
+    C'' - \frac{\mu_{k, \ell}^2}{2\alpha^2}
+    + \sum_{i=1}^n \mathds{1}[c_i = k] \lambda_{k,\ell}^{-1} \left( x_{i,\ell} \mu_{k,\ell} - \frac{\mu_{k,\ell}^2}{2} \right)
+    .
+\end{align}
 
-% TODO: work through an example?
+Since $\mu_{k,\ell}$ is a 1-dimensional Gaussian variable, the sufficient statistics are $T = (\mu_{k,\ell}, \mu_{k,\ell}^2)$.
+Thus, we can extract the following natural parameters:
+\begin{align}
+\eta &= \left(
+    \lambda_{k,\ell}^{-1} \sum_{i=1}^n x_{i,\ell} \, \mathds{1}[c_i=k], \;
+    -\frac{1}{2} \left( \frac{1}{\alpha^2} + \lambda_{k,\ell}^{-1} \sum_{i=1}^n \mathds{1}[c_i=k] \right)
+\right).
+\end{align}
+
+Following \eqref{eq:paramUpdate}, we take the expectation of $\eta$ with respect to the variational distributions $q$:
+\begin{align}
+\expectOver{q}{\eta}
+&=
+\left(
+    \expectOver{q}{\lambda_{k,\ell}^{-1}} \sum_{i=1}^n x_{i,\ell} \, \expectOver{q}{\mathds{1}[c_i=k]}, \;
+    -\frac{1}{2} \left( \frac{1}{\alpha^2} + \expectOver{q}{\lambda_{k,\ell}^{-1}} \sum_{i=1}^n \expectOver{q}{\mathds{1}[c_i=k]} \right)
+\right)
+\end{align}
+
+The expectations over $q$ can again be expressed in terms of our variational parameters:
+\begin{align}
+\expectOver{q}{\lambda_{k,\ell}^{-1}} &= a_{k,\ell} / b_{k,\ell}, \\
+\expectOver{q}{\mathds{1}[c_i=k]} &= q(c_i = k) = \phi_{i,k}.
+\end{align}
+
+Therefore, we have
+\begin{align}
+\expectOver{q}{\eta}
+&=
+\left(
+    \frac{a_{k,\ell}}{b_{k,\ell}} \sum_{i=1}^n x_{i,\ell} \, \phi_{i,k}, \;
+    -\frac{1}{2} \left( \frac{1}{\alpha^2} + \frac{a_{k,\ell}}{b_{k,\ell}} \sum_{i=1}^n \phi_{i,k} \right)
+\right)
+\end{align}
+
+For a 1-dimensional Gaussian, the inverse parameter mapping $\eta^{-1}$ is
+\begin{align}
+(\eta_1, \eta_2)
+&\mapsto
+\left( -\frac{\eta_1}{2 \eta_2}, -\frac{1}{2 \eta_2} \right).
+\end{align}
+
+From this, we derive the following update rule for the variational parameters $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$:
+\begin{align}
+m_{k,\ell} &= \frac{ \sum_{i=1}^n x_{i,\ell} \, \phi_{i,k} }
+                   { \frac{b_{k,\ell}}{\alpha^2 a_{k,\ell}} + \sum_{i=1}^n \phi_{i,k} }, \\
+s_{k,\ell} &= \frac{ 1 }
+                   { \frac{1}{\alpha^2} + \frac{a_{k,\ell}}{b_{k,\ell}} \sum_{i=1}^n \phi_{i,k} }.
+\end{align}
+
+\subsection{Variational updates for inverse-gamma variables}
+
+Lastly, we repeat this analysis for the inverse-gamma latent variables $\lambda_{k,\ell}$.
+Once again returning to \eqref{eq:logJointExample}, we ignore all terms that do not depend on $\lambda_{k,\ell}$ (here, we treat $k$ and $\ell$ as fixed):
+\begin{align}
+J
+&= \begin{aligned}[t]
+    & C''' - \left((\beta_1 + 1) \log \lambda_{k,\ell} + \frac{\beta_2}{\lambda_{k,\ell}} \right) \\
+    & - \frac{1}{2} \sum_{i=1}^n \mathds{1}[c_i = k]
+        \left( \log \lambda_{k,\ell} + \lambda_{k,\ell}^{-1} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2 \right) \right).
+    \end{aligned}
+\end{align}
+
+% TODO
 
 \end{document}
