@@ -1,5 +1,4 @@
 \usepackage{mathtools}
-%\usepackage{algpseudocode}
 \usepackage{listings}
 \usepackage{tikz}
 \usepackage[nomessages]{fp}
@@ -22,16 +21,18 @@
 \usepackage{paralist}
 \usepackage{wrapfig}
 \usepackage{hyperref}
-\usepackage[noend]{algorithmic}
+%\usepackage[noend]{algorithmic}
 \usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{commath}
 \usepackage{needspace}
 \usepackage{mathrsfs}
+\usepackage{dsfont}
+\usepackage{etoolbox}
 
 \newcommand{\rb}[1]{\textcolor{blue}{RB:#1}}
 \newcommand{\al}[1]{\textcolor{blue}{AL:#1}}
 \newcommand{\cz}[1]{\textcolor{blue}{CZ:#1}}
-
 
 \newtheorem{lem}{Lemma}[section]
 \newtheorem{thm}[lem]{Theorem}
@@ -44,8 +45,6 @@
 \newtheorem{assumption}[lem]{Assumption}
 \newtheorem{claim}[lem]{Claim}
 \newcommand{\ip}[2]{\left\langle #1,#2 \right\rangle}
-
-\usepackage{dsfont}
 
 \newcommand{\err}{\mathrm{err}}
 \newcommand{\emperr}{\widehat{\err}}
@@ -84,7 +83,6 @@
 \newcommand{\sign}{\mathop{\mathrm{sign}}}
 \newcommand{\eps}{\varepsilon}
 
-
 \newcommand{\bx}{\mathbf{x}}
 \newcommand{\by}{\mathbf{y}}
 \newcommand{\bz}{\mathbf{z}}
@@ -120,8 +118,6 @@
     \left( #2 \midvert #3 \right)}
 
 \lstset{basicstyle=\ttfamily}
-
-\usepackage{etoolbox}
 
 \newcommand{\surround}[2][r]%
   {\ifstrequal{#1}{round}%

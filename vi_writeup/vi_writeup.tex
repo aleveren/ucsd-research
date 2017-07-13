@@ -130,6 +130,7 @@ In \eqref{eq:takePXout}, we take $\log p(X = x)$ out of the expectation because 
 Then, in \eqref{eq:removePX}, we drop that term completely, because it does not depend on $q$ at all, and therefore it does not affect the optimal value.
 In \eqref{eq:switchToMax}, we see that minimizing the reversed KL divergence is equivalent to maximizing the following quantity:
 \begin{align}
+\label{eq:ELBO}
 \mathrm{ELBO}
 &= \expectOver{Z \sim q}{ \log p(Z, X = x) } - \expectOver{Z \sim q}{ \log q(Z) }.
 \end{align}
@@ -336,7 +337,7 @@ we simply replace $p(Z_k = z_k \mid Z_{-k} = z_{-k}, X = x)$ with $p(Z_k = z_k, 
 
 \section{Example: Mixture of Multivariate Gaussians}
 
-Consider the following model:
+Consider the following generative model for clustered data:
 \begin{alignat}{2}
 c_i &\sim \Discrete(r), &&\text{ for } i = 1, \ldots, n, \\
 \mu_{k, \ell} &\sim \Gaussian(0, \alpha), &&\text{ for } k = 1, \ldots, K, \; \ell = 1, \ldots, d, \\
@@ -344,9 +345,7 @@ c_i &\sim \Discrete(r), &&\text{ for } i = 1, \ldots, n, \\
 x_i \mid c_i, \mu_{1:K,1:d}, \lambda_{1:K,1:d} &\sim \Gaussian(\mu_{c_i}, \Sigma_{c_i}), &&\text{ for } i = 1, \ldots, n.
 \end{alignat}
 
-Here, $x_i$ represents the observed data, whereas $c_i$, $\mu_{k, \ell}$, and $\lambda_{k,\ell}$ are latent variables.
-The values $r$, $\alpha$, $\beta_1$, and $\beta_2$ are fixed hyperparameters (in particular, $r$ is a $K$-dimensional vector which sums to $1$).
-Furthermore, we define $\Sigma_k$ in terms of the random variables $\lambda_{k,\ell}$:
+Here, we define $\Sigma_k$ in terms of the random variables $\lambda_{k,\ell}$:
 \begin{align}
 \Sigma_k
 = \begin{bmatrix}
@@ -356,6 +355,17 @@ Furthermore, we define $\Sigma_k$ in terms of the random variables $\lambda_{k,\
     0 & 0 & 0 & \lambda_{k, d}
   \end{bmatrix}
 \end{align}
+
+In this model, $x_i$ represents the observed data, whereas $c_i$, $\mu_{k, \ell}$, and $\lambda_{k,\ell}$ are latent variables.
+The values $r$, $\alpha$, $\beta_1$, and $\beta_2$ are fixed hyperparameters (in particular, $r$ is a $K$-dimensional vector which sums to $1$).
+
+The intuition behind this model is as follows:
+\begin{itemize}
+    \item Each cluster $k \in \{1, \ldots, K\}$ is assigned a $d$-dimensional mean vector $\mu_k$.
+    \item Each cluster $k \in \{1, \ldots, K\}$ is assigned a $d \times d$ diagonal covariance matrix $\Sigma_k$ corresponding to the $d$-dimensional vector $\lambda_k$.
+    \item For each $i \in \{1, \ldots, n\}$, we select a cluster assignment $c_i \in \{1, \ldots, K\}$.
+    \item Given all of the above information, each data point is sampled from a multivariate Gaussian with mean $\mu_{c_i}$ and covariance matrix $\Sigma_{c_i}$.
+\end{itemize}
 
 This yields the following probability densities:
 \begin{align}
@@ -388,7 +398,7 @@ Note that we can rewrite expressions involving $c_i$ using indicator functions, 
 In particular, we have
 \begin{align}
 \log r_{c_i}
-&= \sum_{k=1}^K \mathds{1}[c_i = k] \log r_k \\
+&= \sum_{k=1}^K \mathds{1}[c_i = k] \log r_k, \\
 \log \abs{\Sigma_{c_i}}
 &= \sum_{k=1}^K \sum_{\ell=1}^d \mathds{1}[c_i = k] \log \lambda_{k,\ell}, \\
 (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i})
@@ -411,7 +421,7 @@ J
 
 Note that in total we have $m = n + 2Kd$ latent variables, which means we need the same number of variational distributions.
 The variational distributions are described in Table~\ref{table:varDists}.
-Along with these, we must introduce $m = n + 2Kd$ variational parameters:
+Along with these, we introduce the following variational parameters:
 \begin{itemize}
     \item $\phi_i$ corresponding to $c_i$,
     \item $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$, and
@@ -419,7 +429,7 @@ Along with these, we must introduce $m = n + 2Kd$ variational parameters:
 \end{itemize}
 Note that each $\phi_i$ is a $K$-vector of non-negative values summing to $1$; the other variational parameters are scalar values.
 
-\begin{table}[h!]
+\begin{table}[!ht]
 \caption{Summary of variational distributions for a mixture of Gaussians.}
 \label{table:varDists}
 \centering
@@ -503,6 +513,7 @@ Therefore, the parameter update for $\phi_i$, prior to normalization, is
 \phi_{i,k}
 %&= \eta^{-1}\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
 &= \exp\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
+\label{eq:exVarUpdatePhi}
 &=
 \exp \left(
 \log r_k - \frac{1}{2} \sum_{\ell=1}^d
@@ -534,7 +545,7 @@ J
     .
 \end{align}
 
-Since $\mu_{k,\ell}$ is a 1-dimensional Gaussian variable, the sufficient statistics are $T = (\mu_{k,\ell}, \mu_{k,\ell}^2)$.
+Since $\mu_{k,\ell}$ is a 1-dimensional Gaussian variable, the sufficient statistics are $T = (\mu_{k,\ell}, \, \mu_{k,\ell}^2)$.
 Thus, we can extract the following natural parameters:
 \begin{align}
 \eta &= \left(
@@ -578,8 +589,10 @@ For a 1-dimensional Gaussian, the inverse parameter mapping $\eta^{-1}$ is
 
 From this, we derive the following update rule for the variational parameters $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$:
 \begin{align}
+\label{eq:exVarUpdateM}
 m_{k,\ell} &= \frac{ \sum_{i=1}^n x_{i,\ell} \, \phi_{i,k} }
                    { \frac{b_{k,\ell}}{\alpha^2 a_{k,\ell}} + \sum_{i=1}^n \phi_{i,k} }, \\
+\label{eq:exVarUpdateS}
 s_{k,\ell} &= \frac{ 1 }
                    { \frac{1}{\alpha^2} + \frac{a_{k,\ell}}{b_{k,\ell}} \sum_{i=1}^n \phi_{i,k} }.
 \end{align}
@@ -597,6 +610,104 @@ J
     \end{aligned}
 \end{align}
 
+Since $\lambda_{k,\ell}$ is an inverse-gamma variable, its sufficient statistics are $T = (\log \lambda_{k,\ell}, \, \lambda_{k,\ell}^{-1})$.
+Thus, we can extract the following natural parameters:
+\begin{align}
+\eta
+&=
+\left(
+    -1 - \beta_1 - \frac{1}{2} \sum_{i=1}^n \mathds{1}[c_i=k], \;
+    -\beta_2 - \frac{1}{2} \sum_{i=1}^n \mathds{1}[c_i=k] \left( x_{i,\ell}^2 - 2 x_{i,\ell} \mu_{k,\ell} + \mu_{k,\ell}^2 \right)
+\right)
+\end{align}
+
+Next, we take the expectation of $\eta$ with respect to the variational distributions $q$.
+Borrowing calculations from the previous two sections, we have
+\begin{align}
+\expectOver{q}{\eta}
+&=
+\left(
+    -1 - \beta_1 - \frac{1}{2} \sum_{i=1}^n \phi_{i,k}, \;
+    -\beta_2 - \frac{1}{2} \sum_{i=1}^n \phi_{i,k}
+        \left( x_{i,\ell}^2 - 2 x_{i,\ell} m_{k,\ell} + s_{k,\ell}^2 + m_{k,\ell}^2 \right)
+\right)
+\end{align}
+
+For an inverse-gamma distribution, the inverse parameter mapping $\eta^{-1}$ is
+\begin{align}
+(\eta_1, \eta_2)
+&\mapsto
+\left(
+    -\eta_1 - 1, \;
+    -\eta_2
+\right)
+\end{align}
+
+Therefore, we can derive the following update rules:
+\begin{align}
+\label{eq:exVarUpdateA}
+a_{k,\ell}
+&= \beta_1 + \frac{1}{2} \sum_{i=1}^n \phi_{i,k}, \\
+\label{eq:exVarUpdateB}
+b_{k,\ell}
+&= \beta_2 + \frac{1}{2} \sum_{i=1}^n \phi_{i,k}
+    \left( x_{i,\ell}^2 - 2 x_{i,\ell} m_{k,\ell} + s_{k,\ell}^2 + m_{k,\ell}^2 \right)
+\end{align}
+
+\needspace{0.25\textheight}
+\subsection{A Concrete Algorithm for Coordinate Ascent}
+
+Combining the above results, we have the following algorithm:
+
+\begin{algorithm}[!ht]
+\caption{Coordinate Ascent Variational Inference for a Mixture of Multivariate Gaussians}
+\begin{algorithmic}
+\Function{CAVI}{observed data $x_{1:n,1:d}$; number of clusters $K$; hyperparameters $r$, $\alpha$, $\beta_1$, $\beta_2$}
+    \State Set every element of $\phi_{1:n,1:K}$ to $1/K$
+    \State Set every element of $m_{1:K,1:d}$ to $0$
+    \State Set every element of $s_{1:K,1:d}$ to $\max_{\ell \in \{1, \ldots, d\}} (\max_i x_{i,\ell} - \min_i x_{i,\ell})$
+    \State Set every element of $a_{1:K,1:d}$ to $10^{-3}$
+    \State Set every element of $b_{1:K,1:d}$ to $10^{-3}$
+    \While{ELBO has not converged}
+        \For{$i \in \{1, \ldots, n\}$}
+            \State Update $\phi_{i,1:K}$ using equation \eqref{eq:exVarUpdatePhi} and the ``exp-normalize'' trick
+        \EndFor
+        \For{$k \in \{1, \ldots, K\}$}
+            \For{$\ell \in \{1, \ldots, d\}$}
+                \State Update $m_{k,\ell}$ using equation \eqref{eq:exVarUpdateM}
+                \State Update $s_{k,\ell}$ using equation \eqref{eq:exVarUpdateS}
+                \State Update $a_{k,\ell}$ using equation \eqref{eq:exVarUpdateA}
+                \State Update $b_{k,\ell}$ using equation \eqref{eq:exVarUpdateB}
+            \EndFor
+        \EndFor
+        \State Compute ELBO according to equation \eqref{eq:ELBO}
+    \EndWhile
+    \State \Return $(\phi_{1:n,1:K}, \;
+                     m_{1:K,1:d}, \;
+                     s_{1:K,1:d}, \;
+                     a_{1:K,1:d}, \;
+                     b_{1:K,1:d})$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+In this algorithm, note that we have initialized the variational parameters to create distributions with relatively wide dispersion.
+This is because we do not want our initializations to overly constrain the initial distributions of the latent variables.
+
+% Also, rather than waiting for the ELBO to converge, the main loop can be run for a fixed number of iterations.
+
+% TODO: python code listing
+% \begin{lstlisting}
 % TODO
+% \end{lstlisting}
+
+% \subsection{Results on a simulated dataset}
+
+% TODO
+
+%%%%%%%%%%%%%%%%%%%%%
+% Misc TODO items:
+% - remove \propto above (insert actual normalizing factors)
+% - mention the need for conjugate priors... otherwise the math doesn't work out (still need to figure out what conditions are sufficient to guarantee "easy" calculations)
 
 \end{document}
