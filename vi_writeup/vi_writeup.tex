@@ -25,7 +25,8 @@
 \maketitle
 
 \begin{sloppypar}
-This document draws heavily upon David Blei's lecture notes on Variational Inference, available at \url{https://www.cs.princeton.edu/courses/archive/fall11/cos597C/lectures/variational-inference-i.pdf}.
+This document draws heavily upon ``Variational Inference: A Review for Statisticians'' (Blei et~al) and upon David Blei's lecture notes on Variational Inference.%
+\footnote{Available at \url{https://www.cs.princeton.edu/courses/archive/fall11/cos597C/lectures/variational-inference-i.pdf}.}
 However, I've modified some of the notation and expanded on some of the derivations in an attempt to make it more explicit and (I hope) a bit friendlier to newcomers.
 \end{sloppypar}
 
@@ -63,7 +64,7 @@ Reversed KL divergence is nearly identical, but with the arguments swapped:
 
 For convenience, we assume that $p(\placeholder \mid X = x)$ can be reasonably well approximated by one or more members from a family $Q$, which we define below.
 
-For each latent variable $Z_k$, choose a parameterized family of distributions, such as gaussians or beta distributions.%
+For each latent variable $Z_k$, we choose a parameterized family of distributions, such as gaussians or beta distributions.%
 \footnote{Later, we'll see that it is often convenient to choose distributions which belong to the \emph{exponential family}, which is actually a set of sets of distributions.}
 Let $q_k(z_k; \nu_k)$ denote the distribution we have selected corresponding to the $k\nth$ latent variable, parameterized by a vector $\nu_k$.
 We refer to the components of $\nu_k$ as the \emph{variational parameters} corresponding to the latent variable $Z_k$.
@@ -217,7 +218,7 @@ This is equivalent to
 \end{align}
 
 Thus, for any $k \in \{1, \ldots, m\}$, we can express the quantity to be optimized as a functional%
-\footnote{In this context, a functional is a function that takes as input a function $\mathbb R \to \mathbb R$ and returns a real value.  The ``type signature'' of a functional is $(\mathbb R \to \mathbb R) \to \mathbb R$.}
+\footnote{In this context, a functional is a function that takes as input a function ${\mathbb R \to \mathbb R}$ and returns a real value.  The ``type signature'' of a functional is ${(\mathbb R \to \mathbb R) \to \mathbb R}$.}
 of $q_k$.
 To find the value of $q_k$ that yields the minimal value of $\sL$ (while holding $q_j$ fixed for all $j \neq k$), we will compute the functional derivative of $\sL$ with respect to $q_k$.
 Then, we will compute the value of $q_k$ that causes the functional derivative of $\sL$ to be zero.
@@ -474,7 +475,7 @@ J
 Now, we treat the joint probability as a function of $c_i$ and express it in the form of an exponential-family distribution.
 In particular, we want to derive the natural parameters $\eta$ for this function.
 This is equivalent to finding a way to express the log joint probability as $\eta \cdot T + \log h(c_i) - A(\eta)$, where $\eta$ does not depend on $c_i$, and $T$ depends \emph{only} on $c_i$.
-The terms that do not depend on $c_i$ can all be absorbed into either $h$ or $A$, which is why we can ignore them in this context.
+Outside of this dot product, the terms that do not depend on $c_i$ can all be absorbed into either $h$ or $A$, which is why we can ignore them in this context.
 
 The parameterization for a categorical distribution dictates that $T$ is a $K$-vector in which the $k\nth$ component is $\mathds{1}[c_i = k]$.
 Therefore, we can derive the following natural parameters for this distribution:
@@ -593,9 +594,10 @@ From this, we derive the following update rule for the variational parameters $m
 m_{k,\ell} &= \frac{ \sum_{i=1}^n x_{i,\ell} \, \phi_{i,k} }
                    { \frac{b_{k,\ell}}{\alpha^2 a_{k,\ell}} + \sum_{i=1}^n \phi_{i,k} }, \\
 \label{eq:exVarUpdateS}
-s_{k,\ell} &= \frac{ 1 }
+s_{k,\ell}^2 &= \frac{ 1 }
                    { \frac{1}{\alpha^2} + \frac{a_{k,\ell}}{b_{k,\ell}} \sum_{i=1}^n \phi_{i,k} }.
 \end{align}
+Note that the second update applies to $s_{k,\ell}^2$ rather than $s_{k,\ell}$, to avoid taking an unnecessary square root at each step.
 
 \subsection{Variational updates for inverse-gamma variables}
 
@@ -665,7 +667,7 @@ Combining the above results, we have the following algorithm:
 \Function{CAVI}{observed data $x_{1:n,1:d}$; number of clusters $K$; hyperparameters $r$, $\alpha$, $\beta_1$, $\beta_2$}
     \State Set every element of $\phi_{1:n,1:K}$ to $1/K$
     \State Set every element of $m_{1:K,1:d}$ to $0$
-    \State Set every element of $s_{1:K,1:d}$ to $\max_{\ell \in \{1, \ldots, d\}} (\max_i x_{i,\ell} - \min_i x_{i,\ell})$
+    \State Set every element of $s_{1:K,1:d}^2$ to $(\max_{\ell \in \{1, \ldots, d\}} (\max_i x_{i,\ell} - \min_i x_{i,\ell}))^2$
     \State Set every element of $a_{1:K,1:d}$ to $10^{-3}$
     \State Set every element of $b_{1:K,1:d}$ to $10^{-3}$
     \While{ELBO has not converged}
@@ -675,7 +677,7 @@ Combining the above results, we have the following algorithm:
         \For{$k \in \{1, \ldots, K\}$}
             \For{$\ell \in \{1, \ldots, d\}$}
                 \State Update $m_{k,\ell}$ using equation \eqref{eq:exVarUpdateM}
-                \State Update $s_{k,\ell}$ using equation \eqref{eq:exVarUpdateS}
+                \State Update $s_{k,\ell}^2$ using equation \eqref{eq:exVarUpdateS}
                 \State Update $a_{k,\ell}$ using equation \eqref{eq:exVarUpdateA}
                 \State Update $b_{k,\ell}$ using equation \eqref{eq:exVarUpdateB}
             \EndFor
@@ -684,7 +686,7 @@ Combining the above results, we have the following algorithm:
     \EndWhile
     \State \Return $(\phi_{1:n,1:K}, \;
                      m_{1:K,1:d}, \;
-                     s_{1:K,1:d}, \;
+                     s_{1:K,1:d}^2, \;
                      a_{1:K,1:d}, \;
                      b_{1:K,1:d})$
 \EndFunction
