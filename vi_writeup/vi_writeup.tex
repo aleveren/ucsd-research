@@ -63,13 +63,13 @@ If $S$ is a discrete set, then the integrals are replaced by sums.
 Reversed KL divergence is nearly identical, but with the arguments swapped:
 \[ \rKL{a}{b} = \KL{b}{a}. \]
 
-For convenience, we assume that $p(\placeholder \mid X = x)$ can be reasonably well approximated by one or more members from a family $Q$, which we define below.
+For convenience, we assume that $p(\placeholder \mid X = x)$ can be reasonably well approximated by one or more members from a limited set of functions $Q$, which we define below.
 
-For each latent variable $Z_k$, we choose a parameterized family of distributions, such as gaussians or beta distributions.%
+For each latent variable $Z_k$, we choose a parameterized family of distributions, such as Gaussians or beta distributions.%
 \footnote{Later, we'll see that it is often convenient to choose distributions which belong to the \emph{exponential family}, which is actually a set of sets of distributions.}
 Let $q_k(z_k; \nu_k)$ denote the distribution we have selected corresponding to the $k\nth$ latent variable, parameterized by a vector $\nu_k$.
 We refer to the components of $\nu_k$ as the \emph{variational parameters} corresponding to the latent variable $Z_k$.
-Note that we can associate different variables with different parameterized families, and their underlying variational parameters can have different dimensions.
+Note that we can associate different latent variables with different parameterized families, and their underlying variational parameters can have different dimensions.
 
 For example, we might choose $q_1$ to be a normal distribution, which requires two parameters ($\nu_{1,1} =$ the mean and $\nu_{1,2} =$ the standard deviation), while $q_2$ might be a Bernoulli distribution, which requires just one parameter ($\nu_{2,1} =$ the probability that the outcome equals 1).
 In this case, we would write
@@ -277,8 +277,9 @@ Therefore, each coordinate-ascent update step consists of computing either \eqre
 
 \section{The Exponential Family}
 
-At this point, we note that finding this optimal update becomes straightforward if we make careful choices in the structure of our model and the corresponding variational family $Q$.
-In particular, suppose that we can construct our model so that the conditional probabilities are all in the exponential family.
+At this point, we note that finding this optimal update becomes straightforward if we make careful choices regarding the structure of our model and the corresponding variational family $Q$.
+In particular, suppose that we can construct our model so that the conditional probabilities are all in the exponential family (which we define below).
+Suppose also that our model uses conjugate prior distributions where possible, so that the posterior distributions are all in the same family as the corresponding priors.
 Furthermore, suppose that we select each $q_k$ to belong to the same parameterized family of distributions as the corresponding conditional of $Z_k$.
 Under these assumptions, we will see that there is a simple formula for updating the variational parameters.
 
@@ -286,17 +287,19 @@ The \emph{exponential family} is a collection of parameterized sets of distribut
 \begin{align}
 p(X = x) = h(x) \exp\left[ \eta(\theta) \cdot T(x) - A(\eta(\theta)) \right].
 \end{align}
+A wide range of distributions, including Gaussian distribtions, categorical distributions, and many others, can be written in this form.%
+\footnote{The Wikepedia article \url{https://en.wikipedia.org/wiki/Exponential_family} has a useful table of distributions in the exponential family, along with their natural parameters $\eta(\theta)$ and sufficient statistics $T(x)$.}
 Here, $\eta$ is a vector-valued function that depends only on the parameters $\theta$ of the model.
 The components of the vector $\eta(\theta)$ are called the \emph{natural parameters} of the distribution.
-The parameterization in terms of $\eta(\theta)$ is more mathematically convenient for many purposes, but the natural parameters may lack an intuitive interpretation, which is why they may differ from our chosen parameterization in terms of $\theta$.
-(In the special case where $\eta(\theta) = \theta$, then the distribution is said to be in \emph{canonical form}.)
-Furthermore, $h$ and $T$ are functions that depend only on the random variable.
-Note that $h$ is scalar-valued, but $T$ may be vector-valued.
+Often, the parameterization in terms of $\eta(\theta)$ is more mathematically convenient than the original parameterization (which is in terms of $\theta$).
+However, the original parameterization is still occasionally useful, since the parameters $\theta$ typically have a more intuitive interpretation than the natural parameters $\eta(\theta)$.
+In the special case where $\eta(\theta) = \theta$, the distribution is said to be in \emph{canonical form}.
+Furthermore, $h$ and $T$ are functions that depend only on the random variable;
+here, $h$ is scalar-valued, but $T$ may be vector-valued.
 The components of $T(x)$ are known as the \emph{sufficient statistics} of the distribution.
-The function $A$ is essentially a normalizing factor that causes the distribution to integrate to $1$.
-A wide range of distributions, including gaussian distribtions, categorical distributions, and many others, can be written in this form.
+Lastly, the function $A$ is a normalizing factor that causes the distribution to integrate to $1$.
 
-If we assume that each conditional distribution in the model can be expressed as a member of the exponential family, then we have
+If we assume that each conditional distribution in the model can be expressed as a member of the exponential family, and if we use conjugate-prior distributions wherever possible, then we have
 \begin{align}
 p(Z_k = z_k \mid Z_{-k} = z_{-k}, X = x) = h_k(z_k) \exp\left[ \eta_k(z_{-k}, x) \cdot T_k(z_k) - A_k(\eta_k(z_{-k}, x) \right].
 \end{align}
@@ -566,7 +569,7 @@ Therefore, the parameter update for $\phi_i$, prior to normalization, is
 \end{align}
 To avoid numerical overflow when normalizing these values, we can use the ``exp-normalize'' trick,%
 \footnote{For example, see \url{http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/}}
-which uses the following identity:
+which relies on the following identity:
 \begin{align}
 \frac{\exp(v_i)}{\sum_j \exp(v_j)}
 &= \frac{\exp(v_i - \max_k v_k)}{\sum_j \exp(v_j - \max_k v_k)}.
@@ -688,26 +691,29 @@ b_{k,\ell}
     \left( x_{i,\ell}^2 - 2 x_{i,\ell} m_{k,\ell} + s_{k,\ell}^2 + m_{k,\ell}^2 \right)
 \end{align}
 
-\needspace{0.25\textheight}
+\clearpage
 \subsection{A Concrete Algorithm for Coordinate Ascent}
 
 Algorithm \ref{alg:caviExample} demonstrates how to combine the above results into a concrete procedure.
-% TODO: change the following?
-In this algorithm, note that we have initialized the variational parameters to create distributions with relatively wide dispersion.
+The initial settings for the variational parameters have been chosen such that the initial maximum a posteriori estimates for the latent variables will roughly match the empirical distribution of the observed data.
+Also, note that we have initialized the variational parameters to create variational distributions with relatively wide dispersion.
 This is because we do not want our initializations to overly constrain the initial distributions of the latent variables.
-Also, rather than waiting for the ELBO to converge, the main loop can be run for a fixed number of iterations.
+Lastly, rather than waiting for the ELBO to converge, the main loop can be run for a fixed number of iterations.
+Python code for this algorithm is available at \emph{TODO}.  % TODO
 
 \begin{algorithm}[!ht]
 \caption{Coordinate Ascent Variational Inference for a Mixture of Multivariate Gaussians}
 \label{alg:caviExample}
 \begin{algorithmic}
-\Function{CAVI}{observed data $x_{1:n,1:d}$; number of clusters $K$; hyperparameters $r$, $\alpha$, $\beta_1$, $\beta_2$}
-    % TODO: fix the initialization
-    \State Set every element of $\phi_{1:n,1:K}$ to $1/K$
-    \State Set every element of $m_{1:K,1:d}$ to $0$
-    \State Set every element of $s_{1:K,1:d}^2$ to $(\max_{\ell \in \{1, \ldots, d\}} (\max_i x_{i,\ell} - \min_i x_{i,\ell}))^2$
-    \State Set every element of $a_{1:K,1:d}$ to $10^{-3}$
-    \State Set every element of $b_{1:K,1:d}$ to $10^{-3}$
+\Function{CAVI}{observed data $x_{1:n,1:d}$; hyperparameters $r_{1:K}$, $\alpha$, $\beta_1$, $\beta_2$}
+    \State Compute $M = $ empirical mean of the observations in $x$
+    \State For $\ell \in \{1, \ldots, d\}$, compute $V_\ell = $ empirical variance of $\ell\nth$ column of $x$
+    \State Compute $V = \frac{1}{d} \sum_{\ell=1}^d V_\ell$
+    \State For $i \in \{1, \ldots, n\}$, set $\phi_{i,1:K}$ to $r_{1:K}$, perturbed by a small amount of random noise
+    \State Set every element of $m_{1:K,1:d}$ to $M$, perturbed by random noise proportional to $V$
+    \State Set every element of $s_{1:K,1:d}^2$ to $V$
+    \State Set every element of $a_{1:K,1:d}$ to $1/10$
+    \State Set every element of $b_{1:K,1:d}$ to $11 V / 10$
     \While{ELBO has not converged}
         \For{$i \in \{1, \ldots, n\}$}
             \State Update $\phi_{i,1:K}$ using equation \eqref{eq:exVarUpdatePhi} and the ``exp-normalize'' trick
@@ -731,18 +737,29 @@ Also, rather than waiting for the ELBO to converge, the main loop can be run for
 \end{algorithmic}
 \end{algorithm}
 
-% TODO: python code listing
-% \begin{lstlisting}
-% TODO
-% \end{lstlisting}
+\clearpage
+\subsection{Results on a simulated dataset}
 
-% \subsection{Results on a simulated dataset}
+Figure \ref{fig:resultsExample} displays the results of running CAVI on a simulated dataset.
+In this example, the dataset was produced using a mixture of four 2-dimensional Gaussians.
+The confusion matrix indicates that the algorithm nearly recovers the true clustering, up to a permutation among the clusters.
 
-% TODO
-
-%%%%%%%%%%%%%%%%%%%%%
-% Misc TODO items:
-% - remove \propto above (insert actual normalizing factors)
-% - mention the need for conjugate priors... otherwise the math doesn't work out (still need to figure out what conditions are sufficient to guarantee "easy" calculations)
+\begin{figure}[!ht]
+\centering
+\begin{tabular}{cc}
+\includegraphics[height=5cm]{figures/unlabeled.png} &
+\includegraphics[height=5cm]{figures/elbo.png} \\
+(a) & (b) \\[10pt]
+\includegraphics[height=5cm]{figures/confusion_matrix.png} &
+\includegraphics[height=5cm]{figures/cavi_max_a_posteriori.png} \\
+(c) & (d)
+\end{tabular}
+\caption{Example results on a simulated dataset.
+Plot (a) shows the unlabeled dataset,
+(b) shows the ELBO evaluated during the course of training,
+(c) shows the resulting confusion matrix computed relative to the true clustering,
+and (d) shows the maximum a posteriori clustering results (the ellipses represent contours of the per-class Gaussians).}
+\label{fig:resultsExample}
+\end{figure}
 
 \end{document}
