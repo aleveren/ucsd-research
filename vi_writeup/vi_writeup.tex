@@ -9,6 +9,7 @@
 \newcommand{\KL}[2]{\textsc{KL}\left( {#1} , {#2} \right)}
 %\newcommand{\KL}[2]{\textsc{KL}\left( {#1} \; \middle\Vert \; {#2} \right)}
 \newcommand{\rKL}[2]{\textsc{ReversedKL}\left( {#1} , {#2} \right)}
+\newcommand{\ELBO}{\mathrm{ELBO}}
 \newcommand*{\placeholder}{\makebox[1ex]{$\cdot$}}
 \newcommand{\sL}{\mathscr{L}}
 
@@ -132,7 +133,7 @@ Then, in \eqref{eq:removePX}, we drop that term completely, because it does not 
 In \eqref{eq:switchToMax}, we see that minimizing the reversed KL divergence is equivalent to maximizing the following quantity:
 \begin{align}
 \label{eq:ELBO}
-\mathrm{ELBO}
+\ELBO
 &= \expectOver{Z \sim q}{ \log p(Z, X = x) } - \expectOver{Z \sim q}{ \log q(Z) }.
 \end{align}
 This quantity is known as the ``evidence lower bound'' (abbreviated ELBO) because it lower-bounds the logarithm of the probability of the observed data, $\log p(X = x)$.
@@ -144,7 +145,7 @@ To see why, note that
 &= \log \expectOver{Z \sim q}{ \frac{p(Z, X=x)}{q(Z)} } \\
 \label{eq:elboFromJensen}
 &\geq \expectOver{Z \sim q}{ \log \frac{p(Z, X=x)}{q(Z)} } \\
-&= \mathrm{ELBO}.
+&= \ELBO.
 \end{align}
 The inequality in \eqref{eq:elboFromJensen} comes from Jensen's inequality, since $\log(\placeholder)$ is a concave function.
 When implementing variational inference, it can be useful to track the ELBO over the course of the optimization to assess convergence.
@@ -376,7 +377,51 @@ p(\lambda_{k,\ell}) &= \frac{\beta_2^{\beta_1}}{\Gamma(\beta_1)} \lambda_{k,\ell
 p(x_i \mid c_i, \mu_{1:K,1:d}, \lambda_{1:K,1:d}) &= (2\pi)^{-d/2} \, \abs{\Sigma_{c_i}}^{-1/2} \exp \left( -\frac{1}{2} (x_i - \mu_{c_i})^\top \Sigma_{c_i}^{-1} (x_i - \mu_{c_i}) \right).
 \end{align}
 
-Later, we will use the log joint probability to determine the natural parameters $\eta$ corresponding to each latent variable:
+\subsection{Choosing a set of variational distributions}
+
+Note that in total we have $m = n + 2Kd$ latent variables, which means we need the same number of variational distributions.
+The variational distributions are described in Table~\ref{table:varDists}.
+Along with these, we introduce the following variational parameters:
+\begin{itemize}
+    \item $\phi_i$ corresponding to $c_i$,
+    \item $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$, and
+    \item $a_{k,\ell}$ and $b_{k,\ell}$ corresponding to $\lambda_{k,\ell}$.
+\end{itemize}
+Note that each $\phi_i$ is a $K$-vector of non-negative values summing to $1$; the other variational parameters are scalar values.
+
+\begin{table}[!ht]
+\caption{Summary of variational distributions for a mixture of Gaussians.}
+\label{table:varDists}
+\centering
+\bgroup
+\def\arraystretch{1.5}%
+\begin{tabular}{c|c|l}
+Shorthand & Interpretation & Definition \\ \hline
+%
+$q(c_i)$
+& $q_i(c_i; \phi_i)$
+& $\Discrete(\phi_i)(c_i)$ \\
+& $(i = 1, \ldots, n)$
+& $\qquad= \phi_{i,c_i}$ \\ \hline
+%
+$q(\mu_{k,\ell})$
+& $q_{n+(k-1)d+\ell}(\mu_{k, \ell}; m_{k,\ell}, s_{k,\ell})$
+& $\Gaussian(m_{k,\ell}, s_{k,\ell})(\mu_{k, \ell})$ \\
+& $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
+& $\qquad= \dfrac{\exp(-(\mu_{k,\ell}-m_{k,\ell})^2) / (2 s_{k,\ell}^2) )}{\sqrt{2\pi s_{k,\ell}^2}}$ \\ \hline
+%
+$q(\lambda_{k,\ell})$
+& $q_{n+Kd+(k-1)d+\ell}(\lambda_{k,\ell}; a_{k,\ell}, b_{k,\ell})$
+& $\InverseGamma(a_{k,\ell}, b_{k,\ell})(\lambda_{k,\ell})$ \\
+& $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
+& $\qquad= \dfrac{b_{k,\ell}^{a_{k,\ell}} \, \lambda_{k,\ell}^{-a_{k,\ell} - 1} \exp\left( -b_{k,\ell} / \lambda_{k,\ell} \right)}{\Gamma(a_{k,\ell})}$ \\
+\end{tabular}
+\egroup
+\end{table}
+
+\subsection{Joint Probability}
+
+In subsequent sections, we will use the log joint probability to determine the natural parameters $\eta$ corresponding to each latent variable:
 \begin{align}
 J
 &= \log p(c_{1:n}, \mu_{1:K,1:d}, \lambda_{1:K,1:d}, x_{1:n}) \\
@@ -418,47 +463,56 @@ J
     \end{aligned}
 \end{align}
 
-\subsection{Choosing a set of variational distributions}
+\subsection{Evidence Lower Bound (ELBO)}
 
-Note that in total we have $m = n + 2Kd$ latent variables, which means we need the same number of variational distributions.
-The variational distributions are described in Table~\ref{table:varDists}.
-Along with these, we introduce the following variational parameters:
-\begin{itemize}
-    \item $\phi_i$ corresponding to $c_i$,
-    \item $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$, and
-    \item $a_{k,\ell}$ and $b_{k,\ell}$ corresponding to $\lambda_{k,\ell}$.
-\end{itemize}
-Note that each $\phi_i$ is a $K$-vector of non-negative values summing to $1$; the other variational parameters are scalar values.
+In order to track convergence, it will be useful to compute the ELBO, which is defined in \eqref{eq:ELBO}.
+For the first term, we simply take the expectation of \eqref{eq:logJointExample} with respect to the variational distributions:
+\begin{align}
+\MoveEqLeft \nonumber
+\expectOver{Z \sim q}{\log p(Z, X = x)} \\
+&= \begin{aligned}[t]
+    & C - \sum_{k=1}^K \sum_{\ell=1}^d \left( \frac{\expectOver{q}{\mu_{k, \ell}^2}}{2\alpha^2} + (\beta_1 + 1) \expectOver{q}{\log \lambda_{k,\ell}} + \beta_2 \expectOver{q}{\lambda_{k,\ell}^{-1}} \right) \\
+    & + \sum_{i=1}^n \sum_{k=1}^K \expectOver{q}{\mathds{1}[c_i = k]} \log r_k \\
+    & - \frac{1}{2} \sum_{i=1}^n \sum_{k=1}^K \sum_{\ell=1}^d \expectOver{q}{\mathds{1}[c_i = k]} \expectOver{q}{\log \lambda_{k,\ell}} \\
+    & - \frac{1}{2} \sum_{i=1}^n \sum_{k=1}^K \sum_{\ell=1}^d \expectOver{q}{\mathds{1}[c_i = k]} \expectOver{q}{\lambda_{k,\ell}^{-1}} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \expectOver{q}{\mu_{k,\ell}} + \expectOver{q}{\mu_{k,\ell}^2} \right).
+    \end{aligned}
+\end{align}
 
-\begin{table}[!ht]
-\caption{Summary of variational distributions for a mixture of Gaussians.}
-\label{table:varDists}
-\centering
-\bgroup
-\def\arraystretch{1.5}%
-\begin{tabular}{c|c|l}
-Shorthand & Interpretation & Definition \\ \hline
-%
-$q(c_i)$
-& $q_i(c_i; \phi_i)$
-& $\Discrete(\phi_i)(c_i)$ \\
-& $(i = 1, \ldots, n)$
-& $\qquad= \phi_{i,c_i}$ \\ \hline
-%
-$q(\mu_{k,\ell})$
-& $q_{n+(k-1)d+\ell}(\mu_{k, \ell}; m_{k,\ell}, s_{k,\ell})$
-& $\Gaussian(m_{k,\ell}, s_{k,\ell})(\mu_{k, \ell})$ \\
-& $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
-& $\qquad= \dfrac{\exp(-(\mu_{k,\ell}-m_{k,\ell})^2) / (2 s_{k,\ell}^2) )}{s_{k,\ell} \sqrt{2\pi}}$ \\ \hline
-%
-$q(\lambda_{k,\ell})$
-& $q_{n+Kd+(k-1)d+\ell}(\lambda_{k,\ell}; a_{k,\ell}, b_{k,\ell})$
-& $\InverseGamma(a_{k,\ell}, b_{k,\ell})(\lambda_{k,\ell})$ \\
-& $\begin{aligned}[t](k &= 1, \ldots, K, \\ \ell &= 1, \ldots, d) \end{aligned}$
-& $\qquad\propto \lambda_{k,\ell}^{-a_{k,\ell} - 1} \exp\left( -b_{k,\ell} / \lambda_{k,\ell} \right)$ \\
-\end{tabular}
-\egroup
-\end{table}
+The second term of the ELBO is the entropy of $q$, which can be expressed as follows:
+\begin{align}
+-\expectOver{Z \sim q}{\log q(Z)}
+={}& -\sum_{i=1}^n \expectOver{c_i \sim q}{\log q(c_i)} \\ \nonumber
+   & -\sum_{k=1}^K \sum_{\ell=1}^d \expectOver{\mu_{k,\ell} \sim q}{\log q(\mu_{k,\ell})}
+     -\sum_{k=1}^K \sum_{\ell=1}^d \expectOver{\lambda_{k,\ell} \sim q}{\log q(\lambda_{k,\ell})}.
+\end{align}
+
+Then, we compute the entropy of each latent variable according to its variational distribution:
+\begin{align}
+-\expectOver{c_i \sim q}{\log q(c_i)}
+&= -\sum_{k=1}^K \phi_{i,k} \log \phi_{i,k}, \\
+-\expectOver{\mu_{k,\ell} \sim q}{\log q(\mu_{k,\ell})}
+&= \frac{1}{2} \log(2 \pi s_{k,\ell}^2) + \frac{1}{2 s_{k,\ell}} \left( \expectOver{q}{\mu_{k,\ell}^2} - 2 \expectOver{q}{\mu_{k,\ell}} m_{k,\ell} + m_{k,\ell}^2 \right), \\
+-\expectOver{\lambda_{k,\ell} \sim q}{\log q(\lambda_{k,\ell})}
+&= -a_{k,\ell} \log(b_{k,\ell}) + (a_{k,\ell} + 1) \expectOver{q}{\log \lambda_{k,\ell}} + b_{k,\ell} \expectOver{q}{\lambda_{k,\ell}^{-1}} + \log(\Gamma(a_{k,\ell})).
+\end{align}
+
+The remaining expectations over $q$ can be evaluated in terms of our variational parameters:
+\begin{align}
+\expectOver{q}{\mathds{1}[c_i=k]}
+&= q(c_i = k) = \phi_{i,k}, \\
+\expectOver{q}{\mu_{k,\ell}}
+&= m_{k,\ell}, \\
+\expectOver{q}{\mu_{k,\ell}^2}
+&= s_{k,\ell}^2 + m_{k,\ell}^2, \\
+\expectOver{q}{\lambda_{k,\ell}^{-1}}
+&= a_{k,\ell} / b_{k,\ell}, \\
+\expectOver{q}{\log \lambda_{k,\ell}}
+&= \log(b_{k,\ell}) - \psi(a_{k,\ell}).
+\end{align}
+Here, $\psi$ is the digamma function, defined by
+\begin{align}
+\psi(x) &= \frac{\Gamma'(x)}{\Gamma(x)}.
+\end{align}
 
 \subsection{Variational updates for categorical variables}
 
@@ -490,22 +544,6 @@ Following \eqref{eq:paramUpdate}, we take the expectation of $\eta$ with respect
 \left( \expectOver{q}{\eta} \right)_k
 &=
 \log r_k - \frac{1}{2} \sum_{\ell=1}^d \left[ \expectOver{q}{\log \lambda_{k,\ell}} + \expectOver{q}{\lambda_{k,\ell}^{-1}} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \expectOver{q}{\mu_{k,\ell}} + \expectOver{q}{\mu_{k,\ell}^2} \right) \right]
-\end{align}
-
-The remaining expectations over $q$ can be evaluated in terms of our variational parameters:
-\begin{align}
-\expectOver{q}{\mu_{k,\ell}}
-&= m_{k,\ell}, \\
-\expectOver{q}{\mu_{k,\ell}^2}
-&= s_{k,\ell}^2 + m_{k,\ell}^2, \\
-\expectOver{q}{\lambda_{k,\ell}^{-1}}
-&= a_{k,\ell} / b_{k,\ell}, \\
-\expectOver{q}{\log \lambda_{k,\ell}}
-&= \log(b_{k,\ell}) - \psi(a_{k,\ell}).
-\end{align}
-Here, $\psi$ is the digamma function, defined by
-\begin{align}
-\psi(x) &= \frac{\Gamma'(x)}{\Gamma(x)}.
 \end{align}
 
 The inverse parameter mapping $\eta^{-1}$ is the softmax function, which applies $\exp(\placeholder)$ to each element of $\eta$ and normalizes the values to sum to $1$.
@@ -563,12 +601,6 @@ Following \eqref{eq:paramUpdate}, we take the expectation of $\eta$ with respect
     \expectOver{q}{\lambda_{k,\ell}^{-1}} \sum_{i=1}^n x_{i,\ell} \, \expectOver{q}{\mathds{1}[c_i=k]}, \;
     -\frac{1}{2} \left( \frac{1}{\alpha^2} + \expectOver{q}{\lambda_{k,\ell}^{-1}} \sum_{i=1}^n \expectOver{q}{\mathds{1}[c_i=k]} \right)
 \right)
-\end{align}
-
-The expectations over $q$ can again be expressed in terms of our variational parameters:
-\begin{align}
-\expectOver{q}{\lambda_{k,\ell}^{-1}} &= a_{k,\ell} / b_{k,\ell}, \\
-\expectOver{q}{\mathds{1}[c_i=k]} &= q(c_i = k) = \phi_{i,k}.
 \end{align}
 
 Therefore, we have
@@ -659,12 +691,18 @@ b_{k,\ell}
 \needspace{0.25\textheight}
 \subsection{A Concrete Algorithm for Coordinate Ascent}
 
-Combining the above results, we have the following algorithm:
+Algorithm \ref{alg:caviExample} demonstrates how to combine the above results into a concrete procedure.
+% TODO: change the following?
+In this algorithm, note that we have initialized the variational parameters to create distributions with relatively wide dispersion.
+This is because we do not want our initializations to overly constrain the initial distributions of the latent variables.
+Also, rather than waiting for the ELBO to converge, the main loop can be run for a fixed number of iterations.
 
 \begin{algorithm}[!ht]
 \caption{Coordinate Ascent Variational Inference for a Mixture of Multivariate Gaussians}
+\label{alg:caviExample}
 \begin{algorithmic}
 \Function{CAVI}{observed data $x_{1:n,1:d}$; number of clusters $K$; hyperparameters $r$, $\alpha$, $\beta_1$, $\beta_2$}
+    % TODO: fix the initialization
     \State Set every element of $\phi_{1:n,1:K}$ to $1/K$
     \State Set every element of $m_{1:K,1:d}$ to $0$
     \State Set every element of $s_{1:K,1:d}^2$ to $(\max_{\ell \in \{1, \ldots, d\}} (\max_i x_{i,\ell} - \min_i x_{i,\ell}))^2$
@@ -692,11 +730,6 @@ Combining the above results, we have the following algorithm:
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
-
-In this algorithm, note that we have initialized the variational parameters to create distributions with relatively wide dispersion.
-This is because we do not want our initializations to overly constrain the initial distributions of the latent variables.
-
-% Also, rather than waiting for the ELBO to converge, the main loop can be run for a fixed number of iterations.
 
 % TODO: python code listing
 % \begin{lstlisting}
