@@ -28,7 +28,7 @@
 \begin{sloppypar}
 This document draws heavily upon ``Variational Inference: A Review for Statisticians'' (Blei et~al) and upon David Blei's lecture notes on Variational Inference.%
 \footnote{Available at \url{https://www.cs.princeton.edu/courses/archive/fall11/cos597C/lectures/variational-inference-i.pdf}.}
-However, I've modified some of the notation and expanded on some of the derivations in an attempt to make it more explicit and (I hope) a bit friendlier to newcomers.
+However, I've modified some of the notation and expanded on some of the derivations in an attempt to make it more explicit and, I hope, a bit friendlier to newcomers like myself.
 \end{sloppypar}
 
 \section{Introduction}
@@ -44,7 +44,7 @@ Often, the denominator is intractable because it either involves integrals that 
 When computing the posterior, we assume that we have an observed set of data $x = (x_1, \ldots, x_n)$ which is fixed throughout the analysis.
 Thus, the function we wish to approximate is a univariate function which maps vectors $z$ to $p(Z = z \mid X = x)$.
 For conciseness, we will express this function as $p(\placeholder \mid X = x)$.
-In order to find an approximation to $p(\placeholder \mid X = x)$, we will define a mathematically convenient family of functions, from which we then search for the function which most closely resembles our target distribution.
+In order to find an approximation to the posterior distribution $p(\placeholder \mid X = x)$, we will define a mathematically convenient family of functions, from which we then search for the function which most closely resembles our target distribution.
 
 \section{Minimizing KL Divergence}
 
@@ -699,7 +699,7 @@ The initial settings for the variational parameters have been chosen such that t
 Also, note that we have initialized the variational parameters to create variational distributions with relatively wide dispersion.
 This is because we do not want our initializations to overly constrain the initial distributions of the latent variables.
 Lastly, rather than waiting for the ELBO to converge, the main loop can be run for a fixed number of iterations.
-Python code for this algorithm is available at \emph{TODO}.  % TODO
+%Python code for this algorithm is available at \emph{TODO}.  % TODO
 
 \begin{algorithm}[!ht]
 \caption{Coordinate Ascent Variational Inference for a Mixture of Multivariate Gaussians}
