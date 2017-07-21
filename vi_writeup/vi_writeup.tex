@@ -330,12 +330,14 @@ Thus, the optimal update for the parameters $\nu_k$ corresponding to $q_k$ can b
 \Aboxed{
 \nu_k
 &=
-\eta_k^{-1} \left(
+\theta_k \left(
     \expectOver{Z_{-k} \sim q_{-k}}{ \eta_k(Z_{-k}, x) }
 \right).
 }
 \end{align}
-Here, $\eta_k^{-1}$ is the inverse parameter mapping associated with $Z_k$, which maps the natural parameters back to our chosen parameterization.
+Here, $\theta_k$ is the inverse parameter mapping associated with $Z_k$, which maps the natural parameters back to our chosen parameterization.
+For example, if $q_k$ is a normal distribution parameterized such that $a$ is the mean and $b$ is the variance, then the natural parameters are $\eta = (a/b, \, -1/(2b))$ and the sufficient statistics are $T(x) = (x, x^2)$.
+The inverse mapping is therefore $\theta(\eta) = (-\eta_1/(2\eta_2), \, -1/(2 \eta_2))$.
 
 Note that if we wish to use \eqref{eq:generalCoordAscentNoCond} instead of \eqref{eq:generalCoordAscentCond},
 we simply replace $p(Z_k = z_k \mid Z_{-k} = z_{-k}, X = x)$ with $p(Z_k = z_k, Z_{-k} = z_{-k}, X = x)$ in the above analysis.
@@ -549,11 +551,11 @@ Following \eqref{eq:paramUpdate}, we take the expectation of $\eta$ with respect
 \log r_k - \frac{1}{2} \sum_{\ell=1}^d \left[ \expectOver{q}{\log \lambda_{k,\ell}} + \expectOver{q}{\lambda_{k,\ell}^{-1}} \left( x_{i,\ell}^2 - 2 x_{i,\ell} \expectOver{q}{\mu_{k,\ell}} + \expectOver{q}{\mu_{k,\ell}^2} \right) \right]
 \end{align}
 
-The inverse parameter mapping $\eta^{-1}$ is the softmax function, which applies $\exp(\placeholder)$ to each element of $\eta$ and normalizes the values to sum to $1$.
+The inverse parameter mapping $\theta$ is the softmax function, which applies $\exp(\placeholder)$ to each element of $\eta$ and normalizes the values to sum to $1$.
 Therefore, the parameter update for $\phi_i$, prior to normalization, is
 \begin{align}
 \phi_{i,k}
-%&= \eta^{-1}\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
+%&= \theta \left( \left( \expectOver{q}{\eta} \right)_k \right) \\
 &= \exp\left( \left( \expectOver{q}{\eta} \right)_k \right) \\
 \label{eq:exVarUpdatePhi}
 &=
@@ -616,14 +618,14 @@ Therefore, we have
 \right)
 \end{align}
 
-For a 1-dimensional Gaussian, the inverse parameter mapping $\eta^{-1}$ is
+For a 1-dimensional Gaussian, the inverse parameter mapping $\theta$ is
 \begin{align}
 (\eta_1, \eta_2)
 &\mapsto
 \left( -\frac{\eta_1}{2 \eta_2}, -\frac{1}{2 \eta_2} \right).
 \end{align}
 
-From this, we derive the following update rule for the variational parameters $m_{k,\ell}$ and $s_{k,\ell}$ corresponding to $\mu_{k,\ell}$:
+From this, we derive the following update rule for the variational parameters $m_{k,\ell}$ and $s_{k,\ell}^2$ corresponding to $\mu_{k,\ell}$:
 \begin{align}
 \label{eq:exVarUpdateM}
 m_{k,\ell} &= \frac{ \sum_{i=1}^n x_{i,\ell} \, \phi_{i,k} }
@@ -632,7 +634,7 @@ m_{k,\ell} &= \frac{ \sum_{i=1}^n x_{i,\ell} \, \phi_{i,k} }
 s_{k,\ell}^2 &= \frac{ 1 }
                    { \frac{1}{\alpha^2} + \frac{a_{k,\ell}}{b_{k,\ell}} \sum_{i=1}^n \phi_{i,k} }.
 \end{align}
-Note that the second update applies to $s_{k,\ell}^2$ rather than $s_{k,\ell}$, to avoid taking an unnecessary square root at each step.
+Note that the second update applies to the variance $s_{k,\ell}^2$ rather than the standard deviation $s_{k,\ell}$.
 
 \subsection{Variational updates for inverse-gamma variables}
 
@@ -670,7 +672,7 @@ Borrowing calculations from the previous two sections, we have
 \right)
 \end{align}
 
-For an inverse-gamma distribution, the inverse parameter mapping $\eta^{-1}$ is
+For an inverse-gamma distribution, the inverse parameter mapping $\theta$ is
 \begin{align}
 (\eta_1, \eta_2)
 &\mapsto
