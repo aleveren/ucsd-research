@@ -57,7 +57,7 @@ Given two functions $a$ and $b$ which define probability distributions over some
 Sometimes, this is written more concisely as
 \begin{align}
 \KL{a}{b}
-&= \expectOver{Z \sim a}{ \log \left( \frac{a(z)}{b(z)} \right) }.
+&= \expectOver{Z \sim a}{ \log \left( \frac{a(Z)}{b(Z)} \right) }.
 \end{align}
 If $S$ is a discrete set, then the integrals are replaced by sums.
 Reversed KL divergence is nearly identical, but with the arguments swapped:
@@ -268,10 +268,7 @@ q_k(z_k; \nu_k)
 &= C'_0 \exp \left( \expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_k = z_k, Z_{-k}, X = x) } \right),
 }
 \end{align}
-where $C'_0$ is a new normalizing constant; in particular,
-\begin{align}
-C'_0 = C_0 \exp \left( -\expectOver{Z_{-k} \sim q_{-k}}{ \log p(Z_{-k}, X = x) }\right).
-\end{align}
+where $C'_0$ is a new normalizing constant.
 
 Therefore, each coordinate-ascent update step consists of computing either \eqref{eq:generalCoordAscentCond} or \eqref{eq:generalCoordAscentNoCond}, whichever happens to be more convenient for the given model.
 
