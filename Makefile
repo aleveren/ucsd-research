@@ -1,0 +1,16 @@
+NAME=Leverentz_research_exam
+
+.PHONY: clean deepclean
+
+all: clean
+	pdflatex ${NAME}.tex
+	pdflatex ${NAME}.tex
+	bibtex ${NAME}
+	pdflatex ${NAME}
+	pdflatex ${NAME}
+
+clean:
+	rm -f *.bbl *.blg *.log *.out *.aux
+
+deepclean: clean
+	rm -f ${NAME}.pdf
