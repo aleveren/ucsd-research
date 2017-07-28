@@ -4,3 +4,6 @@
 *.log
 *.out
 *.pdf
+*.nav
+*.snm
+*.toc
