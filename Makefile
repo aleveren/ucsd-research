@@ -3,8 +3,8 @@ NAME=Leverentz_research_exam
 .PHONY: clean deepclean
 
 all: clean
-	pdflatex ${NAME}.tex
-	pdflatex ${NAME}.tex
+	pdflatex ${NAME}
+	pdflatex ${NAME}
 	bibtex ${NAME}
 	pdflatex ${NAME}
 	pdflatex ${NAME}
