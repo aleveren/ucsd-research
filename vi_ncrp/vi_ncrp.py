@@ -50,6 +50,16 @@ class TreeNode(object):
         lookup_result = self.lookup_path(path = path, default = None)
         return lookup_result is not None
 
+    def inner_and_full_paths(self, prefix_so_far = ()):
+        if len(self.children) == 0:
+            return [prefix_so_far]
+        result = [prefix_so_far]
+        for k, c in enumerate(self.children):
+            to_add = c.inner_and_full_paths(
+                prefix_so_far = tuple(prefix_so_far) + (k,))
+            result.extend(to_add)
+        return result
+
 class NCRP(object):
     def __init__(self, **kwargs):
         self._dict = dict(
@@ -184,23 +194,12 @@ class NCRPFit(object):
         return result
 
     def update_logS(self):
-        for path in inner_and_full_paths(tree = self.tree, prefix_so_far = ()):
+        for path in self.tree.inner_and_full_paths():
             logS_by_doc = []
             for d in range(self.n_obs):
                 current_logS = self.logS(d, path)
                 logS_by_doc.append(current_logS)
             self.tree.lookup_path(path).stats["logS"] = logS_by_doc
-
-def inner_and_full_paths(tree, prefix_so_far):
-    if len(tree.children) == 0:
-        return [prefix_so_far]
-    result = [prefix_so_far]
-    for k, c in enumerate(tree.children):
-        to_add = inner_and_full_paths(
-            tree = c,
-            prefix_so_far = tuple(prefix_so_far) + (k,))
-        result.extend(to_add)
-    return result
 
 def main():
     ncrp = NCRP(alpha = 0.1)
