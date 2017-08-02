@@ -29,21 +29,14 @@ class TreeNode(object):
         assert min_d == max_d
         return max_d
 
-    def is_leaf(self):
-        return len(self.children) == 0
-
     def lookup_path(self, path, default = ErrIfNotFound()):
         if len(path) == 0:
             return self
         if path[0] < len(self.children):
-            return self.children[path[0]].lookup_path(path[1:])
+            return self.children[path[0]].lookup_path(path[1:], default = default)
         if isinstance(default, ErrIfNotFound):
             raise ValueError("Path not found")
         return None
-
-    def contains_path(self, path):
-        lookup_result = self.lookup_path(path = path, default = None)
-        return lookup_result is not None
 
     def inner_and_full_paths(self, prefix_so_far = ()):
         yield prefix_so_far
