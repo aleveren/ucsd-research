@@ -7,7 +7,7 @@ from __future__ import print_function, division
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import digamma
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 try:
     import tqdm
@@ -256,6 +256,26 @@ class NCRPFit(object):
         for doc_index, p in enumerate(path_indices_by_doc):
             most_likely_paths[doc_index] = self.index_to_path[p]
         return most_likely_paths
+
+    def get_top_words_per_node(self, k, vocab):
+        assert k > 0
+        result = OrderedDict()
+        # Process shorter paths first
+        sorted_paths = sorted(self.path_to_index.keys(),
+            key = lambda x: (len(x), x))
+        for path in sorted_paths:
+            path_index = self.path_to_index[path]
+            alpha = self.alphaW_var[path_index, :]
+            word_indices = np.argpartition(alpha, -k)[-k:]
+            top_alpha = alpha[word_indices]
+            indirect_indices = np.argsort(-top_alpha)
+            word_indices = word_indices[indirect_indices]
+            top_alpha = top_alpha[indirect_indices]
+            words = []
+            for word_index in word_indices:
+                words.append(vocab[word_index])
+            result[path] = (words, word_indices, top_alpha)
+        return result
 
     def get_progress_bar(self, iterable=None, **kwargs):
         if iterable is not None:
