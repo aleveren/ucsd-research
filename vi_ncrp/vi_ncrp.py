@@ -117,14 +117,16 @@ class NCRPFit(object):
             self.count_paths += 1
             self.path_to_index[p] = i
             self.index_to_path[i] = p
+        self.j0 = np.ones((self.count_paths,), dtype='int')
+        self.l0 = np.ones((self.count_paths,), dtype='int')
+        for i, p in enumerate(self.tree.inner_and_full_paths()):
+            self.j0[i] = len(self.tree.lookup_path(p).children)
+            self.l0[i] = len(p)
 
         self.word_count_by_doc = np.squeeze(np.asarray(self.data.sum(axis = 1)))
 
         self.alphaW_var = self.alphaW * np.ones((self.count_paths, self.vocab_size,))
         self.EqlnW = np.ones((self.count_paths, self.vocab_size))
-
-        self.j0 = np.ones((self.count_paths,), dtype='int')
-        self.l0 = np.ones((self.count_paths,), dtype='int')
 
         self.alphaV_var = np.ones((self.count_paths,))
         self.betaV_var = self.alphaV * np.ones((self.count_paths,))
@@ -156,10 +158,6 @@ class NCRPFit(object):
         return self
 
     def update(self):
-        for i, path in enumerate(self.tree.inner_and_full_paths()):
-            self.j0[i] = len(self.tree.lookup_path(path).children)
-            self.l0[i] = len(path)
-
         # Update path-specific variational expectations
         self.EqlnV = digamma(self.alphaV_var) - digamma(self.alphaV_var + self.betaV_var)
         self.Eqln1_V = digamma(self.betaV_var) - digamma(self.alphaV_var + self.betaV_var)
@@ -188,12 +186,12 @@ class NCRPFit(object):
             for k in range(len(path) + 1):
                 subpath_index = self.path_to_index[path[:k]]
                 self.logS[:, path_index] += self.EqlnV[subpath_index]
-                if 0 < k and k < len(path):
+                if k < len(path):
                     # TODO: double-check the indexing here
                     for j in range(path[k] - 1):
-                        subpath = tuple(path[:k-1]) + (j,)
-                        subpath_index = self.path_to_index[subpath]
-                        self.logS[:, path_index] += self.Eqln1_V[subpath_index]
+                        aux_path = tuple(path[:k]) + (j,)
+                        aux_path_index = self.path_to_index[aux_path]
+                        self.logS[:, path_index] += self.Eqln1_V[aux_path_index]
             for j in range(self.j0[path_index]):
                 extended_path_index = self.path_to_index[tuple(path) + (j,)]
                 self.logS[:, path_index] += self.Eqln1_V[extended_path_index]
