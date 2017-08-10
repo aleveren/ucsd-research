@@ -39,6 +39,13 @@ def load_data(filename, bar_type = _default_bar_type):
 
     return data.tocsr()
 
+def load_vocab(filename, bar_type = _default_bar_type):
+    vocab = []
+    with open(filename, 'r') as f:
+        for line in _prog_bar(bar_type, f.readlines(), desc='Loading vocabulary'):
+            vocab.append(line.strip())
+    return vocab
+
 def _prog_bar(bar_type, iterable=None, **kwargs):
     if iterable is not None:
         kwargs["iterable"] = iterable
