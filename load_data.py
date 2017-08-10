@@ -11,7 +11,7 @@ from collections import Counter
 
 try:
     import tqdm
-    _default_bar_type = 'notebook'
+    _default_bar_type = 'terminal'
 except ImportError:
     tqdm = None
     _default_bar_type = None
@@ -20,7 +20,7 @@ def load_data(filename, bar_type = _default_bar_type):
     with open(filename, 'r') as f:
         info = []
         vocab_size = 0
-        for line in _prog_bar(bar_type, f.readlines()):
+        for line in _prog_bar(bar_type, f.readlines(), desc='Reading lines'):
             xs = line.split()
             num_indices = int(xs[0])
             assert len(xs) == num_indices + 1
@@ -33,16 +33,19 @@ def load_data(filename, bar_type = _default_bar_type):
 
     data = dok_matrix((len(info), vocab_size))
 
-    for row_index, row in enumerate(_prog_bar(bar_type, info)):
+    for row_index, row in enumerate(_prog_bar(bar_type, info, desc='Filling matrix')):
         for i, n in row.items():
             data[row_index, i] = n
 
     return data.tocsr()
 
-def _prog_bar(bar_type, obj, *args, **kwargs):
+def _prog_bar(bar_type, iterable=None, **kwargs):
+    if iterable is not None:
+        kwargs["iterable"] = iterable
+
     if bar_type == 'notebook':
-        return tqdm.tqdm_notebook(obj, *args, **kwargs)
+        return tqdm.tqdm_notebook(**kwargs)
     elif bar_type == 'terminal':
-        return tqdm.tqdm(obj, *args, **kwargs)
+        return tqdm.tqdm(**kwargs)
     else:
-        return obj
+        return iterable
