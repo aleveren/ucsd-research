@@ -97,7 +97,15 @@ class NHDP(object):
         assert len(topic_alpha_vector) == len(vocab)
         self.topics_by_path = dirichlet_tree(topic_alpha_vector)
         self.global_ncrp = NCRPDraw(alpha = alpha)
+        self.cached_atoms_by_path = dict()
         self.rnd = indep_rand()
+
+    def get_atoms_for_path(self, path):
+        atoms = self.cached_atoms_by_path.get(path)
+        if atoms is None:
+            atoms = defaultdict(lambda: self.global_ncrp.get_distrib_for_node(path).draw())
+            self.cached_atoms_by_path[path] = atoms
+        return atoms
 
     def draw_corpus(self, num_documents, document_length):
         if not np.iterable(document_length):
@@ -127,12 +135,10 @@ class NHDP(object):
                 p = [prob_stop, 1 - prob_stop])
             if stop:
                 break
-            global_path_router = self.global_ncrp.get_distrib_for_node(path)
-            atoms = defaultdict(lambda: global_path_router.draw())
-            local_path_router = local_ncrp.get_distrib_for_node(path)
-            i = local_path_router.draw()
-            next_path_element = atoms[i]
-            path = tuple(list(path) + [next_path_element])
+            atoms = self.get_atoms_for_path(path)
+            atom_index = local_ncrp.get_distrib_for_node(path).draw()
+            next_path_element = atoms[atom_index]
+            path = tuple(path) + (next_path_element,)
         topic = self.topics_by_path[path]
         vocab_word_index = self.rnd.choice(
             np.arange(len(self.vocab)), p = topic)
