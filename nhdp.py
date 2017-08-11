@@ -96,7 +96,7 @@ class NHDP(object):
         self.vocab = vocab
         assert len(topic_alpha_vector) == len(vocab)
         self.topics_by_path = dirichlet_tree(topic_alpha_vector)
-        self.ncrp = NCRPDraw(alpha = alpha)
+        self.global_ncrp = NCRPDraw(alpha = alpha)
         self.rnd = indep_rand()
 
     def draw_corpus(self, num_documents, document_length):
@@ -105,7 +105,7 @@ class NHDP(object):
         corpus = []
         for i in range(num_documents):
             doc, ph = self.draw_document(document_length = document_length[i])
-            corpus.append(doc)
+            corpus.append((doc, ph))
         return corpus
 
     def draw_document(self, document_length):
@@ -127,10 +127,10 @@ class NHDP(object):
                 p = [prob_stop, 1 - prob_stop])
             if stop:
                 break
-            next_path_distrib_base = self.ncrp.get_distrib_for_node(path)
-            atoms = defaultdict(lambda: next_path_distrib_base.draw())
-            distrib_over_atoms = local_ncrp.get_distrib_for_node(path)
-            i = distrib_over_atoms.draw()
+            global_path_router = self.global_ncrp.get_distrib_for_node(path)
+            atoms = defaultdict(lambda: global_path_router.draw())
+            local_path_router = local_ncrp.get_distrib_for_node(path)
+            i = local_path_router.draw()
             next_path_element = atoms[i]
             path = tuple(list(path) + [next_path_element])
         topic = self.topics_by_path[path]
