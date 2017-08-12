@@ -2,6 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
+class CachingDict(defaultdict):
+    def __missing__(self, key):
+        if not self.default_factory:
+            defaultdict.__missing__(self, key)
+        else:
+            value = self.default_factory(key)
+            dict.__setitem__(self, key, value)
+            return value
+
 def indep_rand():
     '''
     Generate an "independent" random state,
@@ -32,6 +41,7 @@ class BetaStickBreakingDraw(object):
         self.b = b
         self.rnd_thetas = indep_rand()
         self.rnd_draws = indep_rand()
+        self.cached_vs = []
         self.cached_thetas = []
         self.sum_thetas = 0.0
         for i in range(prepopulate):
@@ -39,7 +49,9 @@ class BetaStickBreakingDraw(object):
 
     def extend_thetas(self):
         remaining = 1.0 - self.sum_thetas
-        next_theta = remaining * self.rnd_thetas.beta(self.a, self.b)
+        next_v = self.rnd_thetas.beta(self.a, self.b)
+        next_theta = remaining * next_v
+        self.cached_vs.append(next_v)
         self.cached_thetas.append(next_theta)
         self.sum_thetas += next_theta
 
@@ -60,14 +72,13 @@ class BetaStickBreakingDraw(object):
 class NCRPDraw(object):
     def __init__(self, alpha):
         self.alpha = alpha
-        self.stick_breaking_distribs = dict()
+        self.stick_breaking_distribs = defaultdict(lambda: BetaStickBreakingDraw(a = 1.0, b = self.alpha))
 
-    def get_distrib_for_node(self, path):
-        distrib = self.stick_breaking_distribs.get(path, None)
-        if distrib is None:
-            distrib = BetaStickBreakingDraw(a = 1.0, b = self.alpha)
-            self.stick_breaking_distribs[path] = distrib
-        return distrib
+    def all_cached_thetas(self):
+        return {k: v.cached_thetas for k, v in self.stick_breaking_distribs.items()}
+
+    def all_cached_vs(self):
+        return {k: v.cached_vs for k, v in self.stick_breaking_distribs.items()}
 
     def draw(self):
         return NCRPPathDraw(self)
@@ -81,7 +92,7 @@ class NCRPPathDraw(object):
         assert isinstance(key, int)
         assert key >= 0
         while key >= len(self.path):
-            distrib = self.ncrp.get_distrib_for_node(self.path)
+            distrib = self.ncrp.stick_breaking_distribs[self.path]
             next_item = distrib.draw()
             self.path.append(next_item)
         return self.path[key]
@@ -97,15 +108,9 @@ class NHDP(object):
         assert len(topic_alpha_vector) == len(vocab)
         self.topics_by_path = dirichlet_tree(topic_alpha_vector)
         self.global_ncrp = NCRPDraw(alpha = alpha)
-        self.cached_atoms_by_path = dict()
+        self.atoms_by_path = CachingDict(lambda path:
+            defaultdict(lambda: self.global_ncrp.stick_breaking_distribs[path].draw()))
         self.rnd = indep_rand()
-
-    def get_atoms_for_path(self, path):
-        atoms = self.cached_atoms_by_path.get(path)
-        if atoms is None:
-            atoms = defaultdict(lambda: self.global_ncrp.get_distrib_for_node(path).draw())
-            self.cached_atoms_by_path[path] = atoms
-        return atoms
 
     def draw_corpus(self, num_documents, document_length):
         if not np.iterable(document_length):
@@ -116,10 +121,13 @@ class NHDP(object):
             corpus.append((doc, ph))
         return corpus
 
+    def draw_u_tree(self):
+        return beta_collection(self.gamma1, self.gamma2)
+
     def draw_document(self, document_length):
         doc = []
         path_history = []
-        u_tree = beta_collection(self.gamma1, self.gamma2)
+        u_tree = self.draw_u_tree()
         local_ncrp = NCRPDraw(alpha = self.beta)
         for word_slot_index in range(document_length):
             word, path = self.draw_word(u_tree, local_ncrp)
@@ -135,8 +143,8 @@ class NHDP(object):
                 p = [prob_stop, 1 - prob_stop])
             if stop:
                 break
-            atoms = self.get_atoms_for_path(path)
-            atom_index = local_ncrp.get_distrib_for_node(path).draw()
+            atoms = self.atoms_by_path[path]
+            atom_index = local_ncrp.stick_breaking_distribs[path].draw()
             next_path_element = atoms[atom_index]
             path = tuple(path) + (next_path_element,)
         topic = self.topics_by_path[path]
