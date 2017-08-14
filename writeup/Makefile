@@ -1,13 +1,15 @@
 NAME=Leverentz_research_exam
 
+TEXPATH=/Library/TeX/texbin
+
 .PHONY: clean deepclean
 
 all: clean
-	pdflatex ${NAME}
-	pdflatex ${NAME}
-	bibtex ${NAME}
-	pdflatex ${NAME}
-	pdflatex ${NAME}
+	${TEXPATH}/pdflatex ${NAME}
+	${TEXPATH}/pdflatex ${NAME}
+	${TEXPATH}/bibtex ${NAME}
+	${TEXPATH}/pdflatex ${NAME}
+	${TEXPATH}/pdflatex ${NAME}
 
 clean:
 	rm -f *.bbl *.blg *.log *.out *.aux
