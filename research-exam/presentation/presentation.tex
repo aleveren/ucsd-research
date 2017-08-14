@@ -1,0 +1,61 @@
+\documentclass{beamer}
+%\documentclass[handout]{beamer}  % for handout
+
+%\usepackage{pgfpages}  % for handout
+%\pgfpagesuselayout{4 on 1}[letterpaper,landscape,border shrink=5mm] % for handout
+%\setbeamertemplate{footline}[frame number] % for handout
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+%\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{mathtools}
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+%\usepackage{algorithm}
+%\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+
+\setbeamertemplate{blocks}[default]
+\setbeamertemplate{navigation symbols}{}  % Omit navigation buttons
+\setbeamertemplate{bibliography item}{\insertbiblabel}
+
+\title{Hierarchical Topic Models}
+\author{Andrew Leverentz}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}
+\frametitle{Introduction}
+TODO
+In \cite{paisley2015nested}, there is some stuff.
+Similarly, in \cite{blei2010nested}, there is some stuff.
+\end{frame}
+
+%%%%%%%%%%%%%
+
+{
+\setbeamertemplate{frametitle continuation}{}
+\begin{frame}[allowframebreaks]
+\frametitle{References}
+\nocite{*}
+%\bibliographystyle{amsalpha}
+%\bibliographystyle{plainnat}
+\bibliographystyle{plain}
+\bibliography{../bibliography}
+\end{frame}
+}
+
+\end{document}

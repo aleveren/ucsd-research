@@ -1,0 +1,60 @@
+\documentclass{article}
+
+\usepackage[final]{nips_2016_modified}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsmath}
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+%\usepackage{algorithm}
+%\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{geometry}
+\geometry{margin=1.5in}
+
+\title{Hierarchical Topic Models}
+
+\author{
+  Andrew Leverentz \\
+  \texttt{aleveren@eng.ucsd.edu} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+In this article, we survey techniques for automatically inferring hierarchical structures from unlabeled collections of text documents.
+We begin with a brief overview of probabilistic topic modeling, as implemented in models such as Probabilistic Latent Semantic Indexing (pLSI) and Latent Dirichlet Allocation (LDA).
+After discussing some limitations of these models, we discuss two lines of research which have extended the LDA model and attempted to address some of its weaknesses.
+One approach, based on Dirichlet Processes, treats topics as belonging to a potentially infinite tree; in this context, Bayesian non-parametric techniques are used to automatically select the structure of the tree.
+The second approach, called Hierarchical Pachinko Allocation Modeling, uses a directed acyclic graph to recursively define topics as distributions not only over words but also over other topics.
+We compare and contrast these approaches and discuss several inference algorithms that have been published in the literature.
+We also discuss methods for visualizing, interpreting, and evaluating hierarchies of topics.
+\end{abstract}
+
+\section{Introduction}
+TODO
+In \cite{paisley2015nested}, there is some stuff.
+Similarly, in \cite{blei2010nested}, there is some stuff.
+
+TODO
+
+\section{Conclusion}
+TODO
+
+%%%%%%%%%%%%%
+
+\nocite{*}
+%\bibliographystyle{plainnat}
+\bibliographystyle{plain}
+\bibliography{../bibliography}
+
+\end{document}
