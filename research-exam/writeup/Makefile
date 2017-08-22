@@ -2,7 +2,7 @@ NAME=Leverentz_research_exam
 
 TEXPATH=/Library/TeX/texbin
 
-.PHONY: clean deepclean
+.PHONY: clean deepclean count
 
 all: clean
 	${TEXPATH}/pdflatex ${NAME}
@@ -16,3 +16,6 @@ clean:
 
 deepclean: clean
 	rm -f ${NAME}.pdf
+
+count:
+	${TEXPATH}/texcount -1 ${NAME}.tex
