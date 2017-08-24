@@ -85,8 +85,10 @@ For indexing tasks, hierarchical topic models allow the possibility of expanding
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Probabilistic Topic Models}
 
-Before we discuss probabilistic models which can generate hierarchies of topics, we will first discuss two probabilistic models which generate ``flat'' (that is, non-nested) collections of topics.
+Before we discuss models which can generate hierarchies of topics, we will first discuss two probabilistic models which generate ``flat'' (that is, non-nested) collections of topics.
 These models are Probabilistic Latent Semantic Analysis (PLSA) and Latent Dirichlet Allocation (LDA).
+
+\subsection{A Non-Probabilistic Precursor: Latent Semantic Analysis}
 
 The first of these, PLSA, was inspired by an earlier, non-probabilistic model known as Latent Semantic Analysis (LSA).
 In LSA, a corpus of documents is summarized as a matrix; each row of this matrix represents a document, each column represents a term in the vocabulary, and each entry represents number of times a given term appears in a given document.
@@ -101,6 +103,8 @@ These vectors are viewed as representations of the documents in a low-dimensiona
 Similarities between documents can be computed, for example, using a normalized dot product (also known as the cosine similarity) in the latent semantic space.
 This model, as with many other topic models, uses the \emph{bag-of-words} simplification, in which the specific sequence of words in a document is ignored, and all that matters is the frequency of terms within each document.
 Topic models which eliminate the bag-of-words simplification are beyond the scope of this review, but they constitute an active area of research.
+
+\subsection{Probabilistic Latent Semantic Analysis}
 
 In abstract terms, PLSA takes a similar conceptual approach, but the latent semantic representations of topics are combined in each document using a generative probabilistic model rather than simply a linear algebraic one.
 PLSA uses what Hofmann (**citation1999) calls an ``aspect model.''
@@ -118,6 +122,8 @@ Within this framework, it becomes possible to infer the latent class mixture of 
 It is also worth noting that the ``A'' in LSA and PLSA is sometimes replaced with ``I'' for ``Indexing'' when the primary goal is to efficiently retrieve documents related to a given user query.
 Thus the terms ``LSI'' and ``PLSI'' are often used in the Information Retrieval research community.
 
+\subsection{Latent Dirichlet Allocation}
+
 Latent Dirichlet Allocation (LDA) extends PLSA by using the Dirichlet distribution as a Bayesian prior on the space of discrete probability distributions.
 The generative model used in LDA is given by:
 \begin{align*}
@@ -130,8 +136,46 @@ Then, within each document, we select a topic indicator $z_{d,n}$ for each word 
 The main advantage of this formulation is that the parameters associated with each topic $\theta_k$ (corresponding to the probability distributions $p(w \mid z)$ in PLSA) do not need to be specified in advance;
 instead, they can be inferred from the training data.
 
-A number of inference algorithms for LDA have been proposed, including EM (expectation maximization), Gibbs sampling, and variational inference.
+Several important limitations of the LDA model are:
+\begin{enumerate}
+\item The number of topics must be specified in advance.
+Setting this parameter using standard model-selection techniques such as $k$-fold cross-validation can be time consuming.
+We will see that this can be addressed via Bayesian nonparametric techniques, in which one or more latent variables are drawn from an infinite-dimensional space.
+\item A ``flat'' collection of topics has no built-in notion of levels of abstraction, and so the topics discovered by LDA may be difficult to interpret.
+This is because such models may mix abstract and concrete terms within a single topic.
+Nested topics allow us to represent containment relationships between relatively abstract topics, such as ``sports in general'' or ``basketball'' and relatively concrete topics, such as ``Michael Jordan'' or ``the 1996 Chicago Bulls.''
+The intention is to create more easily interpretable topics, each of which can be associated with a sharply distinguished level of abstraction.
+\item The bag-of-words approach fails to account for the ordering of words, even though this may significantly impact the meaning of a document; for example, in the bag-of-words approach ``man bites dog'' is treated as exactly equivalent to ``dog bites man.''
+Solutions to this limitation are outside the scope of this report, although as mentioned above this is an active area of research.
+\end{enumerate}
+
+\subsection{Inference Algorithms for LDA}
+
+A number of inference algorithms for LDA have been proposed, including EM (expectation--maximization), Gibbs sampling, and variational inference.
 We will see that some of the same algorithms can be applied to hierarchical topic models, although our choice of algorithms is constrained somewhat by the increased complexity of these models.
+
+Expectation--maximization (EM) is an example of a general class of optimization algorithms known as majorization--maximization (MM).
+It can be used to find maximum likelihood estimates or maximum a posteriori estimates for latent variables.
+However, in a fully Bayesian setting, we are often looking for more than a mere point estimate; rather, we seek to approximate the posterior distribution of the latent variables given the observed data.
+
+Gibbs sampling is a particular kind of stochastic sampling technique which can be used in the context of Bayesian modeling to estimate the posterior distribution.
+It belongs to the class of Monte Carlo Markov Chain (MCMC) techniques.
+This is a ``Monte Carlo'' technique because it involves estimating a quantity by repeatedly drawing samples of a set of random variables.
+It is a ``Markov Chain'' technique because it involves a sequence of stochastic updates in which the transition probabilities at each step depend only upon the previous state.
+To implement Gibbs sampling, it is necessary to compute the conditional probability distribution of each latent variable given all other latent variables, plus the full set of observed variables.
+A single iteration of the Markov chain update in Gibbs sampling involves taking each latent variable one at a time (possibly in a random order), temporarily discarding its current value, computing the conditional probability distribution of the current latent variable, and sampling an updated value from that conditional distribution.
+The update rules needed for implementing this technique are often relatively easy to derive (compared to alternatives such as variational inference).
+However, the main disadvantage is that it can be difficult to determine when the Markov chain has converged to the true posterior distribution.
+
+Variational inference is an optimization technique that can be used to find an approximation to the posterior distribution.
+Typically, it involves searching within a restricted family of functions (such as those which decompose conveniently into a product of univariate factors) to find the function which most closely approximates the true posterior.
+The ``closeness'' between probability distributions can be measured by the Kullbach-Leibler divergence.
+One common form of variational inference is based on coordinate ascent.
+This approach updates the parameters associated with each variational distribution, one at a time, until it has converged to a local optimum.
+Coordinate ascent variational inference is particularly convenient for models which use conditional distributions from the exponential family, and which make use of conjugate priors wherever possible.
+In such cases, we can derive a simple closed-form update rule for each of the latent variables.
+We will see that Bayesian nonparametric models, which involve latent variables drawn from infinite dimensional spaces, require special handling.
+For example, incorporating a greedy algorithm into the update rule is one way to avoid computing infinite sums.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Hierarchical Topic Models Based on Dirichlet Processes}
