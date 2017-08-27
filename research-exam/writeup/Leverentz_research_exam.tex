@@ -128,6 +128,7 @@ Latent Dirichlet Allocation (LDA) extends PLSA by using the Dirichlet distributi
 The generative model used in LDA is given by:
 \begin{align*}
 \theta_k &\sim \text{Dirichlet}(\alpha) \qquad \text{for each topic $k$} \\
+% TODO: Should this be \theta_d, with another \phi_k ?
 z_{d,n} &\sim \text{Categorical}(\beta) \qquad \text{for the $n\nth$ word in document $d$} \\
 w_{d,n} &\sim \text{Categorical}(\theta_{z_{d,n}}) \qquad \text{for the $n\nth$ word in document $d$}
 \end{align*}
@@ -170,8 +171,11 @@ However, the main disadvantage is that it can be difficult to determine when the
 Variational inference is an optimization technique that can be used to find an approximation to the posterior distribution.
 Typically, it involves searching within a restricted family of functions (such as those which decompose conveniently into a product of univariate factors) to find the function which most closely approximates the true posterior.
 The ``closeness'' between probability distributions can be measured by the Kullbach-Leibler divergence.
-One common form of variational inference is based on coordinate ascent.
-This approach updates the parameters associated with each variational distribution, one at a time, until it has converged to a local optimum.
+One relatively simple form of variational inference is based on coordinate ascent.
+This approach updates the parameters associated with each latent variable's variational distribution, one at a time, until it has converged to a local optimum.
+Fortunately, although it may be intractable to compute the full objective function in terms of the Kullbach-Leibler divergence, there is a related quantity known as the evidence lower bound (or ``ELBO'') which differs by a constant amount from the true objective function.
+This quantity is easier to compute because it avoids intractable sums and integrals that often arise when computing marginal probabilities in complex Bayesian models.
+Therefore, rather than directly assessing whether the KL divergence has reached a local minimum, we can instead monitor whether the ELBO has converged to a local maximum.
 Coordinate ascent variational inference is particularly convenient for models which use conditional distributions from the exponential family, and which make use of conjugate priors wherever possible.
 In such cases, we can derive a simple closed-form update rule for each of the latent variables.
 We will see that Bayesian nonparametric models, which involve latent variables drawn from infinite dimensional spaces, require special handling.
@@ -179,6 +183,76 @@ For example, incorporating a greedy algorithm into the update rule is one way to
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Hierarchical Topic Models Based on Dirichlet Processes}
+
+In this section, we discuss a line of research in which random variables known as Dirichlet Processes are used to learn a tree-structured hierarchy of topics from a corpus.
+The first such technique is known as the Nested Chinese Restaurant Process, and a subsequent enhancement to this technique is called the Nested Hierarchical Dirichlet Process.
+
+\subsection{Nested Chinese Restaurant Process}
+
+The Nested Chinese Restaurant Process (NCRP) is based on an extension of a model known as the Chinese Restaurant Process (CRP), which we will discuss first.
+
+The CRP is a stochastic process which allows us to put a prior distribution on a potentially infinite partition of a dataset.
+Here, the term ``stochastic process'' refers to an infinite set of random variables which are indexed by some infinite set.
+With nonzero probability, the CRP can assign observations to arbitrarily large numbers of partitions, although for a finite dataset the size of the partition is of course bounded by the number of observations.
+
+The CRP is based on a thought experiment involving a restaurant containing an infinite number of tables, each of which have an infinite capacity.
+The tables are indexed starting from 1, and an arbitrary number of customers sequentially arrive at the restaurant.
+With probability 1, the first customer is guaranteed to sit at table 1.
+All subsequent customers select a table according to the following rules:
+\begin{itemize}
+\item If $n$ is the total number of previously-seated customers at the restaurant, the $(n+1)\nth$ customer will sit at the next empty table with probability $\frac{\alpha}{n + \alpha}$.
+\item If the first $k$ tables are occupied, with the $i\nth$ table containing $n_i$ customers, the $(n+1)\nth$ customer will sit at table $i$ with probability $\frac{n_i}{n+\alpha}$.
+\end{itemize}
+Here, $\alpha$ is a positive-valued parameter that affects whether there will be relatively few tables containing a large number of customers, or relatively many tables which each contain only a few customers.
+In the limit $\alpha \to 0$, there will be a single table with all of the customers.
+On the other hand, as $\alpha \to \infty$, the number of occupied tables increases.
+
+Although this thought experiment gives us an intuitive sense for how to generate a random partition, this formulation of the model involves a sequence of random trials in which each trial is dependent on the outcomes of all previous trials.
+Thus, for the purpose of deriving an implementation, it is preferable to use a reformulation that involves independent random variables.
+One convenient method is to use a \emph{stick-breaking construction}.
+We define an infinite sequence of beta-distributed random variables:
+\begin{align*}
+V_k &\sim \text{Beta}(1, \alpha) \qquad \text{for all $k \geq 1$}.
+\end{align*}
+Then, we define an infinite sequence of probabilities:
+\begin{align*}
+\pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j).
+\end{align*}
+We can view the sequence $\pi_k$ as defining a probability distribution over all positive integers.
+In the limit where the number of observations approaches infinity, the distribution over partitions defined by the CRP and by this stick-breaking construction are equivalent.
+Since the random variables $V_k$ are i.i.d., this formulation makes it easier to derive properties of the CRP; in particular, we will see that this formulation simplifies the derivation of update rules for variational inference algorithms.
+
+Next, we define Nested Chinese Restaurant Process (NCRP) in terms of the CRP.
+Continuing the restaurant analogy, suppose we have an infinite number of restaurants, each with an infinite number of infinite-capacity tables.
+There is one restaurant which is singled out as the ``root'' restaurant, and every customer begins by selecting a restaurant from this table according to the rules of the (non-nested) CRP.
+Each table has on it a card containing the address of another restaurant.
+After all customers at the current restaurant have been seated, the customers at each table table simultaneously get up and move to the restaurant which is marked on the card at their table.
+Then, this process repeats at a new set of restaurants.
+No restaurant appears on a card more than once, which means that there is one and only one way to reach each restaurant.
+
+We can imagine each restaurant as a node in an infinitely wide, infinitely deep tree.
+Each node can be indexed by a tuple representing the sequence of table selections required to reach that restaurant.
+For example, the empty sequence corresponds to the restaurant at the root node, and the sequence $(3, 1)$ corresponds to the first descendant of the third descendant of the root node.
+A single draw from the NCRP corresponds to an infinite sequence of restaurants.
+Equivalently, we can think of the NCRP as a probability distribution over infinite sequences of positive integers.
+Drawing an infinite sequence $\{a_i\}$ corresponds to choosing table $a_1$ from the first restaurant, entering the restaurant corresponding to $a_1$, choosing table $a_2$ from that restaurant, entering the restaurant corresponding to $a_2$, choosing table $a_3$ from that restaurant, and so on.
+
+Like the CRP, the NCRP can also be defined in terms of a stick-breaking construction.
+***TODO
+
+The preceding discussion uses a tree of infinite depth.
+However, it is also possible to use only a finite number of layers in the tree (that is, to truncate the tree at a finite depth).
+Specifically, if we truncate the tree at depth $L$, then each full-length path in the tree is a tuple of positive integers of length $L$.
+Note that even if we truncate the tree in terms of its depth, it still contains an infinite number of paths, since the width of the tree is infinite.
+
+There is some ambiguity in the terminology used in the literature, as the term ``NCRP'' can refer to the probability distribution defined above, but it has also been used to refer to a particular nested topic model defined in (**citation).
+In (**so-and-so's) NCRP topic model, **TODO.
+
+TODO***
+
+\subsection{Nested Hierarchical Dirichlet Process}
+
+TODO***
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Hierarchical Topic Models Based on Pachinko Allocation}
