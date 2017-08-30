@@ -18,4 +18,4 @@ deepclean: clean
 	rm -f ${NAME}.pdf
 
 count:
-	${TEXPATH}/texcount -1 ${NAME}.tex
+	${TEXPATH}/texcount -1 -sum ${NAME}.tex
