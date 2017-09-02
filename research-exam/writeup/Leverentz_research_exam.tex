@@ -16,10 +16,12 @@
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage{caption}
+\usepackage{outlines}
 \usepackage{geometry}
 \geometry{margin=1.5in}
 
 \newcommand{\nth}{^{\text{th}}}
+\newcommand{\len}{\mathrm{len}}
 
 \title{Hierarchical Topic Models}
 
@@ -107,7 +109,7 @@ Topic models which eliminate the bag-of-words simplification are beyond the scop
 \subsection{Probabilistic Latent Semantic Analysis}
 
 In abstract terms, PLSA takes a similar conceptual approach, but the latent semantic representations of topics are combined in each document using a generative probabilistic model rather than simply a linear algebraic one.
-PLSA uses what Hofmann (**citation1999) calls an ``aspect model.''
+PLSA uses what Hofmann \cite{hofmann1999plsa} calls an ``aspect model.''
 In the aspect model, each document $d$ is associated with a discrete probability distribution $p(z \mid d)$ over $z \in \mathcal Z$, where $\mathcal Z$ is a set of latent factors which are referred to as ``topics.''
 Each topic $z \in \mathcal Z$ is in turn associated with a distribution $p(w \mid z)$ over words $w$ in the vocabulary $\mathcal W$.
 Thus, the joint probability of documents in a corpus and the words they contain is given by
@@ -126,15 +128,16 @@ Thus the terms ``LSI'' and ``PLSI'' are often used in the Information Retrieval 
 
 Latent Dirichlet Allocation (LDA) extends PLSA by using the Dirichlet distribution as a Bayesian prior on the space of discrete probability distributions.
 The generative model used in LDA is given by:
-\begin{align*}
-\theta_k &\sim \text{Dirichlet}(\alpha) \qquad \text{for each topic $k$} \\
-% TODO: Should this be \theta_d, with another \phi_k ?
-z_{d,n} &\sim \text{Categorical}(\beta) \qquad \text{for the $n\nth$ word in document $d$} \\
-w_{d,n} &\sim \text{Categorical}(\theta_{z_{d,n}}) \qquad \text{for the $n\nth$ word in document $d$}
-\end{align*}
-In other words, the per-topic probability distributions over the vocabulary are i.i.d.\ draws from a Dirichlet distribution.
-Then, within each document, we select a topic indicator $z_{d,n}$ for each word according to the probabilities in by the vector $\beta$, and the vocabulary word $w_{d,n} \in \mathcal W$ at the $n\nth$ position is selected according to the probabilities in the vector $\theta_{z_{d,n}}$.
-The main advantage of this formulation is that the parameters associated with each topic $\theta_k$ (corresponding to the probability distributions $p(w \mid z)$ in PLSA) do not need to be specified in advance;
+\begin{alignat*}{2}
+\phi_k &\sim \text{Dirichlet}(\alpha) &\qquad&\text{for each topic $k$} \\
+\theta_d &\sim \text{Dirichlet}(\beta) &\qquad&\text{for each document $d$} \\
+z_{d,n} &\sim \text{Categorical}(\theta_d) &\qquad&\text{for the $n\nth$ word in document $d$} \\
+w_{d,n} &\sim \text{Categorical}(\theta_{z_{d,n}}) &\qquad&\text{for the $n\nth$ word in document $d$}
+\end{alignat*}
+In other words, the per-topic probability distributions over the vocabulary ($\phi_k$) are i.i.d.\ draws from a Dirichlet distribution.
+Then, each document is associated with a random draw $\theta_d$ from another Dirichlet distribution; this represents the proportion of topics present in document $d$.
+Within each document, we select a topic indicator $z_{d,n}$ for each word according to the probabilities in by the vector $\theta_d$, and the vocabulary word $w_{d,n} \in \mathcal W$ at the $n\nth$ position is selected according to the probabilities in the vector $\phi_{z_{d,n}}$.
+The main advantage of this formulation is that the parameters associated with each topic $\phi_k$ (corresponding to the probability distributions $p(w \mid z)$ in PLSA) do not need to be specified in advance;
 instead, they can be inferred from the training data.
 
 Several important limitations of the LDA model are:
@@ -215,17 +218,63 @@ We define an infinite sequence of beta-distributed random variables:
 V_k &\sim \text{Beta}(1, \alpha) \qquad \text{for all $k \geq 1$}.
 \end{align*}
 Then, we define an infinite sequence of probabilities:
-\begin{align*}
+\begin{align}
 \pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j).
-\end{align*}
+\label{eq:pi_crp}
+\end{align}
 We can view the sequence $\pi_k$ as defining a probability distribution over all positive integers.
 In the limit where the number of observations approaches infinity, the distribution over partitions defined by the CRP and by this stick-breaking construction are equivalent.
 Since the random variables $V_k$ are i.i.d., this formulation makes it easier to derive properties of the CRP; in particular, we will see that this formulation simplifies the derivation of update rules for variational inference algorithms.
 
+In the context of topic models, the CRP can be used as a distribution over indices into an infinite i.i.d.\ set of random variables.
+In terms of the restaurant analogy, this corresponds to associating each table with an independent draw from some ``base distribution'' (for example, in topic models, this is often a draw from a Dirichlet distribution); thus, selecting a table corresponds to selecting one value from an infinite set of draws from the base distribution.
+In this context, another formulation of this model is to view it as a so-called ``Dirichlet process.''
+The Dirichlet process is a probability distribution over probability distributions.
+It is parameterized by a positive scalar parameter $\alpha$ and a base distribution, $G_0$.
+The name ``Dirichlet process'' comes from the fact that, for any finite partition $(A_1, \ldots, A_n)$ of the domain of $G_0$, the vector $(X(A_1), \ldots, X(A_n))$ is disributed according to a Dirichlet distribution with parameters $(\alpha G_0(A_1), \ldots, \alpha G_0(A_n))$.
+Here, the notation $X(A_i)$ and $G_0(A_i)$ represents the probability mass which $X$ (or $G_0$, respectively) assigns to the set $A_i$.
+The fact that such a distribution exists was proved in Ferguson \cite{ferguson1973bayesian}, although this result was merely an existential proof.
+Sethuraman \cite{sethuraman1994constructive} later provided the explicit stick-breaking construction for the Dirichlet process described above.
+In terms of notation, we can write
+\begin{align*}
+X &\sim \text{DP}(\alpha, G_0)
+\end{align*}
+as shorthand for
+\begin{alignat*}{2}
+\theta_k &\sim G_0 &\qquad& \text{for $k \geq 1$} \\
+V_k &\sim \text{Beta}(1, \alpha) &\qquad& \text{for $k \geq 1$} \\
+\pi_k &= V_k \prod_{j=1}^{k-1} (1 - V_j) &\qquad& \text{for $k \geq 1$} \\
+X &= \sum_{k=1}^\infty \pi_k \delta_{\theta_k} &&
+\end{alignat*}
+Note that each $\theta_k$ is a member of the domain of the distribution $G_0$, each $V_k$ and $\pi_k$ is a scalar between $0$ and $1$ (with $\sum_k \pi_k = 1$), and $X$ is a probability distribution with the same domain as $G_0$.
+This formulation will be useful in later sections, when we explore the Hierarchical Dirichlet Process (HDP) and the Nested Hierarchical Dirichlet Process (NHDP).
+
+The preceding formulation can be modified slightly if we express it in terms of a so-called GEM distribution (GEM stands for Griffiths, Engen, and McCloskey).
+A GEM distribution is a distribution over distributions over positive integers, defined such that
+\begin{align*}
+\vec \pi &\sim \text{GEM}_2(\gamma_1, \gamma_2)
+\end{align*}
+is equivalent to
+\begin{alignat*}{2}
+V_k &\sim \text{Beta}(\gamma_1, \gamma_2) &\qquad& \text{for $k \geq 1$} \\
+\pi_k &= V_k \prod_{j=1}^{k-1} (1 - V_j) &\qquad& \text{for $k \geq 1$}
+\end{alignat*}
+Note in this context that $\vec \pi$ is an infinite sequence; that is, $\vec \pi = \{ \pi_k \}_{k \geq 1}$.
+Furthermore, this sequence sums to $1$ and can therefore be viewed as a discrete distribution over the set of positive integers.
+The subscript ``2'' indicates the this is a 2-parameter variant of the GEM distribution.
+The single-parameter variant is equivalent to setting the first parameter to $1$.
+That is, $\text{GEM}(\alpha) = \text{GEM}_2(1, \alpha)$.
+With these definitions, a Dirichlet process $X \sim \text{DP}(\alpha, G_0)$ is equivalent to
+\begin{alignat*}{2}
+\theta_k &\sim G_0 &\qquad& \text{for $k \geq 1$} \\
+\vec \pi &\sim \text{GEM}(\alpha) && \\
+X &= \sum_{k=1}^\infty \pi_k \delta_{\theta_k} &&
+\end{alignat*}
+
 Next, we define Nested Chinese Restaurant Process (NCRP) in terms of the CRP.
 Continuing the restaurant analogy, suppose we have an infinite number of restaurants, each with an infinite number of infinite-capacity tables.
 There is one restaurant which is singled out as the ``root'' restaurant, and every customer begins by selecting a restaurant from this table according to the rules of the (non-nested) CRP.
-Each table has on it a card containing the address of another restaurant.
+Each table has a card containing the address of another restaurant.
 After all customers at the current restaurant have been seated, the customers at each table table simultaneously get up and move to the restaurant which is marked on the card at their table.
 Then, this process repeats at a new set of restaurants.
 No restaurant appears on a card more than once, which means that there is one and only one way to reach each restaurant.
@@ -233,24 +282,175 @@ No restaurant appears on a card more than once, which means that there is one an
 We can imagine each restaurant as a node in an infinitely wide, infinitely deep tree.
 Each node can be indexed by a tuple representing the sequence of table selections required to reach that restaurant.
 For example, the empty sequence corresponds to the restaurant at the root node, and the sequence $(3, 1)$ corresponds to the first descendant of the third descendant of the root node.
-A single draw from the NCRP corresponds to an infinite sequence of restaurants.
-Equivalently, we can think of the NCRP as a probability distribution over infinite sequences of positive integers.
+
+In this formulation, a single draw from the NCRP corresponds to a distribution over infinite paths in this tree.
+Equivalently, we can think of a single NCRP draw as a probability distribution over infinite sequences of positive integers.
 Drawing an infinite sequence $\{a_i\}$ corresponds to choosing table $a_1$ from the first restaurant, entering the restaurant corresponding to $a_1$, choosing table $a_2$ from that restaurant, entering the restaurant corresponding to $a_2$, choosing table $a_3$ from that restaurant, and so on.
 
 Like the CRP, the NCRP can also be defined in terms of a stick-breaking construction.
-***TODO
+To do this, we use an infinite collection of beta-distributed random variables, indexed by the set of finite-length paths in an infinite tree:
+\begin{align*}
+V_r &\sim \text{Beta}(1, \alpha),
+\end{align*}
+where $r$ is any finite-length tuple of positive integers.
+However, as a special case, the random variable associated with the root node, $V_{()}$, is always equal to $1$, rather than being beta-distributed.
+Then, we recursively define a set of variables as follows:
+\begin{align*}
+\pi_{()} &= V_{()} = 1 \\
+\pi_{r[1:\ell]} &= \pi_{r[1:\ell-1]} \cdot \left( V_{r[1:\ell]} \prod_{j=1}^{r[\ell]-1} (1-V_{r[1:\ell-1],j}) \right)
+\end{align*}
+Expanding this recurrence relation yields:
+\begin{align*}
+\pi_r
+&= \prod_{\ell = 1}^{\len(r)} \left( V_{r[1:\ell]} \prod_{j=1}^{r[\ell]-1} \left( 1 - V_{r[1:\ell-1],j} \right) \right) \\
+&= \left( \prod_{\ell = 1}^{\len(r)} V_{r[1:\ell]} \right) \left( \prod_{\ell = 1}^{\len(r)} \prod_{j=1}^{r[\ell]-1} \left( 1 - V_{r[1:\ell-1],j} \right) \right).
+\end{align*}
+If $r$ is a finite-length tuple, then $\pi_r$ represents the probability of drawing a path which contains the prefix $r$.
+Since we have fixed $V_{()} = 1$, this implies that $\pi_{()}$, corresponding to the fact that every path contains the empty tuple as a prefix.
+Note the similarity between this formulation and equation \eqref{eq:pi_crp}; in the NCRP, we are essentially repeating the CRP at each node in an infinite tree.
 
 The preceding discussion uses a tree of infinite depth.
 However, it is also possible to use only a finite number of layers in the tree (that is, to truncate the tree at a finite depth).
 Specifically, if we truncate the tree at depth $L$, then each full-length path in the tree is a tuple of positive integers of length $L$.
 Note that even if we truncate the tree in terms of its depth, it still contains an infinite number of paths, since the width of the tree is infinite.
 
-There is some ambiguity in the terminology used in the literature, as the term ``NCRP'' can refer to the probability distribution defined above, but it has also been used to refer to a particular nested topic model defined in (**citation).
-In (**so-and-so's) NCRP topic model, **TODO.
+There is some ambiguity in the terminology used in the literature, as the term ``NCRP'' can refer to the probability distribution defined above, but it has also been used to refer to a particular nested topic model defined in Blei et al \cite{blei2010ncrp}.
+In the NCRP topic model, a single NCRP is used to define a global probability distribution over paths.
+Moreover, for each node in the infinite tree, a distribution over the vocabulary is drawn from a Dirichlet.
+Each document is associated with a single path through the tree, as well as a distribution over ``levels of abstraction'' (i.e., a distribution over depths within the tree).
+Within a document, each word is drawn using a two step process: first, a depth $k$ is selected from the distribution over depths specific to the current document; then, a vocabulary word is drawn from the $k\nth$ topic along the sampled path corresponding to the current document.
 
-TODO***
+Thus, the generative process for sampling documents according to the NCRP is as follows:
+\begin{outline}
+\1 For each node in the infinite tree, generate a ``topic,'' which consists of a distribution over the vocabulary, by drawing from a Dirichlet.
+To avoid actually computing an infinite number of topics, this step can be performed via lazy evaluation.
+That is, we can generate and store a new topic only when a subsequent step requires it.
+%
+\1 Draw a distribution over paths from the NCRP.
+In concrete terms, this means we must draw a beta-distributed random variable for each node in the infinite tree.
+Again, this can be done via lazy evaluation.
+%
+\1 For each document:
+  \2 Draw a distribution over depths, using a 2-parameter GEM distribution.
+  \2 Draw a path through the global tree, using the global distribution over paths.
+  \2 For each word in the document:
+    \3 Draw a depth $k$ from the distribution-over-depths associated with this document.
+    \3 Draw a vocabulary word from the topic associated with the $k\nth$ element of the path associated with this document.
+\end{outline}
+
+This generative process allows us to compute the likelihood of a particular document, assuming that we know the global distribution over paths and the global set of topics.
+However, we are typically more interested in making inferences based on the posterior distribution---that is, the distribution of the latent variables given the observed data.
+In this case, the particular vocabulary words appearing in the corpus are the only observed random variables; all others (including the beta-distributed random variables and the Dirichlet-distributed topics) are latent variables.
+We will see that, relative to the LDA model, the task of computing the posterior distribution in the NCRP model is complicated by the fact that there are infinitely many latent random variables (for example, there is one latent beta-distributed random variable for each node in the infinite tree).
+
+The algorithms that have been proposed for inference in the NCRP fall into two main categories: those based on Gibbs sampling, and those based on variational inference.
+
+\subsubsection{Gibbs Sampling for the NCRP}
+
+The earlier papers on the NCRP model (**multipleCitations) used inference algorithms based on Gibbs sampling.
+In Gibbs sampling, we maintain a state vector which stores values for each of the latent random variables.
+Each iteration involves updating the state vector by sampling each of the latent variables, one at a time, according to the following conditional probabilities:
+\begin{align*}
+z_k &\sim p(z_k \mid \vec x, \vec z_{-k}) \qquad \text{for all latent variables $z_k$.}
+\end{align*}
+Here, $\vec z_{-k}$ represents the current state vector with the entry for $z_k$ omitted (that is, it represents the current state of all latent variables \emph{except} for $z_k$), and $\vec x$ represents all observed variables.
+The long-term behavior of this stochastic system is guaranteed to approach the true posterior distribution, $p(\vec z \mid \vec x)$.
+However, it can be difficult to determine whether the state vector has converged.
+Moreover, the state vector only represents a single snapshot of the latent variables, as opposed to a distribution over the latent variables, and so we must collect a large number of state-vector samples.
+The resulting collection of state-vector samples can then be used as an empirical approximation to the posterior distribution.
+Issues such as burn-in (the number of samples to discard before saving the first sample) and lag (the number of samples to discard between saved samples, in order to avoid correlated samples) can also affect the performance of Gibbs sampling.
+
+For some models, it is possible to omit some of the latent variables from the state vector.
+This can be done by marginalizing the conditional probabilities over the omitted variables.
+One common approach is to marginalize out any global variables (i.e., variables which are shared across all observed data points), leaving only ``local'' per-observation variables in the state vector.
+This approach is known as ``collapsed Gibbs sampling,'' and it is used in \cite{blei2010ncrp}.
+
+**TODO-actual-algorithm
+
+\subsubsection{Variational Inference for the NCRP}
+
+A variational inference algorithm for the NCRP model was proposed in \cite{wang2009vi_ncrp}.
+In general, variational inference involves defining a restricted set of functions and searching for the member of that set which most closely approximates the function we wish to compute---in this case, the true posterior distribution.
+This particular algorithm uses reversed Kullbach-Leibler divergence to measure the distance between a candidate distribution and the true posterior.
+In the paper by Wang et al, the set of approximating distributions $Q$ is the set of all functions which can be written in the following form:
+\begin{align*}
+q(\vec z) = \prod_{k=1}^m q_k(z_k)
+\end{align*}
+where $\vec z = (z_1, \ldots, z_m)$ represents the full set of latent variables in the model, and where each function $q_k$ is a member of a parameterized family of univariate distributions.
+If we let $\nu_k$ represent the parameters associated with the $k\nth$ latent variable, then the function $q$ is fully specified by selecting a value for $(\nu_1, \ldots, \nu_m)$.
+By assuming that the posterior can be approximated as a product of univariate factors, we use what is known as the ``mean-field approximation.''
+In mathematical notation, if $p(\cdot \mid x)$ represents the true posterior distribution, we wish to find $q$ such that
+\begin{align*}
+\mathcal L &= \text{KL}( q \;\Vert\; p(\cdot \mid x) )
+\end{align*}
+is minimized.
+By expanding the definition of $\mathcal L$, we can write
+\begin{align*}
+\mathcal L &= \log p(x) - \text{ELBO},
+\end{align*}
+where ELBO (short for ``evidence lower bound'') is defined as
+\begin{align*}
+\text{ELBO} = E_q[\log p(\vec z, \vec x)] - E_q[\log q(\vec z)]
+\end{align*}
+Then, since $\log p(x)$ does not depend on $q$, minimizing $\mathcal L$ is equivalent to maximizing ELBO.
+This fact will be useful later when we wish to monitor the convergence of our algorithm, because ELBO is signficantly easier to compute than the actual objective function $\mathcal L$.
+
+The actual update rules are derived using coordinate ascent; that is, we repeatedly update the latent variables, one at a time.
+In particular, we derive the updates by computing the functional derivative of the objective function with respect to one of the latent variables and solving for the value of the corresponding variational parameter which makes this functional derivative equal to zero.
+To aid in deriving the update rules, the model is typically constructed such that all distributions are members of the exponential family, and conjugate priors are used wherever possible.
+This is, by design, true of the NCRP model.
+Moreover, the variational distributions $q_k$ are assumed to belong to the same family as the corresponding model distribution $p(z_k \mid \text{parents}(z_k))$.
+
+In general, the coordinate-ascent update rule can be derived by calculating the logarithm of the model's joint probability distribution and then performing the following steps for each latent variable $z_k$:
+\begin{itemize}
+\item Drop any constant terms in the log joint probability (that is, terms that do not depend on $z_k$).
+\item Express the remaining terms as a dot product between the ``sufficient statistics'' of the distributon $p(z_k \mid \text{parents}(z_k))$, which are functions of $z_k$, and a vector of ``natural parameters,'' denoted $\eta_k$, which do not depend on $z_k$.
+\item Compute the expectation of $\eta_k$ with respect to the variational distributions for the latent variables.
+That is, compute
+\begin{align*}
+E_q[\eta_k] &= E_{z_1 \sim q_1} \left[ \cdots E_{z_m \sim q_m} \left[ \eta_k \right] \cdots \right]
+\end{align*}
+\item Compute the inverse of the natural parameter transformation corresponding to the variational distribution $q_k$, and apply it to the vector $E_q[\eta_k]$.
+This yields the concrete values with which to update the variational parameters corresponding to $z_k$.
+\end{itemize}
+We then repeat the above steps while continually monitoring the value of the ELBO until it appears to have converged.
+
+The above procedure is sufficient for traditional finite-dimensional models.
+However, in the context of Bayesian nonparametric models such as the NCRP, the latent variables belong to an infinite-dimensional space.
+This means that there are an infinite number of variational parameters that would need to be updated in each iteration.
+Hence, in order to obtain a feasible algorithm, we must make additional approximations.
+The approach taken in \cite{wang2009vi_ncrp} is to start with a finite version of the tree which has been truncated in terms of both its depth and its width.
+The latent variables associated with the nodes that lie outside of this finite truncation are assumed to be equal to the corresponding prior distribution; thus, outside of the finite truncation, there is no dependence on the variational parameters.
+In addition to this, the authors also incorporate greedy heuristics for pruning paths, adding paths, and merging paths in the finite tree.
+
+***TODO-update-rules-specific-to-NCRP
+
+Compared to Gibbs sampling, variational inference has the advantange of being deterministic, and its convergence is also significantly easier to detect.
+However, variational inference does have its own disadvantages.
+Whereas with Gibbs sampling, it is possible to approach the true posterior distribution to an arbitrary level of precision, variational inference can only yield an approximation.
+When deriving variational updates, we face a tradeoff: we can choose a more restricted set of variational distributions, which yields an inferior approximation, but leads to easier-to-derive update rules.
+On the other hand, if we want a tighter approximation, the update rules are likely to be significantly more complicated.
 
 \subsection{Nested Hierarchical Dirichlet Process}
+
+The primary limitation of the NCRP has to do with the fact that each document is associated with only a single path through the topic hierarchy.
+This creates problems when the training corpus contains documents with a variety of ``hybrid'' topics.
+From the example used earlier, there may be some documents which are a mixture of \emph{sports} and \emph{medicine}, and the relative proportions of these topics may vary depending on the specific focus of the document.
+To accommodate such documents, the NCRP leaves us with limited options:
+\begin{enumerate}
+\item Treat \emph{sports medicine} as a subtopic of either \emph{sports} or \emph{medicine}.
+\item Treat \emph{sports medicine} as a top-level topic, distinct from both \emph{sports} and \emph{medicine}.
+\end{enumerate}
+Option 1 may lead to unmanageably deep topic hierarchies (or, if we are using the finite-depth variant of NCRP, option 1 may not even be feasible).
+On the other hand, option 2 may lead to unmanageably wide topic hierarchies, particularly if a large number of documents are hybrids of 3 or more topics.
+In either case, it becomes difficult to represent the topic hierarchy as a relatively small tree.
+
+Rather than face these limited options, we would prefer to augment the model so that it can better handle ``hybrid'' topics.
+The solution that was proposed in \cite{paisley2015nhdp} is a topic model called the Nested Hierarchical Dirichlet Process (NHDP).
+The NHDP, like the NCRP topic model, uses a global distribution over paths, as well as an infinite set of topics.
+**TODO
+
+%TODO: limitations of NCRP
 
 TODO***
 
@@ -260,8 +460,8 @@ TODO***
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Conclusions and Potential Directions for Future Research}
 TODO
-In \cite{paisley2015nested}, there is some stuff.
-Similarly, in \cite{blei2010nested}, there is some stuff.
+In \cite{paisley2015nhdp}, there is some stuff.
+Similarly, in \cite{blei2010ncrp}, there is some stuff.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \nocite{*}
