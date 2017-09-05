@@ -48,10 +48,8 @@
 In this article, we survey techniques for automatically inferring hierarchical structures from unlabeled collections of text documents.
 We begin with a brief overview of probabilistic topic modeling, as implemented in models such as Probabilistic Latent Semantic Analysis (PLSA) and Latent Dirichlet Allocation (LDA).
 After discussing some limitations of these models, we discuss a line of research which has extended the LDA model and has attempted to address some of its weaknesses.
-This approach, based on Dirichlet Processes, treats topics as belonging to a potentially infinite tree; in this context, Bayesian non-parametric techniques are used to automatically select the structure of the tree.
-%The second approach, called Hierarchical Pachinko Allocation Modeling, uses a directed acyclic graph to recursively define topics as distributions not only over words but also over other topics.
+This approach treats topics as belonging to a potentially infinite tree; in this context, Bayesian non-parametric techniques based on Dirichlet Processes are used to automatically select the structure of the tree.
 We compare and contrast two main models that have been used for this approach, and we discuss several inference algorithms that have been published in the literature.
-%We also discuss methods for visualizing, interpreting, and evaluating hierarchies of topics.
 \end{abstract}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -60,6 +58,7 @@ We compare and contrast two main models that have been used for this approach, a
 In recent decades, information-sharing networks such as the World Wide Web and other digital archives have led to the creation of vast collections of electronic textual data.
 As these collections grow, the problem of efficiently discovering relationships between documents, or between  user queries and documents, has become more prominent.
 The field of \emph{topic modeling} has produced several automated approaches to solving this problem.
+
 One underlying theme of topic modeling is the notion that words with similar meanings tend to co-occur with similar sets of words.
 However, due to ambiguities in natural language and variances between different authors, these co-occurrence patterns are not rigid and deterministic.
 Hence, many techniques within the field of topic modeling use a probabilistic framework.
@@ -74,8 +73,10 @@ We conclude with a discussion of potential avenues for future research.
 Two of the main applications of topic models are (1) discovering relations between documents and (2) indexing large collections of documents.
 
 \paragraph{Discovering relations between documents:}
+We often want to determine which sets of documents within a corpus share the same topic or subject matter.
 One approach is to formulate this as a clustering task with soft cluster assignments, where each document can be assigned to a mixture of multiple topics or clusters.
-For example, a document about a basketball player recovering from an injury might be represented as a mixture between topics corresponding to both \emph{sports} and \emph{medicine}.
+For example, a news article about a national politician's economic policies might be represented as a mixture between topics corresponding to both \emph{politics} and \emph{economics}.
+Thus, if we are looking for related documents, we could return the set of documents which also contain some significant proportion of either \emph{politics} or \emph{economics}.
 
 \paragraph{Indexing large collections of documents:}
 In the context of information retrieval, the task is to take a user query (expressed perhaps as a collection of keywords or as a natural-language sentence) and efficiently find a set of documents which are deemed most relevant to that query.
@@ -90,9 +91,11 @@ For example, a topic relating to sports would assign relatively high probability
 Similarly, a topic about medicine would assign relatively high probability to ``doctor,'' ``illness,'' and ``pharmacy.''
 Then, a document about a basketball player recovering from an injury might consist of $70\%$ \emph{sports} and $30\%$ \emph{medicine}, whereas a document about physical therapy for athletes might consist of $70\%$ \emph{medicine} and $30\%$ \emph{sports}.
 
-Hierarchical topic models take this idea further by acknowledging that whether or not two documents share the same topic may depend on the level of abstraction that the user is interested in.
+Hierarchical topic models extend this idea by acknowledging that whether or not two documents share the same topic may depend on the level of abstraction that the user is interested in.
 By explicitly treating the set of available topics as a tree, hierarchical topic models can therefore represent documents as mixtures of nested topics at varying levels of abstraction.
+For example, in some contexts, we might consider articles about the San Diego Padres and articles about the Chicago Bulls to belong to the same topic (namely, \emph{sports}), whereas in other contexts, they belong to distinct topics (\emph{baseball} versus \emph{basketball}).
 For indexing tasks, hierarchical topic models allow the possibility of expanding or narrowing the set of relevant documents, depending on the level of abstraction desired by the user.
+For example, when searching for documents related to the keywords ``Alan Turing,'' the default system behavior might be to display documents related to \emph{computer science}, with the option of narrowing matches to a more specific subtopic (e.g., \emph{British computer scientists}) or expanding matches to a more general supertopic (e.g., \emph{science and engineering}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Probabilistic Topic Models}
@@ -102,7 +105,7 @@ These models are Probabilistic Latent Semantic Analysis (PLSA) and Latent Dirich
 
 \subsection{A Non-Probabilistic Precursor: Latent Semantic Analysis}
 
-The first of these, PLSA, was inspired by an earlier, non-probabilistic model known as Latent Semantic Analysis (LSA).
+The first of these, PLSA, was inspired by an earlier, non-probabilistic model known as Latent Semantic Analysis (LSA), which was introduced in \cite{deerwester1990lsa}.
 In LSA, a corpus of documents is summarized as a matrix; each row of this matrix represents a document, each column represents a term in the vocabulary, and each entry represents number of times a given term appears in a given document.
 If the corpus contains a sufficiently diverse set of documents, then most documents will only contain a small subset of the full vocabulary, and the resulting matrix will be sparse.
 After constructing this matrix, it is then transformed according to per-term and per-document statistics.
@@ -214,7 +217,7 @@ With probability 1, the first customer is guaranteed to sit at table 1.
 All subsequent customers select a table according to the following rules:
 \begin{itemize}
 \item If $n$ is the total number of previously-seated customers at the restaurant, the $(n+1)\nth$ customer will sit at the next empty table with probability $\frac{\alpha}{n + \alpha}$.
-\item If the first $k$ tables are occupied, with the $i\nth$ table containing $n_i$ customers, the $(n+1)\nth$ customer will sit at table $i$ with probability $\frac{n_i}{n+\alpha}$.
+\item If the first $k$ tables are occupied, with the $i\nth$ table containing $m_i$ customers, the $(n+1)\nth$ customer will sit at table $i$ with probability $\frac{m_i}{n+\alpha}$.
 \end{itemize}
 Here, $\alpha$ is a positive-valued parameter that affects whether there will be relatively few tables containing a large number of customers, or relatively many tables which each contain only a few customers.
 In the limit $\alpha \to 0$, there will be a single table with all of the customers.
@@ -242,10 +245,10 @@ In this context, another formulation of this model is to view it as a so-called 
 The Dirichlet process is a probability distribution over probability distributions.
 It is parameterized by a positive scalar parameter $\alpha$ and a base distribution, $G_0$.
 The name ``Dirichlet process'' comes from the fact that, for any finite partition $(A_1, \ldots, A_n)$ of the domain of $G_0$, the vector $(X(A_1), \ldots, X(A_n))$ is disributed according to a Dirichlet distribution with parameters $(\alpha G_0(A_1), \ldots, \alpha G_0(A_n))$.
-Here, the notation $X(A_i)$ and $G_0(A_i)$ represents the probability mass which $X$ (or $G_0$, respectively) assigns to the set $A_i$.
+Here, the notation $X(A_i)$ or $G_0(A_i)$ represents the probability mass which $X$ (or $G_0$, respectively) assigns to the set $A_i$.
 The fact that such a distribution exists was proved in Ferguson \cite{ferguson1973bayesian}, although this result was merely an existential proof.
 Sethuraman \cite{sethuraman1994constructive} later provided the explicit stick-breaking construction for the Dirichlet process described above.
-In terms of notation, we can write
+As for notation, we can write
 \begin{align*}
 X &\sim \text{DP}(\alpha, G_0)
 \end{align*}
@@ -285,7 +288,7 @@ Next, we define Nested Chinese Restaurant Process (NCRP) in terms of the CRP.
 Continuing the restaurant analogy, suppose we have an infinite number of restaurants, each with an infinite number of infinite-capacity tables.
 There is one restaurant which is singled out as the ``root'' restaurant, and every customer begins by selecting a restaurant from this table according to the rules of the (non-nested) CRP.
 Each table has a card containing the address of another restaurant.
-After all customers at the current restaurant have been seated, the customers at each table table simultaneously get up and move to the restaurant which is marked on the card at their table.
+After all customers at the current restaurant have been seated, the customers at each table simultaneously get up and move to the restaurant which is marked on the card at their table.
 Then, this process repeats at a new set of restaurants.
 No restaurant appears on a card more than once, which means that there is one and only one way to reach each restaurant.
 
@@ -357,7 +360,8 @@ The algorithms that have been proposed for inference in the NCRP fall into two m
 
 \subsubsection{Gibbs Sampling for the NCRP}
 
-The earlier papers on the NCRP model (**multipleCitations) used inference algorithms based on Gibbs sampling.
+Initially, papers such as \cite{griffiths2004hierarchical}, used NCRP inference algorithms based on Gibbs sampling.
+(In the next section, we will discuss an alternate inference algorithm that was introduced in \cite{wang2009vi_ncrp}.)
 In Gibbs sampling, we maintain a state vector which stores values for each of the latent random variables.
 Each iteration involves updating the state vector by sampling each of the latent variables, one at a time, according to the following conditional probabilities:
 \begin{align*}
@@ -375,7 +379,7 @@ This can be done by marginalizing the conditional probabilities over the omitted
 One common approach is to marginalize out any global variables (i.e., variables which are shared across all observed data points), leaving only ``local'' per-observation variables in the state vector.
 This approach is known as ``collapsed Gibbs sampling,'' and it is used in \cite{blei2010ncrp}.
 
-**TODO-actual-algorithm
+%**TODO-actual-algorithm??
 
 \subsubsection{Variational Inference for the NCRP}
 
@@ -433,7 +437,7 @@ The approach taken in \cite{wang2009vi_ncrp} is to start with a finite version o
 The latent variables associated with the nodes that lie outside of this finite truncation are assumed to be equal to the corresponding prior distribution; thus, outside of the finite truncation, there is no dependence on the variational parameters.
 In addition to this, the authors also incorporate greedy heuristics for pruning paths, adding paths, and merging paths in the finite tree.
 
-***TODO-update-rules-specific-to-NCRP
+%***TODO-update-rules-specific-to-NCRP??
 
 Compared to Gibbs sampling, variational inference has the advantange of being deterministic, and its convergence is also significantly easier to detect.
 However, variational inference does have its own disadvantages.
@@ -451,7 +455,7 @@ To accommodate such documents, the NCRP leaves us with limited options:
 \item Treat \emph{sports medicine} as a subtopic of either \emph{sports} or \emph{medicine}.
 \item Treat \emph{sports medicine} as a top-level topic, distinct from both \emph{sports} and \emph{medicine}.
 \end{enumerate}
-Option 1 may lead to unmanageably deep topic hierarchies (or, if we are using the finite-depth variant of NCRP, option 1 may not even be feasible).
+Option 1 may lead to unmanageably deep topic hierarchies (or, if we are using the finite-depth variant of NCRP, this option may not even be feasible).
 On the other hand, option 2 may lead to unmanageably wide topic hierarchies, particularly if a large number of documents are hybrids of three or more topics.
 In either case, it becomes difficult to represent the topic hierarchy as a relatively small tree.
 
@@ -463,7 +467,7 @@ As before, each document is associated with a ``local'' distribution over nodes 
 In the NCRP topic model, each document's local distribution consists of nodes along a single path, but in the NHDP, the local distributions can include multiple branches.
 
 To see how the local, per-document distributions are defined, we first discuss the (non-nested) Hierarchical Dirichlet Process (HDP).
-The HDP was introduced in (**citation) to model grouped data, in which there are an unknown number of groups, each of which contains multiple observations and is associated with its own vector of parameters.
+The HDP was introduced in \cite{teh2005hdp} to model grouped data, in which there are an unbounded (potentially infinite) number of groups, each of which contains multiple observations and is associated with its own vector of parameters.
 A simple, non-nested HDP model can be formulated as follows:
 \begin{align*}
 H &\sim \text{DP}(\alpha, G_0) \\
@@ -509,11 +513,11 @@ Then, for each document $d$, we draw local sequences of indices ($z^d_{r,j}$) ba
 We also draw an independent set of document-specific stick-breaking proportions ($V^d_{r,j}$).
 Together, $z^d_{r,j}$ and $V^d_{r,j}$ determine how the topics descended from node $r$ are rearranged and re-weighted in a document-specific fashion.
 Furthermore, we draw ``path-propagation'' probabilities $U^d_r$ for each document, and for each node in the infinite tree.
-By combining $z^d_{r,j}$, $V^d_{r,j}$, and $U^d_r$, we have a document-specific distribution over infinitely many nodes.
-For each word $n$ in a given document $d$, we draw a node $c^d_n$ from the aforementioned document-specific distribution over nodes, and then we draw a vocabulary word $t^d_n$ from ${\text{Categorical}(W_{c^d_n})}$.
+By combining $z^d_{r,j}$, $V^d_{r,j}$, and $U^d_r$, we have a per-document distribution over an infinite tree of nodes.
+For each word $n$ in a given document $d$, we draw a node $c^d_n$ from this document-specific distribution over nodes, and then we draw a vocabulary word $t^d_n$ from ${\text{Categorical}(W_{c^d_n})}$.
 
 To visualize how the NHDP model is constructed, Figure~\ref{fig:plate-nhdp} contains a plate diagram of the Bayesian network underlying this model.
-Figure~\ref{fig:prob-nhdp} shows the conditional probability distributions corresponding to the edges in the Bayesian network.
+Figure~\ref{fig:prob-nhdp} shows the corresponding conditional probability distributions.
 
 %%%%
 \begin{figure}[htb]
@@ -571,15 +575,19 @@ t^d_n &\sim \text{Categorical}(W_{c^d_n})
 \end{figure}
 
 The inference algorithm for the NHDP model is again based on variational inference.
-However, the authors use a variant called ``stochastic variational inference'' to allow the algorithm to scale to larger datasets.
-**TODO-vi-algorithm-for-nhdp
+However, the authors use a variant called ``stochastic variational inference'' (which was introduced in \cite{hoffman2013stochastic}) to allow the algorithm to scale to larger datasets.
+This approach uses repeated sampling of mini-batches to update the variational parameters, and in this respect it is similar to stochastic gradient descent.
+The update rules for document-specific variables are the same as in traditional variational inference, but the ``global'' (i.e., corpus-wide) variables are updated using the \emph{natural gradient} of the objective function.
+The natural gradient update rule has a particularly simple form for exponential-family models, since there is a preconditioning matrix which effectively cancels out.
+By using stochastic variational inference, we end up with an algorithm which is, in practice, more efficient than either Gibbs sampling or coordinate-ascent variational inference.
+%**TODO-vi-algorithm-for-nhdp?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %\section{Hierarchical Topic Models Based on Pachinko Allocation}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Conclusions and Potential Directions for Future Research}
-TODO
+\section{Conclusions and Directions for Future Research}
+**TODO
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \clearpage
