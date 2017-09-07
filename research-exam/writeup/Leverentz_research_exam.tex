@@ -16,8 +16,7 @@
 %\usepackage{algorithm}
 %\usepackage{algpseudocode}
 \usepackage{graphicx}
-\usepackage{float}
-\usepackage{caption}
+\usepackage{float}\usepackage{caption}
 \usepackage{outlines}
 \usepackage{tikz}
 \usepackage{dsfont}
@@ -567,7 +566,7 @@ U^d_r &\sim \text{Beta}(\alpha^{(U)}_1, \alpha^{(U)}_2) \\
 z^d_{r,j} &\sim \sum_{k \geq 1} \left( V^*_{r,k} \prod_{i=1}^{k-1} (1-V^*_{r,i}) \right) \delta_k \\
 c^d_n &\sim \sum_{r: \text{path}} A(r, V^d, z^d) \, B(r, U^d) \, \delta_r \\
 A(r, V^d, z^d) &= \prod_{m=0}^{\len(r)-1} \sum_{k \geq 1} \indicator \left[ z^d_{r[1:m],k} = r[m+1] \right] \left( V^d_{r[1:m],k} \prod_{i=1}^{k-1} \left( 1 - V^d_{r[1:m],i} \right) \right) \\
-B(r, U^d) &= U^d_r \prod_{m=1}^{\len(r)-1} \left( 1 - U^d_{r[1:m]} \right) \\
+B(r, U^d) &= U^d_r \prod_{m=0}^{\len(r)-1} \left( 1 - U^d_{r[1:m]} \right) \\
 t^d_n &\sim \text{Categorical}(W_{c^d_n})
 \end{empheq}
 \caption{Conditional probability distributions for the NHDP model}
@@ -586,8 +585,42 @@ By using stochastic variational inference, we end up with an algorithm which is,
 %\section{Hierarchical Topic Models Based on Pachinko Allocation}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Conclusions and Directions for Future Research}
-**TODO
+\section{Directions for Future Research}
+
+We can identify some directions for future research by considering some of the limitations of the NHDP model.
+%Some of these areas are already being actively researched in the topic modeling community.
+
+\paragraph{Scalable algorithms:}
+The currently available set of inference algorithms force us to make a significant tradeoff between precision and scalability.
+On the one hand, we have Gibbs sampling, which can theoretically compute the true posterior distribution with arbitrary precision, but which requires requires many passes over the training data and therefore fails to scale well to massive datasets.
+On the other hand, we have stochastic variational inference, which uses a more efficient mini-batch approach and has deterministic convergence, but which requires us to make major approximating assumptions, such as the mean-field approximation.
+To improve the inference algorithm, we could perhaps look for a variant of Gibbs sampling that requires fewer passes over the training data.
+Alternatively, we might seek a modified version of stochastic variational inference which makes less stringent assumptions on the form of the variational distributions.
+
+\paragraph{Interpreting models:}
+The models discussed above generally represent topics as discrete probability distributions over the entire vocabulary.
+However, a typical vocabulary may contain tens of thousands of words, which makes the vector of topic probabilities unwieldy and difficult to interpret.
+A common approach is to visualize a topic by displaying its top $K$ most likely vocabulary words.
+However, within a large topic hierarchy, a small value of $K$ might not provide enough information to disambiguate closely related topics, whereas a large value may lead to information overload.
+By comparison, human-curated topic hierarchies such as library cataloguing systems often use a very small number of words to describe each node in a large hierarchy.
+Hence, it might be useful to post-process the results of these models in order to derive a concise yet meaningful description of each topic.
+
+\paragraph{Incorporating human feedback:}
+It may be useful to be able to incorporate human feedback in cases where the model's quality is deemed subpar.
+This would require not only an investigation of the types of mistakes which these topic models are prone to make, but also an investigation into how best to design a user interface that is capable of gathering useful feedback.
+It may also be useful to apply semi-supervised or multi-label classification techniques in scenarios where partial or even contradictory labels are available.
+
+\paragraph{Moving beyond the bag-of-words model:}
+All of the models discussed above ignore the order in which words appear in a document.
+The sequence of words in a document can influence its meaning, and therefore its classification within a topic hierarchy.
+By making use of word-order information, we could potentially improve the quality of the results.
+
+\paragraph{Frameworks for Bayesian non-parametric inference:}
+Deriving inference algorithms for Bayesian non-parametric models, such as the ones discussed above, is a laborious process which is difficult to automate.
+For instance, even though the NCRP and NHDP topic models share many features, their inference algorithms must be derived in a model-specific way.
+This is made especially difficult by the fact that, in Bayesian non-parametric models, there can be an infinite number of latent variables.
+This requires us to augment traditional inference algorithms with model-specific heuristics.
+An approach that combines black-box inference techniques (such as those used in probabilistic programming languages) with model-agnostic heuristics for handling infinite-dimensional latent variables might make it feasible to efficiently explore and compare many variants of these models.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \clearpage
