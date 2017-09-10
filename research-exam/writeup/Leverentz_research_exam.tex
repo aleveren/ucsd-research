@@ -185,10 +185,10 @@ However, the main disadvantage is that it can be difficult to determine when the
 
 Variational inference is an optimization technique that can be used to find an approximation to the posterior distribution.
 Typically, it involves searching within a restricted family of functions (such as those which decompose conveniently into a product of univariate factors) to find the function which most closely approximates the true posterior.
-The ``closeness'' between probability distributions can be measured by the Kullbach-Leibler divergence.
+The ``closeness'' between probability distributions can be measured by the Kullback-Leibler divergence.
 One relatively simple form of variational inference is based on coordinate ascent.
 This approach updates the parameters associated with each latent variable's variational distribution, one at a time, until it has converged to a local optimum.
-Fortunately, although it may be intractable to compute the full objective function in terms of the Kullbach-Leibler divergence, there is a related quantity known as the evidence lower bound (or ``ELBO'') which differs by a constant amount from the true objective function.
+Fortunately, although it may be intractable to compute the full objective function in terms of the Kullback-Leibler divergence, there is a related quantity known as the evidence lower bound (or ``ELBO'') which differs by a constant amount from the true objective function.
 This quantity is easier to compute because it avoids intractable sums and integrals that often arise when computing marginal probabilities in complex Bayesian models.
 Therefore, rather than directly assessing whether the KL divergence has reached a local minimum, we can instead monitor whether the ELBO has converged to a local maximum.
 Coordinate ascent variational inference is particularly convenient for models which use conditional distributions from the exponential family, and which make use of conjugate priors wherever possible.
@@ -384,7 +384,7 @@ This approach is known as ``collapsed Gibbs sampling,'' and it is used in \cite{
 
 A variational inference algorithm for the NCRP model was proposed in \cite{wang2009vi_ncrp}.
 In general, variational inference involves defining a restricted set of functions and searching for the member of that set which most closely approximates the function we wish to compute---in this case, the true posterior distribution.
-This particular algorithm uses reversed Kullbach-Leibler divergence to measure the distance between a candidate distribution and the true posterior.
+This particular algorithm uses reversed Kullback-Leibler divergence to measure the distance between a candidate distribution and the true posterior.
 In the paper by Wang et al, the set of approximating distributions $Q$ is the set of all functions which can be written in the following form:
 \begin{align*}
 q(\vec z) = \prod_{k=1}^m q_k(z_k)
