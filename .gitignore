@@ -3,6 +3,7 @@
 *.log
 *.pyc
 .DS_Store
+*.sublime-workspace
 forests/
 logs/
 .cache
