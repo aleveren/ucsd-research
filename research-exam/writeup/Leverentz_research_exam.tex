@@ -386,8 +386,6 @@ We will see that, relative to the LDA model, the task of computing the posterior
 
 Here are the conditional probability distributions for this model, under the assumption that the depth of the hierarchy has been truncated to $L$:
 \begin{align*}
-% W --> \theta
-% \theta --> \phi
 \theta_r &\sim \mathrm{Dirichlet}(\alpha^{(\theta)}) \\
 V_r &\sim \mathrm{Beta}(1, \alpha^{(V)}) \\
 \phi_d &\sim \mathrm{Dirichlet}(\alpha^{(\phi)}) \\
@@ -550,14 +548,14 @@ A simple, non-nested HDP model can be formulated as follows:
 \begin{align*}
 H &\sim \text{DP}(\alpha, G_0) \\
 H_d &\sim \text{DP}(\beta, H) \\
-\theta^*_{d,n} &\sim H_d \\
-x_{d,n} &\sim F(\theta^*_{d,n})
+\mu_{d,n} &\sim H_d \\
+x_{d,n} &\sim F(\mu_{d,n})
 \end{align*}
 In this formulation, there is a base distribution $G_0$ (such as a Gaussian or a Dirichlet), and a ``global'' distribution $H$ is drawn from a Dirichlet process applied to $G_0$.
 The distribution $H$ is discrete, which means that can be viewed as a distribution over countably many independent draws from the base distribution.
 Next, per-group distributions $H_d$ (one for each group $d$ in the data) are drawn from another Dirichlet process, which is applied to the global distribution $H$.
-For each data point $n$ in group $d$, a parameter vector $\theta^*_{d,n}$ is drawn from the group-specific distribution $H_d$.
-Finally, the observed data points $x_{d,n}$ are drawn according to the distribution $F(\theta^*_{d,n})$, where $F$ is some parameterized distribution, such as a Gaussian or a categorical distribution.
+For each data point $n$ in group $d$, a parameter vector $\mu_{d,n}$ is drawn from the group-specific distribution $H_d$.
+Finally, the observed data points $x_{d,n}$ are drawn according to the distribution $F(\mu_{d,n})$, where $F$ is some parameterized distribution, such as a Gaussian or a categorical distribution.
 In the context of topic models, a ``group'' is often defined to be a single document, and the individual observations within each group are the words within the corresponding document.
 The NHDP model uses $G_0 = \text{Dirichlet}(\gamma)$ and $F(\cdot) = \text{Categorical}(\cdot)$.
 
@@ -566,7 +564,7 @@ However, it also interleaves a document-specific tree of ``path propagation'' ra
 
 The generative process is as follows:
 \begin{outline}[enumerate]
-\1 For each node $r$ in the infinite tree, draw a topic vector $W_r$, representing a distribution over the vocabulary.
+\1 For each node $r$ in the infinite tree, draw a topic vector $\theta_r$, representing a distribution over the vocabulary.
 Since this involves an infinite number of random draws, this step is performed via lazy evaluation.
 \1 For each node $r$ and each $j \geq 1$, draw a beta-distributed stick-breaking proportion $V^*_{r,j}$ via lazy evaluation:
 \1 For each document $d$:
@@ -583,16 +581,16 @@ Since this involves an infinite number of random draws, this step is performed v
       \4 For all $j \geq 1$ (via lazy evaluation), find all indices $k$ such that $z^d_{r,k} = j$.  Let $S_j$ be the set of such indices, and define $\mu_j = \sum_{k \in S_j} V^d_{r,k} \prod_{i=1}^{k-1} (1-V^d_{r,i})$.
       \4 Draw an index $\tilde z \geq 1$ from a discrete probability distribution with probabilities given by $\mu_j$ as defined above.
       \4 Extend $r$ by appending $\tilde z$ to it; that is, update $r \gets (r, \tilde z)$.
-    \3 Draw a vocabulary word $t^d_n$ from a categorical distribution with probabilities given by $W_{c^d_n}$.
+    \3 Draw a vocabulary word $t^d_n$ from a categorical distribution with probabilities given by $\theta_{c^d_n}$.
 \end{outline}
 
-In summary, we first draw an infinite, global tree of topics ($W_r$) and stick-breaking proportions ($V^*_{r,j}$).
+In summary, we first draw an infinite, global tree of topics ($\theta_r$) and stick-breaking proportions ($V^*_{r,j}$).
 Then, for each document $d$, we draw local sequences of indices ($z^d_{r,j}$) based on the global stick-breaking proportions.
 We also draw an independent set of document-specific stick-breaking proportions ($V^d_{r,j}$).
 Together, $z^d_{r,j}$ and $V^d_{r,j}$ determine how the topics descended from node $r$ are rearranged and re-weighted in a document-specific fashion.
 Furthermore, we draw ``path-propagation'' probabilities $U^d_r$ for each document, and for each node in the infinite tree.
 By combining $z^d_{r,j}$, $V^d_{r,j}$, and $U^d_r$, we have a per-document distribution over an infinite tree of nodes.
-For each word $n$ in a given document $d$, we draw a node $c^d_n$ from this document-specific distribution over nodes, and then we draw a vocabulary word $t^d_n$ from ${\text{Categorical}(W_{c^d_n})}$.
+For each word $n$ in a given document $d$, we draw a node $c^d_n$ from this document-specific distribution over nodes, and then we draw a vocabulary word $t^d_n$ from ${\text{Categorical}(\theta_{c^d_n})}$.
 
 To visualize how the NHDP model is constructed, Figure~\ref{fig:plate-nhdp} contains a plate diagram of the Bayesian network underlying this model.
 Figure~\ref{fig:prob-nhdp} shows the corresponding conditional probability distributions.
@@ -608,9 +606,9 @@ Figure~\ref{fig:prob-nhdp} shows the corresponding conditional probability distr
 \node[latent, below=of v] (u) {$U^d_r$};
 \node[latent, above=of v] (z) {$z^d_{r,j}$};
 \node[latent, left=of z] (vstar) {$V^*_{r,j}$};
-\node[latent, below=of u] (w) {$W_r$};
+\node[latent, below=of u] (th) {$\theta_r$};
 \node[const, left=of vstar] (alphaVstar) {$\alpha^{(V^*)}$};
-\node[const, left=3cm of w] (alphaW) {$\alpha^{(W)}$};
+\node[const, left=3cm of th] (alphaW) {$\alpha^{(\theta)}$};
 \node[const, left=3cm of v] (alphaV) {$\alpha^{(V)}$};
 \node[const, left=3cm of u] (alphaU) {$\alpha^{(U)}$};
 %
@@ -619,15 +617,15 @@ Figure~\ref{fig:prob-nhdp} shows the corresponding conditional probability distr
 \edge{v}{c};
 \edge{u}{c};
 \edge{vstar}{z};
-\edge{w}{t};
+\edge{th}{t};
 \edge{alphaV}{v};
 \edge{alphaU}{u};
 \edge{alphaVstar}{vstar};
-\edge{alphaW}{w};
+\edge{alphaW}{th};
 %
 \plate{word-plate}{(t)(c)}{$n \in \{1, \ldots, N_d\}$};
 \plate{j-plate}{(z)(vstar)(v)}{$j \geq 1$};
-\centeredPlate{tree-plate}{(u)(v)(z)(w)(vstar)(j-plate)}{\begin{tabular}{c}$r: $ path to \\ any node\end{tabular}};
+\centeredPlate{tree-plate}{(u)(v)(z)(th)(vstar)(j-plate)}{\begin{tabular}{c}$r: $ path to \\ any node\end{tabular}};
 \plate{doc-plate}{(word-plate)(z)(u)(v)}{$d \in \{1, \ldots, D\}$};
 \end{tikzpicture}
 %
@@ -638,7 +636,7 @@ Figure~\ref{fig:prob-nhdp} shows the corresponding conditional probability distr
 \begin{figure}[htb]
 \centering
 \begin{empheq}[box=\fbox]{align*}
-W_r &\sim \text{Dirichlet}(\alpha^{(W)}) \\
+\theta_r &\sim \text{Dirichlet}(\alpha^{(\theta)}) \\
 V^*_{r,j} &\sim \text{Beta}(1, \alpha^{(V^*)}) \\
 V^d_{r,j} &\sim \text{Beta}(1, \alpha^{(V)}) \\
 U^d_r &\sim \text{Beta}(\alpha^{(U)}_1, \alpha^{(U)}_2) \\
@@ -646,7 +644,7 @@ z^d_{r,j} &\sim \sum_{k \geq 1} \left( V^*_{r,k} \prod_{i=1}^{k-1} (1-V^*_{r,i})
 c^d_n &\sim \sum_{r: \text{path}} A(r, V^d, z^d) \, B(r, U^d) \, \delta_r \\
 A(r, V^d, z^d) &= \prod_{m=0}^{\len(r)-1} \sum_{k \geq 1} \indicator \left[ z^d_{r[1:m],k} = r[m+1] \right] \left( V^d_{r[1:m],k} \prod_{i=1}^{k-1} \left( 1 - V^d_{r[1:m],i} \right) \right) \\
 B(r, U^d) &= U^d_r \prod_{m=0}^{\len(r)-1} \left( 1 - U^d_{r[1:m]} \right) \\
-t^d_n &\sim \text{Categorical}(W_{c^d_n})
+t^d_n &\sim \text{Categorical}(\theta_{c^d_n})
 \end{empheq}
 \caption{Conditional probability distributions for the NHDP model}
 \label{fig:prob-nhdp}
