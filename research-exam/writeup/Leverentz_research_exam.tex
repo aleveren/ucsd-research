@@ -21,8 +21,8 @@
 \usepackage{tikz}
 \usepackage{dsfont}
 \usepackage{empheq}
-\usepackage{geometry}
-\geometry{margin=1.5in}
+%\usepackage{geometry}
+%\geometry{margin=1.5in}
 
 \usetikzlibrary{bayesnet,positioning}
 
@@ -44,24 +44,24 @@
 \maketitle
 
 \begin{abstract}
-In this article, we survey techniques for automatically inferring hierarchical structures from unlabeled collections of text documents.
-We begin with a brief overview of probabilistic topic modeling, as implemented in models such as Probabilistic Latent Semantic Analysis (PLSA) and Latent Dirichlet Allocation (LDA).
-After discussing some limitations of these models, we discuss a line of research which has extended the LDA model and has attempted to address some of its weaknesses.
+In this paper, we survey techniques for automatically inferring hierarchical structures from unlabeled collections of text documents.
+We begin with an overview of probabilistic topic modeling, as implemented in models such as Probabilistic Latent Semantic Analysis (PLSA) and Latent Dirichlet Allocation (LDA).
+After examining some limitations of these models, we discuss a line of research which has extended the LDA model and has attempted to address some of its weaknesses.
 This approach treats topics as belonging to a potentially infinite tree; in this context, Bayesian non-parametric techniques based on Dirichlet Processes are used to automatically select the structure of the tree.
-We compare and contrast two main models that have been used for this approach, and we discuss several inference algorithms that have been published in the literature.
+We compare and contrast two topic models that have been used for this approach---the Nested Chinese Restaurant Process (NCRP) and the Nested Hierarchical Dirichlet Process (NHDP)---and we discuss several inference algorithms that have been published in the literature.
 \end{abstract}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Introduction}
 
-In recent decades, information-sharing networks such as the World Wide Web and other digital archives have led to the creation of vast collections of electronic textual data.
+In recent decades, large-scale digital archives and information-sharing networks such as the World Wide Web have led to the creation of vast collections of electronic textual data.
 As these collections grow, the problem of efficiently discovering relationships between documents, or between  user queries and documents, has become more prominent.
 The field of \emph{topic modeling} has produced several automated approaches to solving this problem.
 
 One underlying theme of topic modeling is the notion that words with similar meanings tend to co-occur with similar sets of words.
-However, due to ambiguities in natural language and variances between different authors, these co-occurrence patterns are not rigid and deterministic.
-Hence, many techniques within the field of topic modeling use a probabilistic framework.
-This probabilistic framework typically treats topics as discrete probability distributions over vocabulary words, and documents may contain mixtures of multiple topics.
+However, due to ambiguities in natural language and variations between different authors, these co-occurrence patterns are not rigid and deterministic.
+To address this, many techniques within the field of topic modeling use a probabilistic framework.
+In this probabilistic framework, topics are represented as discrete probability distributions over vocabulary words, and documents may contain mixtures of multiple topics.
 
 In subsequent sections, we briefly review the origins of Latent Dirichlet Allocation (LDA) and the probabilistic framework for topic modeling.
 Then, we trace the development of a line of research which extends the LDA model and is capable of producing not just a flat collection of topics but a nested hierarchy of topics.
@@ -73,19 +73,19 @@ Two of the main applications of topic models are (1) discovering relations betwe
 
 \paragraph{Discovering relations between documents:}
 We often want to determine which sets of documents within a corpus share the same topic or subject matter.
-One approach is to formulate this as a clustering task with soft cluster assignments, where each document can be assigned to a mixture of multiple topics or clusters.
+One approach is to formulate this as a clustering task with soft cluster assignments---also known as a \emph{mixed membership model}---where each document can be assigned to a mixture of multiple topics or clusters.
 For example, a news article about a national politician's economic policies might be represented as a mixture between topics corresponding to both \emph{politics} and \emph{economics}.
 Thus, if we are looking for related documents, we could return the set of documents which also contain some significant proportion of either \emph{politics} or \emph{economics}.
 
 \paragraph{Indexing large collections of documents:}
 In the context of information retrieval, the task is to take a user query (expressed perhaps as a collection of keywords or as a natural-language sentence) and efficiently find a set of documents which are deemed most relevant to that query.
 
-These tasks are complicated by ambiguities in natural language.
+Both of these tasks are complicated by ambiguities in natural language.
 In particular, \emph{synonymy} (in which multiple words have nearly identical meanings) and \emph{polysemy} (in which a single word may have multiple meanings, depending on the context) make it difficult to draw conclusions about relationships between documents based on the specific set of words used in each document.
 For example, two closely related documents might express nearly the same concept using completely different words, whereas two unrelated documents might coincidentally both use a particular word in different senses.
-Because of this, it is necessary to move beyond superficial representations of documents (such as strings of characters or tokens, or histograms of vocabulary words) and instead represent documents using some notion of ``latent semantics,'' or underlying meaning.
+Because of this, it is necessary to move beyond superficial representations of documents (such as strings of characters or tokens, or histograms of vocabulary words) and instead represent documents using some notion of \emph{latent semantics}, or underlying meaning.
 
-Topic models accomplish this by treating topics as probability distributions over the vocabulary and allowing documents to draw from a mixture of multiple topics.
+Topic models accomplish this by treating topics as probability distributions over the vocabulary and allowing documents to draw from mixtures of multiple topics.
 For example, a topic relating to sports would assign relatively high probability to words such as ``player,'' ``team,'' and ``game.''
 Similarly, a topic about medicine would assign relatively high probability to ``doctor,'' ``illness,'' and ``pharmacy.''
 Then, a document about a basketball player recovering from an injury might consist of $70\%$ \emph{sports} and $30\%$ \emph{medicine}, whereas a document about physical therapy for athletes might consist of $70\%$ \emph{medicine} and $30\%$ \emph{sports}.
@@ -93,6 +93,7 @@ Then, a document about a basketball player recovering from an injury might consi
 Hierarchical topic models extend this idea by acknowledging that whether or not two documents share the same topic may depend on the level of abstraction that the user is interested in.
 By explicitly treating the set of available topics as a tree, hierarchical topic models can therefore represent documents as mixtures of nested topics at varying levels of abstraction.
 For example, in some contexts, we might consider articles about the San Diego Padres and articles about the Chicago Bulls to belong to the same topic (namely, \emph{sports}), whereas in other contexts, they belong to distinct topics (\emph{baseball} versus \emph{basketball}).
+Thus, \emph{baseball} and \emph{basketball} could be considered subtopics under the broader topic of \emph{sports}.
 For indexing tasks, hierarchical topic models allow the possibility of expanding or narrowing the set of relevant documents, depending on the level of abstraction desired by the user.
 For example, when searching for documents related to the keywords ``Alan Turing,'' the default system behavior might be to display documents related to \emph{computer science}, with the option of narrowing matches to a more specific subtopic (e.g., \emph{British computer scientists}) or expanding matches to a more general supertopic (e.g., \emph{science and engineering}).
 
