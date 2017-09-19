@@ -106,40 +106,146 @@ These models are Probabilistic Latent Semantic Analysis (PLSA) and Latent Dirich
 \subsection{A Non-Probabilistic Precursor: Latent Semantic Analysis}
 
 The first of these, PLSA, was inspired by an earlier, non-probabilistic model known as Latent Semantic Analysis (LSA), which was introduced in \cite{deerwester1990lsa}.
-In LSA, a corpus of documents is summarized as a matrix; each row of this matrix represents a document, each column represents a term in the vocabulary, and each entry represents number of times a given term appears in a given document.
+In LSA, a corpus of documents is summarized as a matrix; each column of this matrix represents a document, each row represents a term in the vocabulary, and each entry represents number of times a given term appears in a given document.
+In mathematical notation, we have a matrix $M$ such that the entry $M_{i,j}$ represents the number of times that the $i\nth$ vocabulary word appears in the $j\nth$ document.
 If the corpus contains a sufficiently diverse set of documents, then most documents will only contain a small subset of the full vocabulary, and the resulting matrix will be sparse.
-After constructing this matrix, it is then transformed according to per-term and per-document statistics.
-(Several variants of LSA exist which use different transformations in this step, although a common choice is known as ``tf-idf,'' or ``term frequency--inverse document frequency.'')
-Then, the singular value decomposition (SVD) of the transformed matrix is computed.
-This represents the matrix as a product of three matrices: a matrix of orthogonal row vectors where each row corresponds to a document, a diagonal matrix containing the so-called singular values, and a matrix of orthogonal column vectors where each column corresponds to a term in the corpus.
-If we compute the SVD using a low-rank approximation, this corresponds to truncating the row vectors and the column vectors in the SVD; at the same time, we also discard all but the largest singular values.
-The truncated row vectors from the SVD are known as ``latent semantic vectors.''
-These vectors are viewed as representations of the documents in a low-dimensional ``latent semantic space.''
-Similarities between documents can be computed, for example, using a normalized dot product (also known as the cosine similarity) in the latent semantic space.
-This model, as with many other topic models, uses the \emph{bag-of-words} simplification, in which the specific sequence of words in a document is ignored, and all that matters is the frequency of terms within each document.
-Topic models which eliminate the bag-of-words simplification are beyond the scope of this review, but they constitute an active area of research.
+After constructing this matrix, we may optionally transform it according to per-term and per-document statistics.
+That is, if $M$ is an $N \times D$ matrix, we compute a new $N \times D$ matrix $X$ whose entries are given by
+\begin{align}
+X_{i,j} &= f(M_{i,j}, M_{1:D,j}, M_{i,1:N}).
+\end{align}
+Several variants of LSA exist which use different transformations in this step, as described in \cite{wiki:lsa}, although the original paper \cite{deerwester1990lsa} uses an untransformed matrix, with $X = M$.
+Then, the singular value decomposition (SVD) of the matrix $X$ is computed.
+This represents the matrix as a product of three matrices:
+\begin{align}
+X &= U \Sigma V^\top
+\end{align}
+Here, $U$ and $V$ are matrices of orthogonal column vectors.
+In $U$, each row corresponds to a term in the vocabulary, and in the transposed matrix $V^\top$, each column corresponds to a document.
+Moreover, $\Sigma$ is a diagonal matrix containing scaling factors known as \emph{singular values}.
+If we compute the SVD using a low-rank approximation, this corresponds to truncating the number of columns in $U$ and the number of rows in $V^\top$.
+At the same time, we also discard all but the largest singular values in $\Sigma$.
+The truncated rows from $U$ (corresponding to terms) and truncated columns from $V^\top$ (corresponding to documents) are known as \emph{latent semantic vectors}.
+We can view these vectors as concise representations of terms and documents in a low-dimensional \emph{latent semantic space}.
+Using these representations, we can measure the similarity between pairs of documents by computing a normalized dot product (also known as \emph{cosine similarity}) of the corresponding latent semantic vectors.
+
+However, one major limitation of this model is that the latent semantic vectors corresponding to terms and documents do not have an intuitive interpretation.
+Consequently, there are relatively few theoretical principles to guide the design of algorithms for (non-probabilistic) LSA.
+For example, selecting the transformation $f$ which maps $M$ to $X$ must typically be done by trying many variations and then determining which one happens to yield the most reasonable-looking results in practice.
+We will see that subsequent models have addressed this limitation by using a probabilistic framework.
+
+Lastly, we note that this model, as with many other topic models, uses the \emph{bag-of-words} simplification, in which the specific sequence of words in a document is ignored, and all that matters is the frequency of terms within each document.
+Topic models which eliminate the bag-of-words simplification are beyond the scope of this survey, but they constitute an active area of research.
 
 \subsection{Probabilistic Latent Semantic Analysis}
 
-In abstract terms, PLSA takes a similar conceptual approach, but the latent semantic representations of topics are combined in each document using a generative probabilistic model rather than simply a linear algebraic one.
-PLSA uses what Hofmann \cite{hofmann1999plsa} calls an ``aspect model.''
-In the aspect model, each document $d$ is associated with a discrete probability distribution $p(z \mid d)$ over $z \in \mathcal Z$, where $\mathcal Z$ is a set of latent factors which are referred to as ``topics.''
-Each topic $z \in \mathcal Z$ is in turn associated with a distribution $p(w \mid z)$ over words $w$ in the vocabulary $\mathcal W$.
-Thus, the joint probability of documents in a corpus and the words they contain is given by
+In abstract terms, Probabilistic Latent Sematic Analysis (PLSA) takes a conceptual approach that is similar to LSA, but in this case the latent semantic representations of topics associated with terms and documents are combined using a probabilistic model, rather than simply a linear algebraic one.
+PLSA, introduced in Hofmann \cite{hofmann1999plsa}, uses an \emph{aspect model} to represent documents as probabilistic mixtures of topics.
+It is worth noting that the ``A'' in LSA and PLSA is sometimes replaced with ``I'' for ``Indexing'' when the primary goal is to efficiently retrieve documents related to a given user query.
+Thus the terms ``LSI'' and ``PLSI'' are often used in the information retrieval research community.
+
+In this model, the observed dataset is a collection of $D$ documents, and for each $d \in \{1, \ldots, D\}$, document $d$ contains $N_d$ words.
+We assume that these documents share a fixed vocabulary $\mathcal V$, which is a set of words.
+Furthermore, we assume that there are a total of $K$ available topics, each of which is represented as a distribution over the words in the vocabulary.
+More concretely, we represent each topic $k \in \{1, \ldots, K\}$ as a vector $\theta_k$ of length $|\mathcal V|$ whose components sum to 1.
+Each document $d$ is associated with a mixture of topics $\phi_d$, which we represent as a vector of length $K$ whose components sum to 1, and which we view as a probability distribution over topics.
+As with LSA, we will use the bag-of-words assumption to ignore the order in which words appear.
+
+Once we have defined topic vectors $\theta_k$ for $k \in \{1, \ldots, K\}$ and per-document topic mixtures $\phi_d$ for $d \in \{1, \ldots, D\}$, we assume that documents are generated according to the following probabilistic procedure:
+\begin{outline}
+\1 For each document $d \in \{1, \ldots, D\}$:
+  \2 For each word-slot $n \in \{1, \ldots, N_d\}$:
+    \3 Select a topic $z_{d,n} \in \{1, \ldots, K\}$ according to the current document's topic mixture $\phi_d$.
+    \3 Select a word $t_{d,n} \in \{1, \ldots, |\mathcal V|\}$ from the vocabulary according to the topic vector indexed by $z_{d,n}$.
+\end{outline}
+
+This model can be summarized by the following probability distributions:
 \begin{align}
-p(w, d)
-&= \sum_{z \in \mathcal Z} p(w, z, d) \\
-&= p(d) \sum_{z \in \mathcal Z} p(w \mid z) \, p(z \mid d).
+z_{d,n} &\sim \text{Categorical}(\phi_d) &\qquad&\text{for the $n\nth$ word in document $d$} \\
+t_{d,n} &\sim \text{Categorical}(\theta_{z_{d,n}}) &\qquad&\text{for the $n\nth$ word in document $d$}
 \end{align}
+Figure~\ref{fig:plate-plsa} illustrates this model using plate-diagram notation.
+In this notation, unshaded circles represent latent (i.e., unobserved) random variables, and shaded circles represent observed random variables.
+Uncircled variables denote hyperparameters, which are variables with no associated probability distribution.
+Edges represent conditional dependencies between variables, which correspond to the probability distributions listed above.
+Finally, the rectangular plates denote repetitions of the nodes and edges that they contain.
 
-Within this framework, it becomes possible to infer the latent class mixture of each document using a likelihood-optimization algorithm, such as EM (expectation maximization).
+%%%%
+\begin{figure}[htb]
+%
+\centering
+\begin{tikzpicture}
+\node[obs] (t) {$t_{d,n}$};
+\node[const, right=1.5cm of t] (theta) {$\theta_k$};
+\node[latent, left=of t] (z) {$z_{d,n}$};
+\node[const, left=of z] (phi) {$\phi_d$};
 
-It is also worth noting that the ``A'' in LSA and PLSA is sometimes replaced with ``I'' for ``Indexing'' when the primary goal is to efficiently retrieve documents related to a given user query.
-Thus the terms ``LSI'' and ``PLSI'' are often used in the Information Retrieval research community.
+\edge{phi}{z};
+\edge{theta}{t};
+\edge{z}{t};
+
+\centeredPlate{word-plate}{(t)(z)}{$n \in \{1, \ldots, N_d\}$};
+\centeredPlate{doc-plate}{(word-plate)(phi)}{$d \in \{1, \ldots, D\}$};
+\centeredPlate{topic-plate}{(theta)}{$k \in \{1, \ldots, K\}$};
+\end{tikzpicture}
+%
+\caption{Plate diagram for the PLSA model.}
+\label{fig:plate-plsa}
+\end{figure}
+%%%%
+
+Thus, the joint probability of the PLSA model is
+\begin{align}
+p(\vec{t}, \vec{z})
+&= \prod_{d=1}^D \prod_{n=1}^{N_d} p(t_{d,n} \mid z_{d,n}) \, p(z_{d,n}) \\
+&= \prod_{d=1}^D \prod_{n=1}^{N_d} \theta_{z_{d,n}, t_{d,n}} \, \phi_{d, z_{d,n}}
+\end{align}
+Within this framework, it becomes possible to infer the latent topic mixture of each document using a maximum-likelihood optimization algorithm.
+One such option is the expectation--maximization (EM) algorithm, which was introduced in \cite{dempster1977em}.
+The following outline of the EM algorithm follows the exposition given in Barber \cite{barber2012bayesian}.
+
+In general, maximum-likelihood optimization involves finding the value of unobserved model parameters which maximizes the probability (or, equivalently, the log-probability) of the observed data.
+For the PLSA model, the EM algorithm involves optimizing quantities of the following form:
+\begin{align}
+\arg\max_{\theta, \phi} \sum_{d=1}^D \sum_{n=1}^{N_d} E_{z_{d,n} \sim q(\cdot \mid t_{d,n})} \left[ \log p(t_{d,n}, z_{d,n}) \right]
+\label{eq:plsa-optimize}
+\end{align}
+Here, the expectation is taken with respect to the latent variables $z_{d,n}$, but not the observed variables $t_{d,n}$.
+Moreover, rather than computing the expectation using the true posterior distribution ${p(z_{d,n} \mid t_{d,n})}$, the expectation is computed using an estimate ${q(z_{d,n} \mid t_{d,n})}$, which we update repeatedly throughout the algorithm based on our current estimate for the parameters $\theta$ and $\phi$.
+In particular, we keep track of the current estimated parameter values ($\theta$ and $\phi$) and alternate between an ``E~step,'' which updates estimates for ${q(z_{d,n} \mid t_{d,n})}$, and an ``M~step,'' which updates the estimates for $\theta$ and $\phi$ by performing the optimization in equation~\eqref{eq:plsa-optimize}.
+For PLSA, this happens to be a constrained optimization, since the values of $\phi_d$ for each document $d$ and $\theta_k$ for each topic $k$ must be probability distributions, with non-negative components that sum to 1.
+We can compute the E~step using Bayes' rule:
+\begin{align}
+q(z_{d,n} \mid t_{d,n})
+&= \frac{\theta_{z_{d,n}, t_{d,n}} \, \phi_{d, z_{d,n}}}
+        {\sum_{k=1}^K \theta_{k, t_{d,n}} \, \phi_{d, k}}
+\end{align}
+The M~step is possible to compute using gradients and Lagrange multipliers:
+\begin{align}
+\theta_{i,j} &\propto \sum_{d=1}^D \sum_{n=1}^{N_d} q(z_{d,n} = i \mid t_{d,n} = j) \indicator [t_{d,n} = j] \\
+\phi_{d,k} &\propto \sum_{n=1}^{N_d} q(z_{d,n} = k \mid t_{d,n})
+\end{align}
+Combining these results yields an iterative procedure for obtaining maximum-likelihood estimates for $\theta$ and $\phi$:
+initialize $\theta$ and $\phi$ to a reasonable guess, then repeat the E and M steps until the estimates converge.
 
 \subsection{Latent Dirichlet Allocation}
 
-Latent Dirichlet Allocation (LDA) extends PLSA by using the Dirichlet distribution as a Bayesian prior on the space of discrete probability distributions.
+Since the PLSA model does not specify probability distributions for the unobserved parameters $\phi_d$ and $\theta_k$, Bayesian inference methods are not applicable.
+It is also prone to overfitting, meaning that its results can be overly sensitive to the randomness that is involved in generating or sampling the training data.
+To address these problems, Latent Dirichlet Allocation (LDA) extends PLSA by using the Dirichlet distribution as a Bayesian prior on the space of discrete probability distributions.
+A simpler version of this model was introduced in Blei et al \cite{blei2003lda}, although the term ``LDA'' now typically refers to the variant proposed by Griffiths and Steyvers \cite{griffiths2004lda}.
+
+Recall that an $m$-dimensional Dirichlet distribution is a continuous distribution over the set of length-$m$ vectors whose components are non-negative and sum to one.
+In other words, it is a meta-distribution over discrete distributions over a set of $m$ points.
+The Dirichlet distribution is parameterized by a length-$m$ vector of positive real numbers, $\vec \alpha = (\alpha_1, \ldots, \alpha_m)$, and its density over the $m$-dimensional simplex is proportional to
+\begin{align}
+\text{Dirichlet}(\vec x \mid \vec \alpha) &\propto \prod_{i=1}^m x_i^{(\alpha_i-1)}
+\end{align}
+The Dirichlet distribution is a higher-dimensional generalization of the beta distribution:
+\begin{align}
+\text{Beta}(x \mid \alpha_1, \alpha_0) &\propto x^{(\alpha_1-1)} (1-x)^{(\alpha_0-1)}
+\end{align}
+
 The generative model used in LDA is given by:
 \begin{alignat}{2}
 \theta_k &\sim \text{Dirichlet}(\alpha) &\qquad&\text{for each topic $k$} \\
@@ -149,10 +255,8 @@ t_{d,n} &\sim \text{Categorical}(\theta_{z_{d,n}}) &\qquad&\text{for the $n\nth$
 \end{alignat}
 In other words, the per-topic probability distributions over the vocabulary ($\theta_k$) are i.i.d.\ draws from a Dirichlet distribution.
 Then, each document is associated with a random draw $\phi_d$ from another Dirichlet distribution; this represents the proportion of topics present in document $d$.
-Within each document, we select a topic indicator $z_{d,n}$ for each word according to the probabilities in the vector $\phi_d$, and the vocabulary word $t_{d,n} \in \mathcal W$ at the $n\nth$ position is selected according to the probabilities in the vector $\theta_{z_{d,n}}$.
+Within each document, we select a topic indicator $z_{d,n}$ for each word according to the probabilities in the vector $\phi_d$, and the vocabulary word $t_{d,n} \in \mathcal V$ at the $n\nth$ position is selected according to the probabilities in the vector $\theta_{z_{d,n}}$.
 The plate diagram for this model is shown in Figure~\ref{fig:plate-lda}.
-The main advantage of this formulation is that the parameters associated with each topic $\theta_k$ (corresponding to the probability distributions $p(w \mid z)$ in PLSA) do not need to be specified in advance;
-instead, they can be inferred from the training data.
 
 %%%%
 \begin{figure}[htb]
@@ -182,8 +286,16 @@ instead, they can be inferred from the training data.
 \end{figure}
 %%%%
 
+The LDA model has two main advantages over the PLSA.
+First, it creates a fully generative model which specifies how documents can be generated.
+Hence, it is possible to apply Bayesian techniques to go beyond a maximum-likelihood point estimate; instead, we can estimate the entire posterior distribution of the parameters $\theta$ and $\phi$ given the observed data.
+Second, the Dirichlet priors effectively act as regularizers, which allow us to quantitatively control the bias-variance tradeoff of the model.
+In particular, a stronger (more peaked) prior reduces the flexibility of the model, which in turns reduces overfitting at the cost of producing a more biased model.
+
 Several important limitations of the LDA model are:
 \begin{enumerate}
+\item Unlike PLSA, the LDA model is not amenable to using the EM algorithm.
+Instead, we must use alternative inference algorithms, which we will explore in the next section.
 \item The number of topics must be specified in advance.
 Setting this parameter using standard model-selection techniques such as $k$-fold cross-validation can be time consuming.
 We will see that this can be addressed via Bayesian nonparametric techniques, in which one or more latent variables are drawn from an infinite-dimensional space.
@@ -191,6 +303,10 @@ We will see that this can be addressed via Bayesian nonparametric techniques, in
 This is because such models may mix abstract and concrete terms within a single topic.
 Nested topics allow us to represent containment relationships between relatively abstract topics, such as ``sports in general'' or ``basketball'' and relatively concrete topics, such as ``Michael Jordan'' or ``the 1996 Chicago Bulls.''
 The intention is to create more easily interpretable topics, each of which can be associated with a sharply distinguished level of abstraction.
+\item A related issue involves extremely common words, such as ``the,'' ``or,'' and ``this.''
+These words can lead to noisy results because they are roughly equally likely to appear within any topic.
+Consequently, they are often explicitly omitted during pre-processing of the dataset using a manually-curated list of so-called \emph{stopwords}.
+In the context of nested topic hierarchies, we will see that this issue can be handled automatically, since nodes at the top of the hierarchy will naturally collect common stopwords; then, there is no need to explicitly filter out stopwords during preprocessing.
 \item The bag-of-words approach fails to account for the ordering of words, even though this may significantly impact the meaning of a document; for example, in the bag-of-words approach ``man bites dog'' is treated as exactly equivalent to ``dog bites man.''
 Solutions to this limitation are outside the scope of this report, although as mentioned above this is an active area of research.
 \end{enumerate}
