@@ -201,32 +201,35 @@ p(\vec{t}, \vec{z})
 &= \prod_{d=1}^D \prod_{n=1}^{N_d} \theta_{z_{d,n}, t_{d,n}} \, \phi_{d, z_{d,n}}
 \end{align}
 Within this framework, it becomes possible to infer the latent topic mixture of each document using a maximum-likelihood optimization algorithm.
-One such option is the expectation--maximization (EM) algorithm, which was introduced in \cite{dempster1977em}.
-The following outline of the EM algorithm follows the exposition given in Barber \cite{barber2012bayesian}.
+One such option is the expectation--maximization (EM) algorithm, which was introduced in Dempster et al \cite{dempster1977em}.
+We omit the details of this algorithm, since it is not applicable to the more complex hierarchical topic models discussed below.
+However, as outlined in Barber \cite{barber2012bayesian}, the EM algorithm generally consists of alternating between estimating distributions over the latent topic assignments $z_{d,n}$ (known as the ``E step'') and maximizing a quantity related to the likelihood of the data (known as the ``M step'').
 
-In general, maximum-likelihood optimization involves finding the value of unobserved model parameters which maximizes the probability (or, equivalently, the log-probability) of the observed data.
-For the PLSA model, the EM algorithm involves optimizing quantities of the following form:
-\begin{align}
-\arg\max_{\theta, \phi} \sum_{d=1}^D \sum_{n=1}^{N_d} E_{z_{d,n} \sim q(\cdot \mid t_{d,n})} \left[ \log p(t_{d,n}, z_{d,n}) \right]
-\label{eq:plsa-optimize}
-\end{align}
-Here, the expectation is taken with respect to the latent variables $z_{d,n}$, but not the observed variables $t_{d,n}$.
-Moreover, rather than computing the expectation using the true posterior distribution ${p(z_{d,n} \mid t_{d,n})}$, the expectation is computed using an estimate ${q(z_{d,n} \mid t_{d,n})}$, which we update repeatedly throughout the algorithm based on our current estimate for the parameters $\theta$ and $\phi$.
-In particular, we keep track of the current estimated parameter values ($\theta$ and $\phi$) and alternate between an ``E~step,'' which updates estimates for ${q(z_{d,n} \mid t_{d,n})}$, and an ``M~step,'' which updates the estimates for $\theta$ and $\phi$ by performing the optimization in equation~\eqref{eq:plsa-optimize}.
-For PLSA, this happens to be a constrained optimization, since the values of $\phi_d$ for each document $d$ and $\theta_k$ for each topic $k$ must be probability distributions, with non-negative components that sum to 1.
-We can compute the E~step using Bayes' rule:
-\begin{align}
-q(z_{d,n} \mid t_{d,n})
-&= \frac{\theta_{z_{d,n}, t_{d,n}} \, \phi_{d, z_{d,n}}}
-        {\sum_{k=1}^K \theta_{k, t_{d,n}} \, \phi_{d, k}}
-\end{align}
-The M~step is possible to compute using gradients and Lagrange multipliers:
-\begin{align}
-\theta_{i,j} &\propto \sum_{d=1}^D \sum_{n=1}^{N_d} q(z_{d,n} = i \mid t_{d,n} = j) \indicator [t_{d,n} = j] \\
-\phi_{d,k} &\propto \sum_{n=1}^{N_d} q(z_{d,n} = k \mid t_{d,n})
-\end{align}
-Combining these results yields an iterative procedure for obtaining maximum-likelihood estimates for $\theta$ and $\phi$:
-initialize $\theta$ and $\phi$ to a reasonable guess, then repeat the E and M steps until the estimates converge.
+%The following outline of the EM algorithm follows the exposition given in Barber \cite{barber2012bayesian}.
+
+% In general, maximum-likelihood optimization involves finding the value of unobserved model parameters which maximizes the probability (or, equivalently, the log-probability) of the observed data.
+% For the PLSA model, the EM algorithm involves optimizing quantities of the following form:
+% \begin{align}
+% \arg\max_{\theta, \phi} \sum_{d=1}^D \sum_{n=1}^{N_d} E_{z_{d,n} \sim q(\cdot \mid t_{d,n})} \left[ \log p(t_{d,n}, z_{d,n}) \right]
+% \label{eq:plsa-optimize}
+% \end{align}
+% Here, the expectation is taken with respect to the latent variables $z_{d,n}$, but not the observed variables $t_{d,n}$.
+% Moreover, rather than computing the expectation using the true posterior distribution ${p(z_{d,n} \mid t_{d,n})}$, the expectation is computed using an estimate ${q(z_{d,n} \mid t_{d,n})}$, which we update repeatedly throughout the algorithm based on our current estimate for the parameters $\theta$ and $\phi$.
+% In particular, we keep track of the current estimated parameter values ($\theta$ and $\phi$) and alternate between an ``E~step,'' which updates estimates for ${q(z_{d,n} \mid t_{d,n})}$, and an ``M~step,'' which updates the estimates for $\theta$ and $\phi$ by performing the optimization in equation~\eqref{eq:plsa-optimize}.
+% For PLSA, this happens to be a constrained optimization, since the values of $\phi_d$ for each document $d$ and $\theta_k$ for each topic $k$ must be probability distributions, with non-negative components that sum to 1.
+% We can compute the E~step using Bayes' rule:
+% \begin{align}
+% q(z_{d,n} \mid t_{d,n})
+% &= \frac{\theta_{z_{d,n}, t_{d,n}} \, \phi_{d, z_{d,n}}}
+%         {\sum_{k=1}^K \theta_{k, t_{d,n}} \, \phi_{d, k}}
+% \end{align}
+% The M~step is possible to compute using gradients and Lagrange multipliers:
+% \begin{align}
+% \theta_{i,j} &\propto \sum_{d=1}^D \sum_{n=1}^{N_d} q(z_{d,n} = i \mid t_{d,n} = j) \indicator [t_{d,n} = j] \\
+% \phi_{d,k} &\propto \sum_{n=1}^{N_d} q(z_{d,n} = k \mid t_{d,n})
+% \end{align}
+% Combining these results yields an iterative procedure for obtaining maximum-likelihood estimates for $\theta$ and $\phi$:
+% initialize $\theta$ and $\phi$ to a reasonable guess, then repeat the E and M steps until the estimates converge.
 
 \subsection{Latent Dirichlet Allocation}
 
@@ -340,16 +343,16 @@ We will see that Bayesian nonparametric models, which involve latent variables d
 For example, incorporating a greedy algorithm into the update rule is one way to avoid computing infinite sums.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\section{Hierarchical Topic Models Based on Dirichlet Processes}
+\section{Hierarchical Topic Models Based on Dirichlet Processes}
 
 In the next two sections, we discuss a line of research in which random variables known as Dirichlet Processes are used to learn a tree-structured hierarchy of topics from a corpus.
-%The first such technique is known as the Nested Chinese Restaurant Process, and a subsequent enhancement to this technique is called the Nested Hierarchical Dirichlet Process.
+The first such technique is known as the Nested Chinese Restaurant Process, and a subsequent enhancement to this technique is called the Nested Hierarchical Dirichlet Process.
 
-\section{Topic Models Based on the Nested Chinese Restaurant Process}
+\subsection{The Nested Chinese Restaurant Process}
 
 The Nested Chinese Restaurant Process (NCRP) is based on an extension of a model known as the Chinese Restaurant Process (CRP), which we will discuss first.
 
-\subsection{The Chinese Restaurant Process}
+\subsubsection{The Chinese Restaurant Process}
 
 The CRP is a stochastic process which allows us to put a prior distribution on a potentially infinite partition of a dataset.
 Here, the term ``stochastic process'' refers to an infinite set of random variables which are indexed by some infinite set.
@@ -383,7 +386,7 @@ We can view the sequence $\pi_k$ as defining a probability distribution over all
 In the limit where the number of observations approaches infinity, the distribution over partitions defined by the CRP and by this stick-breaking construction are equivalent.
 Since the random variables $V_k$ are i.i.d., this formulation makes it easier to derive properties of the CRP; in particular, we will see that this formulation simplifies the derivation of update rules for variational inference algorithms.
 
-\subsection{Dirichlet Processes}
+\subsubsection{The Dirichlet Process}
 
 In the context of topic models, the CRP can be used as a distribution over indices into an infinite i.i.d.\ set of random variables.
 In terms of the restaurant analogy, this corresponds to associating each table with an independent draw from some ``base distribution'' (for example, in topic models, this is often a draw from a Dirichlet distribution); thus, selecting a table corresponds to selecting one value from an infinite set of draws from the base distribution.
@@ -405,7 +408,9 @@ V_k &\sim \text{Beta}(1, \alpha) &\qquad& \text{for $k \geq 1$} \\
 \pi_k &= V_k \prod_{j=1}^{k-1} (1 - V_j) &\qquad& \text{for $k \geq 1$} \\
 X &= \sum_{k=1}^\infty \pi_k \delta_{\theta_k} &&
 \end{alignat}
-Note that each $\theta_k$ is a member of the domain of the distribution $G_0$, and $X$ is a probability distribution with the same domain as $G_0$.
+Here, the notation $X = \sum_k \pi_k \delta_{\theta_k}$ means that $X$ is a distribution such that $R \sim X$ implies, for each $k$, $R = \theta_k$ with probability $\sum_{\ell : \theta_k = \theta_\ell} \pi_\ell$.
+In other words, $X$ defines a discrete distribution over the values $\theta_k$.
+Note that each $\theta_k$ is a member of the domain of the distribution $G_0$, and $X$ is a probability distribution whose domain is a subset of the domain of $G_0$.
 Furthermore, $V_k$ and $\pi_k$ are scalars between $0$ and $1$, with the sequence $\{\pi_k\}$ satisfying $\sum_k \pi_k = 1$.
 This formulation will be useful in later sections, when we explore the Hierarchical Dirichlet Process (HDP) and the Nested Hierarchical Dirichlet Process (NHDP).
 
@@ -431,9 +436,9 @@ With these definitions, a Dirichlet process $X \sim \text{DP}(\alpha, G_0)$ is e
 X &= \sum_{k=1}^\infty \pi_k \delta_{\theta_k} &&
 \end{alignat}
 
-\section{The Nested Chinese Restaurant}
+\subsubsection{Defining the Nested Chinese Restaurant Process}
 
-Next, we define Nested Chinese Restaurant Process (NCRP) in terms of the CRP.
+Next, we define the Nested Chinese Restaurant Process (NCRP) in terms of the CRP.
 Continuing the restaurant analogy, suppose we have an infinite number of restaurants, each with an infinite number of infinite-capacity tables.
 There is one restaurant which is singled out as the ``root'' restaurant, and every customer begins by selecting a restaurant from this table according to the rules of the (non-nested) CRP.
 Each table has a card containing the address of another restaurant.
@@ -477,7 +482,7 @@ However, it is also possible to use only a finite number of layers in the tree (
 Specifically, if we truncate the tree at depth $L$, then each full-length path in the tree---equivalently, each leaf node in the tree---corresponds to a tuple of positive integers of length $L$.
 Note that even if we truncate the tree in terms of its depth, it still contains an infinite number of paths, since the width of the tree is infinite.
 
-\subsection{The NCRP Topic Model}
+\subsubsection{The NCRP Topic Model}
 
 Next, we discuss a topic model which was defined in Blei et al \cite{blei2010ncrp} and which is capable of learning a hierarchy of topics.
 
@@ -568,7 +573,7 @@ The plate diagram for this graphical model is shown in Figure~\ref{fig:plate-ncr
 We will see that, relative to the LDA model, the task of computing the posterior distribution in the NCRP model is complicated by the fact that there are infinitely many latent random variables (for example, there is one latent beta-distributed random variable for each node in the infinite tree).
 The algorithms that have been proposed for inference in the NCRP topic model fall into two main categories: those based on Gibbs sampling, and those based on variational inference.
 
-\subsection{Gibbs Sampling for the NCRP}
+\subsubsection{Gibbs Sampling for the NCRP}
 
 Initially, papers such as \cite{griffiths2004hierarchical}, used NCRP inference algorithms based on Gibbs sampling.
 (In the next section, we will discuss an alternate inference algorithm that was introduced in \cite{wang2009vi_ncrp}.)
@@ -591,7 +596,7 @@ This approach is known as ``collapsed Gibbs sampling,'' and it is used in \cite{
 
 %**TODO-actual-algorithm??
 
-\subsection{Variational Inference for the NCRP}
+\subsubsection{Variational Inference for the NCRP}
 
 A variational inference algorithm for the NCRP model was proposed in \cite{wang2009vi_ncrp}.
 In general, variational inference involves defining a restricted set of functions and searching for the member of that set which most closely approximates the function we wish to compute---in this case, the true posterior distribution.
@@ -655,7 +660,7 @@ Whereas with Gibbs sampling, it is possible to approach the true posterior distr
 When deriving variational updates, we face a tradeoff: we can choose a more restricted set of variational distributions, which yields an inferior approximation, but leads to easier-to-derive update rules.
 On the other hand, if we want a tighter approximation, the update rules are likely to be significantly more complicated.
 
-\section{The Nested Hierarchical Dirichlet Process}
+\subsection{The Nested Hierarchical Dirichlet Process}
 
 The primary limitation of the NCRP has to do with the fact that each document is associated with only a single path through the topic hierarchy.
 This creates problems when the training corpus contains documents with a variety of ``hybrid'' topics.
@@ -790,6 +795,8 @@ t^d_n &\sim \text{Categorical}(\theta_{c^d_n})
 \caption{Conditional probability distributions for the NHDP topic model}
 \label{fig:prob-nhdp}
 \end{figure}
+
+\subsubsection{Variational Inference for the NHDP}
 
 The inference algorithm for the NHDP model is again based on variational inference.
 However, the authors use a variant called \emph{stochastic variational inference} (which was introduced in \cite{hoffman2013stochastic}) to allow the algorithm to scale to larger datasets.
