@@ -13,15 +13,17 @@
 \usepackage{mathtools}
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
-%\usepackage{algorithm}
-%\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{graphicx}
-\usepackage{float}\usepackage{caption}
+\usepackage{float}
+\usepackage{caption}
 \usepackage{outlines}
 \usepackage{tikz}
 \usepackage{dsfont}
 \usepackage{empheq}
 \usepackage{xfrac}
+\usepackage{enumitem}
 %\usepackage{geometry}
 %\geometry{margin=1.5in}
 
@@ -321,7 +323,7 @@ The intention is to create more easily interpretable topics, each of which can b
 These words can lead to noisy results because they are roughly equally likely to appear within any topic.
 Consequently, they are often explicitly omitted during pre-processing of the dataset using a manually-curated list of so-called \emph{stopwords}.
 In the context of nested topic hierarchies, we will see that this issue can be handled automatically, since nodes at the top of the hierarchy will naturally collect common stopwords; then, there is no need to explicitly filter out stopwords during pre-processing.
-\item The bag-of-words approach fails to account for the ordering of words, even though this may significantly impact the meaning of a document; for example, in the bag-of-words approach, ``man bites dog'' is treated as if it were exactly equivalent to ``dog bites man.''
+\item The bag-of-words approach fails to account for the ordering of words, even though this may significantly impact the meaning of a document; for example, in the bag-of-words approach, ``man bites dog'' is considered exactly equivalent to ``dog bites man.''
 Solutions to this limitation are outside the scope of this report, although as mentioned above this is an active area of research.
 \end{enumerate}
 
@@ -387,7 +389,39 @@ Then, there are theoretical results which guarantee that the long-term equilibri
 After reaching equilibrium, we can estimate posterior-distribution statistics by collecting a sample of state vectors, either by running multiple independent Markov chains in parallel, or by taking a sequence of regularly-spaced samples from a single Markov chain.
 Together, these sampled state vectors will constitute an empirical approximation of the posterior distribution.
 
-% TODO: include algorithm listing for Gibbs (just 1 algo, general enough to apply to collapsed or traditional?)
+\begin{algorithm}
+\caption{Gibbs sampling}
+\label{alg:gibbs}
+\begin{itemize}[leftmargin=*]
+\item \textbf{Input:}
+  \begin{itemize}
+  \item $\vec x$: an observed dataset
+  \item $C \geq 1$: number of independent Markov chains to simulate
+  \item $S \geq 1$: number of samples to save per Markov chain
+  \item $B \geq 1$: number of steps to discard before saving any samples (``burn-in period'')
+  \item $L \geq 1$: number of steps to simulate between saved samples (``lag'')
+  \end{itemize}
+\item \textbf{Output:}
+  \begin{itemize}
+  \item $\hat Z$: a sequence of $C \times S$ samples which collectively approximate the posterior $p(\vec z \mid \vec x)$
+  \end{itemize}
+\item \textbf{Procedure:}
+\end{itemize}
+\begin{algorithmic}
+\State Initialize $\hat Z$ as an empty list
+\For{$i \in \{1, \ldots, C\}$}
+  \State Initialize $\vec z$ to a random vector compatible with the domains of the latent variables
+  \For{$j \in \{1, \ldots, B + LS\}$}
+    \State Compute the conditional distribution $p(z_k \mid \vec z_{-k}, \vec x)$
+    \State Update $z_k$ by sampling from this conditional distribution
+    \If{$j \geq B$ and $(j - B) \mathbin{\mathrm{mod}} L = 0$}
+      \State Append $\vec z$ to $\hat Z$
+    \EndIf
+  \EndFor
+\EndFor
+\State \Return $\hat Z$
+\end{algorithmic}
+\end{algorithm}
 
 A closely related variant known as \emph{collapsed Gibbs sampling} divides the latent variables into ``local'' and ``global'' variables.
 In the context of topic models, local latent variables can include either per-document or per-word variables.
@@ -402,19 +436,6 @@ Its main advantage is that, given enough time, the equilibrium distribution of t
 
 \subsection{Coordinate-Ascent Variational Inference}
 \label{sec:cavi}
-
-% Variational inference is an optimization technique that can be used to find an approximation to the posterior distribution.
-% Typically, it involves searching within a restricted family of functions (such as those which decompose conveniently into a product of univariate factors) to find the function which most closely approximates the true posterior.
-% The ``closeness'' between probability distributions can be measured by the Kullback-Leibler divergence.
-% One relatively simple form of variational inference is based on coordinate ascent.
-% This approach updates the parameters associated with each latent variable's variational distribution, one at a time, until it has converged to a local optimum.
-% Fortunately, although it may be intractable to compute the full objective function in terms of the Kullback-Leibler divergence, there is a related quantity known as the evidence lower bound (or ``ELBO'') which differs by a constant amount from the true objective function.
-% This quantity is easier to compute because it avoids intractable sums and integrals that often arise when computing marginal probabilities in complex Bayesian models.
-% Therefore, rather than directly assessing whether the KL divergence has reached a local minimum, we can instead monitor whether the ELBO has converged to a local maximum.
-% Coordinate ascent variational inference is particularly convenient for models which use conditional distributions from the exponential family, and which make use of conjugate priors wherever possible.
-% In such cases, we can derive a simple closed-form update rule for each of the latent variables.
-
-% **TODO: merge with the following
 
 As outlined in \cite{blei2017variational}, variational inference is an optimization technique that can be used to find an approximation to the posterior distribution.
 This technique involves defining a restricted set of functions and searching for the member of that set which most closely approximates the true posterior distribution.
@@ -805,7 +826,17 @@ The NHDP topic model shares many features in common with the NCRP topic model:
 \end{itemize}
 The main difference between these two topic models is the way in which the local distributions over nodes are defined.
 In the NCRP topic model, each document's local distribution consists of nodes along a single path, but in the NHDP, the local distributions can include multiple branches.
+This distinction is illustrated in Figure~\ref{fig:ncrp-vs-nhdp}.
 %This is designed to address the previously-mentioned limitation regarding documents that exhibit a wide variety of hybrid topics.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.8\linewidth]{../figures/ncrp_vs_nhdp.png}
+\caption{Comparison of the NCRP topic model (top row) and the NHDP topic model (bottom row).  %
+Within each row are several examples of document-specific distributions over nodes.  %
+(Source: Paisley et al \cite{paisley2015nhdp})}
+\label{fig:ncrp-vs-nhdp}
+\end{figure}
 
 % TODO: add figure from NHDP paper (with citation), and reference it in preceding discussion
 
