@@ -9,6 +9,7 @@
 \usepackage{url}            % simple URL typesetting
 \usepackage{booktabs}       % professional-quality tables
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{amsfonts}       % blackboard math symbols
 \usepackage{mathtools}
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
@@ -145,8 +146,6 @@ Topic models which eliminate the bag-of-words simplification are beyond the scop
 In abstract terms, Probabilistic Latent Sematic Analysis (PLSA) takes a conceptual approach that is similar to LSA, but in this case the latent semantic representations of topics associated with terms and documents are combined using a probabilistic model, rather than simply a linear algebraic one.
 PLSA, introduced in Hofmann \cite{hofmann1999plsa}, uses an \emph{aspect model} to represent documents as probabilistic mixtures of topics.
 The following discussion uses a reformulation, outlined in Barber \cite{barber2012bayesian}, which is equivalent to the original PLSA model.
-%It is worth noting that the ``A'' in LSA and PLSA is sometimes replaced with ``I'' for ``Indexing'' when the primary goal is to efficiently retrieve documents related to a given user query.
-%Thus the terms ``LSI'' and ``PLSI'' are often used in the information retrieval research community.
 
 In this model, the observed dataset is a collection of $D$ documents, and $N_d$ represents the length of document $d$, measured in words.
 We assume that these documents share a fixed vocabulary $\mathcal V$, which is a set of words.
@@ -216,32 +215,6 @@ Within this framework, it becomes possible to infer the latent topic mixture of 
 It is typically infeasible to directly optimize the likelihood of the data, but another option is the expectation--maximization (EM) algorithm, which was introduced in Dempster et al \cite{dempster1977em} and summarized concisely in Barber \cite{barber2012bayesian}.
 The EM algorithm generally consists of alternating between estimating distributions over the latent topic assignments $z_{d,n}$ (known as the ``E step'') and maximizing a quantity related to the likelihood of the data (known as the ``M step'').
 These steps are repeated until the estimates appear to have converged.
-
-%The following outline of the EM algorithm follows the exposition given in Barber \cite{barber2012bayesian}.
-
-% In general, maximum-likelihood optimization involves finding the value of unobserved model parameters which maximizes the probability (or, equivalently, the log-probability) of the observed data.
-% For the PLSA model, the EM algorithm involves optimizing quantities of the following form:
-% \begin{align}
-% \arg\max_{\theta, \phi} \sum_{d=1}^D \sum_{n=1}^{N_d} E_{z_{d,n} \sim q(\cdot \mid t_{d,n})} \left[ \log p(t_{d,n}, z_{d,n}) \right]
-% \label{eq:plsa-optimize}
-% \end{align}
-% Here, the expectation is taken with respect to the latent variables $z_{d,n}$, but not the observed variables $t_{d,n}$.
-% Moreover, rather than computing the expectation using the true posterior distribution ${p(z_{d,n} \mid t_{d,n})}$, the expectation is computed using an estimate ${q(z_{d,n} \mid t_{d,n})}$, which we update repeatedly throughout the algorithm based on our current estimate for the parameters $\theta$ and $\phi$.
-% In particular, we keep track of the current estimated parameter values ($\theta$ and $\phi$) and alternate between an ``E~step,'' which updates estimates for ${q(z_{d,n} \mid t_{d,n})}$, and an ``M~step,'' which updates the estimates for $\theta$ and $\phi$ by performing the optimization in equation~\eqref{eq:plsa-optimize}.
-% For PLSA, this happens to be a constrained optimization, since the values of $\phi_d$ for each document $d$ and $\theta_k$ for each topic $k$ must be probability distributions, with non-negative components that sum to 1.
-% We can compute the E~step using Bayes' rule:
-% \begin{align}
-% q(z_{d,n} \mid t_{d,n})
-% &= \frac{\theta_{z_{d,n}, t_{d,n}} \, \phi_{d, z_{d,n}}}
-%         {\sum_{k=1}^K \theta_{k, t_{d,n}} \, \phi_{d, k}}
-% \end{align}
-% The M~step is possible to compute using gradients and Lagrange multipliers:
-% \begin{align}
-% \theta_{i,j} &\propto \sum_{d=1}^D \sum_{n=1}^{N_d} q(z_{d,n} = i \mid t_{d,n} = j) \indicator [t_{d,n} = j] \\
-% \phi_{d,k} &\propto \sum_{n=1}^{N_d} q(z_{d,n} = k \mid t_{d,n})
-% \end{align}
-% Combining these results yields an iterative procedure for obtaining maximum-likelihood estimates for $\theta$ and $\phi$:
-% initialize $\theta$ and $\phi$ to a reasonable guess, then repeat the E and M steps until the estimates converge.
 
 \subsection{Latent Dirichlet Allocation}
 
@@ -388,10 +361,13 @@ For each latent variable, we temporarily discard its current value, compute the 
 Then, there are theoretical results which guarantee that the long-term equilibrium distribution of the state vector will correspond to the true posterior (for example, see \cite{resnik2010gibbs}).
 After reaching equilibrium, we can estimate posterior-distribution statistics by collecting a sample of state vectors, either by running multiple independent Markov chains in parallel, or by taking a sequence of regularly-spaced samples from a single Markov chain.
 Together, these sampled state vectors will constitute an empirical approximation of the posterior distribution.
+This procedure is summarized in Algorithm~\ref{alg:gibbs}.
 
 \begin{algorithm}
 \caption{Gibbs sampling}
 \label{alg:gibbs}
+\renewcommand{\labelitemi}{{$\bullet$}}
+\renewcommand{\labelitemii}{{\tiny$\blacksquare$}}
 \begin{itemize}[leftmargin=*]
 \item \textbf{Input:}
   \begin{itemize}
@@ -464,18 +440,44 @@ where ELBO (short for ``evidence lower bound'') is defined as
 Then, since $\log p(x)$ does not depend on $q$, minimizing $\mathcal L$ is equivalent to maximizing ELBO.
 This fact will be useful later when we wish to monitor the convergence of our algorithm, because ELBO is signficantly easier to compute than the actual objective function $\mathcal L$.
 
+To aid in optimizing the objective function, the model is typically constructed such that its conditional distributions are members of the \emph{exponential family}, and conjugate priors are used wherever possible.
+By design, this is true of the LDA model and the hierarchical topic models discussed below.
+The exponential family \cite{wiki:expfamily} is a collection of parameterized sets of probability distributions which can be written in the following form, where $x$ represents the domain variable, and $\theta$ represents the distribution's parameters:
+\begin{align}
+p(x \mid \theta)
+&=
+h(x) \exp\left( \eta(\theta) \cdot T(x) - A(\theta) \right).
+\end{align}
+Here, $\eta(\theta)$ is a vector which contains the \emph{natural parameters} of the model, and $T(x)$ is a vector containing the \emph{sufficient statistics} of the model.
+To write a distribution in exponential-family form, we can attempt to compute the logarithm of the probability density; then, we try to derive the functional form of $\eta$ and $T$ by examining any terms which depend on both $x$ and $\theta$.
+Any terms which only depend on $x$ or only on $\theta$ can be folded into the functions $h(x)$ and $A(\theta)$.
+For example, the categorical distribution can be expressed as follows:
+\begin{align}
+\text{Categorical}(x \mid \theta)
+&= \prod_{k=1}^K \theta_k^{\indicator[x=k]} \\
+&= \exp\left( \sum_{k=1}^K \indicator[x=k] \log \theta_k \right).
+\end{align}
+Thus, categorical distributions belong to the exponential family, with
+\begin{alignat}{2}
+\eta(\theta) &= (\log \theta_k)_{k \in 1:K} &\qquad& \text{(``natural parameters''),} \\
+T(x) &= (\indicator[x = k])_{k \in 1:K} &\qquad& \text{(``sufficient statistics''),} \\
+h(x) &= 1, \\
+A(\theta) &= 0.
+\end{alignat}
+At this point, it is also worth noting that we will also make use of the \emph{inverse natural parameter transform}, which is the inverse of $\eta(\theta)$.
+For example, with the categorical distribution we can extract the discrete probabilities $\theta$ from $\eta$ by applying the softmax function:
+\begin{align}
+\theta_k = \frac{\exp(\eta_k)}{\sum_{\ell=1}^K \eta_\ell}.
+\end{align}
+
+For variational inference, in addition to selecting an exponential-family model, the variational distributions $q_k$ are assumed to belong to the same family as the corresponding model distributions $p(z_k \mid \text{parents}(z_k))$.
+
 The update rules are derived using coordinate ascent; that is, we repeatedly iterate over the latent variables and update them one at a time.
 In particular, we derive the updates by computing the functional derivative of the objective function with respect to one of the latent variables and solving for the value of the corresponding variational parameter which makes this functional derivative equal to zero.
-To aid in deriving the update rules, the model is typically constructed such that all distributions are members of the exponential family, and conjugate priors are used wherever possible.
-% TODO: need to discuss exponential family & conjugate priors here?  or point to reference?  or add forward pointer?
-By design, this is true of the LDA model and the hierarchical topic models discussed below.
-Moreover, the variational distributions $q_k$ are assumed to belong to the same family as the corresponding model distributions $p(z_k \mid \text{parents}(z_k))$.
-
 To obtain concrete update formulas, we can calculate the logarithm of the model's joint probability distribution and then perform the following steps for each latent variable $z_k$:
 \begin{itemize}
 \item Drop any constant terms in the log joint probability (that is, terms that do not depend on $z_k$).
-\item Express the remaining terms as a dot product between the \emph{sufficient statistics} of the distributon $p(z_k \mid \text{parents}(z_k))$, which are functions of $z_k$, and a vector of \emph{natural parameters}, denoted $\eta_k$, which do not depend on $z_k$.
-% TODO: need to define suff.stats and nat.params
+\item Express the remaining terms as a dot product between the sufficient statistics of the distribution $p(z_k \mid \text{parents}(z_k))$, which are functions of $z_k$, and a vector of natural parameters, denoted $\eta_k$, which do not depend on $z_k$.
 \item Compute the expectation of $\eta_k$ with respect to the variational distributions for the latent variables.
 That is, compute
 \begin{align}
@@ -483,7 +485,6 @@ E_q[\eta_k] &= E_{z_1 \sim q_1} \left[ \cdots E_{z_m \sim q_m} \left[ \eta_k \ri
 \end{align}
 \item Compute the inverse of the natural parameter transformation corresponding to the variational distribution $q_k$, and apply it to the vector $E_q[\eta_k]$.
 This yields the concrete values with which to update the variational parameters corresponding to $z_k$.
-% TODO: need to define inverse of natural parameter transformation
 \end{itemize}
 We then repeat the above steps while continually monitoring the value of the ELBO until it appears to have converged.
 
@@ -524,9 +525,6 @@ By using stochastic variational inference, we end up with an algorithm which is,
 This is because this algorithm typically requires fewer iterations through the full dataset.
 In particular, it allows us to update our estimates for the global (corpus-wide) latent variables more frequently than once per iteration through the dataset.
 
-% We will see that Bayesian non-parametric models, which involve latent variables drawn from infinite dimensional spaces, require special handling.
-% For example, incorporating a greedy algorithm into the update rule is one way to avoid computing infinite sums.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Hierarchical Topic Models Based on Dirichlet Processes}
 
@@ -535,6 +533,7 @@ The first such technique is known as the Nested Chinese Restaurant Process, and 
 
 \subsection{The Nested Chinese Restaurant Process Topic Model}
 
+% TODO: expand this discussion, add context
 The Nested Chinese Restaurant Process (NCRP) topic model is based on a probability distribution known as the Chinese Restaurant Process (CRP), which we will discuss first.
 
 \subsubsection{The Chinese Restaurant Process}
@@ -698,10 +697,6 @@ Again, this can be done via lazy evaluation.
     \3 Draw a vocabulary word from the topic associated with the $z\nth$ element of the path associated with this document.
 \end{outline}
 
-% This generative process allows us to compute the likelihood of a particular document, assuming that we know the global distribution over paths and the global set of topics.
-% However, we are typically more interested in making inferences based on the posterior distribution---that is, the distribution of the latent variables given the observed data.
-% In this case, the particular vocabulary words appearing in the corpus are the only observed random variables; all others (including the beta-distributed random variables and the Dirichlet-distributed topics) are latent variables.
-
 Here are the conditional probability distributions for this model:
 \begin{align}
 \theta_r &\sim \mathrm{Dirichlet}(\alpha^{(\theta)}) \\
@@ -711,7 +706,6 @@ z_{d,n} &\sim \mathrm{Categorical}(\phi_d) \\
 c_d &\sim \sum_{\substack{r:\text{path} \\ \text{of length } L}} \pi_r \delta_r \\
 t_{d,n} &\sim \mathrm{Categorical}(\theta[c_d[1:z_{d,n}]])
 \shortintertext{where}
-%\pi_r &= \left( \prod_{\ell=1}^{L} V_{r[1:\ell]} \right) \left( \prod_{\ell=1}^{L} \prod_{j=1}^{r[\ell]-1} (1 - V_{r[1:\ell-1],j}) \right)
 \pi_r &= \prod_{\ell=1}^{\len(r)} \left( V_{r[1:\ell]} \prod_{j=1}^{r[\ell]-1} (1 - V_{r[1:\ell-1],j}) \right)
 \end{align}
 In the case where the depth of the tree has been truncated to $L$, we draw the distributions-over-depths $\phi_d$ from a Dirichlet with $L+1$ components, instead of from a GEM distribution.
@@ -756,31 +750,10 @@ The plate diagram for this graphical model is shown in Figure~\ref{fig:plate-ncr
 \end{figure}
 %%%%
 
-% We will see that, relative to the LDA model, the task of computing the posterior distribution in the NCRP model is complicated by the fact that there are infinitely many latent random variables (for example, there is one latent beta-distributed random variable for each node in the infinite tree).
-% The algorithms that have been proposed for inference in the NCRP topic model fall into two main categories: those based on Gibbs sampling, and those based on variational inference.
-
 \subsubsection{Gibbs Sampling for the NCRP}
 
 Initially, papers such as \cite{griffiths2004hierarchical}, used NCRP inference algorithms based on Gibbs sampling.
 (In the next section, we will discuss an alternate inference algorithm that was introduced in \cite{wang2009vi_ncrp}.)
-
-% TODO: merge with above
-% In Gibbs sampling, we maintain a state vector which stores values for each of the latent random variables.
-% Each iteration involves updating the state vector by sampling each of the latent variables, one at a time, according to the following conditional probabilities:
-% \begin{align}
-% z_k &\sim p(z_k \mid \vec x, \vec z_{-k}) \qquad \text{for all latent variables $z_k$.}
-% \end{align}
-% Here, $\vec z_{-k}$ represents the current state vector with the entry for $z_k$ omitted (that is, it represents the current state of all latent variables \emph{except} for $z_k$), and $\vec x$ represents all observed variables.
-% The long-term behavior of this stochastic system is guaranteed to approach the true posterior distribution, $p(\vec z \mid \vec x)$.
-% However, it can be difficult to determine whether the state vector has converged.
-% Moreover, the state vector only represents a single snapshot of the latent variables, as opposed to a distribution over the latent variables, and so we must collect a large number of state-vector samples.
-% The resulting collection of state-vector samples can then be used as an empirical approximation to the posterior distribution.
-% Issues such as burn-in (the number of samples to discard before saving the first sample) and lag (the number of samples to discard between saved samples, in order to avoid correlated samples) can also affect the performance of Gibbs sampling.
-
-% For some models, it is possible to omit some of the latent variables from the state vector.
-% This can be done by marginalizing the conditional probabilities over the omitted variables.
-% One common approach is to marginalize out any global variables (i.e., variables which are shared across all observed data points), leaving only ``local'' per-observation variables in the state vector.
-% This approach is known as ``collapsed Gibbs sampling,'' and it is used in \cite{blei2010ncrp}.
 
 %**TODO-actual-algorithm -- discuss what's specific to Gibbs-NCRP
 
@@ -795,12 +768,6 @@ The approach taken in \cite{wang2009vi_ncrp} is to start with a finite version o
 The latent variables associated with the nodes that lie outside of this finite truncation are assumed to be equal to the corresponding prior distribution; thus, outside of the finite truncation, there is no dependence on the variational parameters.
 In addition to this, the authors also incorporate greedy heuristics for pruning paths, adding paths, and merging paths in the finite tree.
 %***TODO CAVI NCRP algorithm
-
-% Compared to Gibbs sampling, variational inference has the advantange of being deterministic, and its convergence is also significantly easier to detect.
-% However, variational inference does have its own disadvantages.
-% Whereas with Gibbs sampling, it is possible to approach the true posterior distribution to an arbitrary level of precision, variational inference can only yield an approximation.
-% When deriving variational updates, we face a tradeoff: we can choose a more restricted set of variational distributions, which yields an inferior approximation, but leads to easier-to-derive update rules.
-% On the other hand, if we want a tighter approximation, the update rules are likely to be significantly more complicated.
 
 \subsection{The Nested Hierarchical Dirichlet Process}
 
@@ -827,7 +794,6 @@ The NHDP topic model shares many features in common with the NCRP topic model:
 The main difference between these two topic models is the way in which the local distributions over nodes are defined.
 In the NCRP topic model, each document's local distribution consists of nodes along a single path, but in the NHDP, the local distributions can include multiple branches.
 This distinction is illustrated in Figure~\ref{fig:ncrp-vs-nhdp}.
-%This is designed to address the previously-mentioned limitation regarding documents that exhibit a wide variety of hybrid topics.
 
 \begin{figure}
 \centering
@@ -837,8 +803,6 @@ Within each row are several examples of document-specific distributions over nod
 (Source: Paisley et al \cite{paisley2015nhdp})}
 \label{fig:ncrp-vs-nhdp}
 \end{figure}
-
-% TODO: add figure from NHDP paper (with citation), and reference it in preceding discussion
 
 To see how the local, per-document distributions are defined in the NHDP, we must first discuss the (non-nested) Hierarchical Dirichlet Process (HDP).
 The HDP was introduced in \cite{teh2005hdp} to model grouped data, in which there are an unbounded (potentially infinite) number of groups, each of which contains multiple observations and is associated with its own vector of parameters.
