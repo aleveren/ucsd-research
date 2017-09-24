@@ -31,8 +31,10 @@
 \usetikzlibrary{bayesnet,positioning}
 
 \newcommand{\nth}{^{\text{th}}}
-\newcommand{\len}{\mathrm{len}}
+\newcommand{\len}{\text{len}}
 \newcommand{\indicator}{\mathds{1}}
+\newcommand{\hackystatei}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{#1\strut}}
+\newcommand{\hackystateii}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent-\algorithmicindent}{#1\strut}}
 
 %\allowdisplaybreaks
 
@@ -363,8 +365,8 @@ After reaching equilibrium, we can estimate posterior-distribution statistics by
 Together, these sampled state vectors will constitute an empirical approximation of the posterior distribution.
 This procedure is summarized in Algorithm~\ref{alg:gibbs}.
 
-\begin{algorithm}
-\caption{Gibbs sampling}
+\begin{algorithm}[hbt]
+\caption{Gibbs Sampling}
 \label{alg:gibbs}
 \renewcommand{\labelitemi}{{$\bullet$}}
 \renewcommand{\labelitemii}{{\tiny$\blacksquare$}}
@@ -390,7 +392,7 @@ This procedure is summarized in Algorithm~\ref{alg:gibbs}.
   \For{$j \in \{1, \ldots, B + LS\}$}
     \State Compute the conditional distribution $p(z_k \mid \vec z_{-k}, \vec x)$
     \State Update $z_k$ by sampling from this conditional distribution
-    \If{$j \geq B$ and $(j - B) \mathbin{\mathrm{mod}} L = 0$}
+    \If{$j \geq B$ and $(j - B) \mathbin{\text{mod}} L = 0$}
       \State Append $\vec z$ to $\hat Z$
     \EndIf
   \EndFor
@@ -436,6 +438,7 @@ By expanding the definition of $\mathcal L$, we can write
 where ELBO (short for ``evidence lower bound'') is defined as
 \begin{align}
 \text{ELBO} = E_q[\log p(\vec z, \vec x)] - E_q[\log q(\vec z)]
+\label{eq:elbo}
 \end{align}
 Then, since $\log p(x)$ does not depend on $q$, minimizing $\mathcal L$ is equivalent to maximizing ELBO.
 This fact will be useful later when we wish to monitor the convergence of our algorithm, because ELBO is signficantly easier to compute than the actual objective function $\mathcal L$.
@@ -487,8 +490,42 @@ E_q[\eta_k] &= E_{z_1 \sim q_1} \left[ \cdots E_{z_m \sim q_m} \left[ \eta_k \ri
 This yields the concrete values with which to update the variational parameters corresponding to $z_k$.
 \end{itemize}
 We then repeat the above steps while continually monitoring the value of the ELBO until it appears to have converged.
+This procedure is summarized in Algorithm~\ref{alg:cavi}.
 
-% TODO: algorithm listing for CAVI
+\begin{algorithm}[hbt]
+\caption{Coordinate-Ascent Variational Inference}
+\label{alg:cavi}
+\renewcommand{\labelitemi}{{$\bullet$}}
+\renewcommand{\labelitemii}{{\tiny$\blacksquare$}}
+\begin{itemize}[leftmargin=*]
+\item \textbf{Input:}
+  \begin{itemize}
+  \item $\vec x$: an observed dataset
+  \end{itemize}
+\item \textbf{Output:}
+  \begin{itemize}
+  \item $(\nu_1, \ldots, \nu_m)$: vector of optimized variational parameters corresponding to the latent variables
+  \end{itemize}
+\item \textbf{Procedure:}
+\end{itemize}
+\begin{algorithmic}
+\State Initialize $(\nu_1, \ldots, \nu_m)$ to a ``reasonable'' guess based on the input data.
+(This can be done using model-specific heuristics, combined with random noise for symmetry-breaking.)
+\State Throughout this algorithm, $q$ will be determined by the current value of $(\nu_1, \ldots, \nu_m)$:
+\begin{align*}
+q(\vec z) = \prod_{k=1}^m q_k(z_k; \nu_k)
+\end{align*}
+\While{ELBO has not converged}
+  \For{each latent variable $z_k$, with $k \in \{1, \ldots, m\}$}
+    \State Update $\nu_k \gets \theta_k(E_{z \sim q}[\eta_k])$.
+    \hackystateii{Here, $\theta_k(\cdot)$ is the inverse parameter transform corresponding to $z_k$.
+    Moreover, $\eta_k$ is the vector of natural parameters associated with the complete conditional $p(z_k \mid \vec z_{-k}, \vec x)$.}
+  \EndFor
+  \hackystatei{Compute ELBO according equation~\eqref{eq:elbo}.}
+\EndWhile
+\State \Return $(\nu_1, \ldots, \nu_m)$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{Stochastic Variational Inference}
 \label{sec:svi}
@@ -500,8 +537,8 @@ The update rules for document-specific variables are the same as in traditional 
 Using a standard gradient for optimization makes sense in cases where Euclidean distance suffices for judging whether two candidate maximizers are sufficiently close to each other.
 However, in the case of parameterized probability distributions, the Euclidean distance between pairs of parameter vectors may not accurately reflect the ``true'' difference between the corresponding probability distributions.
 Hoffman \cite{hoffman2013stochastic} gives an example involving a normal distribution parameterized by its mean and variance.
-If we start with a mean of $\mu = 0$ and a variance of $\sigma^2 = 0.01$, then adding $1$ to the mean will have a relatively large effect, since $\mathrm{Normal}(0, 0.01)$ has very little overlap with $\mathrm{Normal}(1, 0.01)$.
-The situation is reversed if we start with $\mu = 0$ and $\sigma^2 = 1000$, since $\mathrm{Normal}(0, 1000)$ is nearly identical to $\mathrm{Normal}(1, 1000)$.
+If we start with a mean of $\mu = 0$ and a variance of $\sigma^2 = 0.01$, then adding $1$ to the mean will have a relatively large effect, since $\text{Normal}(0, 0.01)$ has very little overlap with $\text{Normal}(1, 0.01)$.
+The situation is reversed if we start with $\mu = 0$ and $\sigma^2 = 1000$, since $\text{Normal}(0, 1000)$ is nearly identical to $\text{Normal}(1, 1000)$.
 Thus, relying on gradients defined in terms of Euclidean distance can lead to unnecessarily slow convergence, since some steps will essentially be wasted by moving in an inefficient direction.
 
 To address this, we define a matrix $G$ which encodes information about how the ``true'' distance function varies within a local neighborhood.
@@ -514,12 +551,54 @@ Conveniently, the natural gradient turns out to be proportional to the correspon
 Furthermore, instead of computing the gradient of the objective function based on the entire dataset, we can use stochastic optimization techniques to compute updates based on mini-batch sampling.
 As long as we base our updates on estimates which agree with the natural gradient \emph{in expectation}, we will still achieve reasonable convergence.
 (The same principle is at work in stochastic gradient descent.)
-Stochastic variational inference accomplishes this by repeatedly sampling mini-batches of documents.
-For each document in each mini-batch, the local per-document parameters are updated according to the traditional coordinate-ascent formulas.
+Stochastic variational inference accomplishes this by repeatedly sampling mini-batches of observations.
+For each observation in each mini-batch, the local per-observation parameters are updated according to the traditional coordinate-ascent formulas.
 For the global parameters, only a small modification is needed: we compute the variational-parameter updates as if the mini-batch had been scaled up to the size of the full dataset.
-In other words, if the full dataset has $D$ documents, and a mini-batch contains $S$ documents, with $S \ll D$, we perform updates for the global parameters using a virtual dataset consisting of $D / S$ copies of the mini-batch.
+In other words, if the full dataset has $D$ observations, and a mini-batch contains $S$ observations, with $S \ll D$, we perform updates for the global parameters using a virtual dataset consisting of $D / S$ copies of the mini-batch.
+This procedure is outlined in Algorithm~\ref{alg:svi}.
 
-% TODO: algorithm listing for SVI
+\begin{algorithm}[hbt]
+\caption{Stochastic Variational Inference}
+\label{alg:svi}
+\renewcommand{\labelitemi}{{$\bullet$}}
+\renewcommand{\labelitemii}{{\tiny$\blacksquare$}}
+\begin{itemize}[leftmargin=*]
+\item \textbf{Input:}
+  \begin{itemize}
+  \item $\vec x$: observed dataset of length $D$
+  \item $\alpha$: vector of hyperparameters corresponding to the global variables
+  \item $\{\rho_t\}_{t \geq 1}$: sequence of step-sizes satisfying $\sum_{t \geq 1} \rho_t = \infty$ and $\sum_{t \geq 1} \rho_t^2 < \infty$
+  \end{itemize}
+\item \textbf{Output:}
+  \begin{itemize}
+  \item $(\nu_{d,\ell})$: matrix of optimized parameters corresponding to the local latent variables. \\
+  Here, $\nu_{d,\ell}$ corresponds to the $\ell\nth$ local variable of the $d\nth$ observation.
+  \item $(\mu_1, \ldots, \mu_m)$: vector of optimized parameters corresponding to the global latent variables
+  \end{itemize}
+\item \textbf{Procedure:}
+\end{itemize}
+\begin{algorithmic}
+\State Initialize global parameters $(\mu_1, \ldots, \mu_m)$ and the matrix of local parameters $(\nu_{d,\ell})$ to ``reasonable'' guesses based on the input data.
+\While{ELBO has not converged}
+  \State Randomly sample a mini-batch $b$ containing $S$ observations
+  \For{each observation $x_i$ in $b$}
+    \For{each local variable $\ell \in \{1, \ldots, L\}$}
+      \State Update $\nu_{i,\ell} \gets \theta_\ell(E_{z \sim q}[\eta^{\text{local}}_{i,\ell}])$
+    \EndFor
+  \EndFor
+  \State Set $\hat \mu$ to be a vector of $m$ zeros
+  \For{each observation $x_i$ in $b$}
+    \For{each global variable $k \in \{1, \ldots, m\}$}
+      \State TODO***
+      %\State $\hat \mu \gets \hat \mu + E_{z \sim q}[\eta^{\text{global}}_{TODO}]
+    \EndFor
+  \EndFor
+  \State Update TODO***
+  \State Compute ELBO according equation~\eqref{eq:elbo}.
+\EndWhile
+\State \Return $(\mu_1, \ldots, \mu_m)$ and matrix $(\nu_{d,\ell})$
+\end{algorithmic}
+\end{algorithm}
 
 By using stochastic variational inference, we end up with an algorithm which is, in practice, more efficient than either Gibbs sampling or coordinate-ascent variational inference.
 This is because this algorithm typically requires fewer iterations through the full dataset.
@@ -528,15 +607,18 @@ In particular, it allows us to update our estimates for the global (corpus-wide)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Hierarchical Topic Models Based on Dirichlet Processes}
 
-In the next two sections, we discuss a line of research in which random variables known as Dirichlet Processes are used to learn a tree-structured hierarchy of topics from a corpus.
+Next, we discuss a line of research in which random variables known as Dirichlet Processes are used to learn a tree-structured hierarchy of topics from a corpus.
 The first such technique is known as the Nested Chinese Restaurant Process, and a subsequent enhancement to this technique is called the Nested Hierarchical Dirichlet Process.
 
 \subsection{The Nested Chinese Restaurant Process Topic Model}
 
-% TODO: expand this discussion, add context
-The Nested Chinese Restaurant Process (NCRP) topic model is based on a probability distribution known as the Chinese Restaurant Process (CRP), which we will discuss first.
+Next, we discuss a topic model which was defined in Griffiths et al \cite{griffiths2004hierarchical} and Blei et al \cite{blei2010ncrp} and which is capable of learning a hierarchy of topics.
+There is some ambiguity in the terminology used in the literature, as the term ``NCRP'' can refer to the probability distribution defined above, but it has also been used to refer to the particular nested topic model discussed in this section.
+To disambiguate these terms, we will typically use the term ``NCRP distribution'' to refer to the former, and ``NCRP topic model'' to refer to the latter.
 
-\subsubsection{The Chinese Restaurant Process}
+The NCRP topic model is based on a probability distribution known as the Chinese Restaurant Process (CRP), which we will discuss first.
+
+\subsubsection{The Chinese Restaurant Process: A Distribution Over Partitions}
 
 The CRP is a stochastic process which allows us to put a prior distribution on a potentially infinite partition of a dataset.
 Here, the term ``stochastic process'' refers to an infinite set of random variables which are indexed by some infinite set.
@@ -570,7 +652,7 @@ We can view the infinite sequence $\{\pi_k\}_{k \geq 1}$ as defining a probabili
 In the limit where the number of observations approaches infinity, the distribution over partitions defined by the CRP and by this stick-breaking construction are equivalent.
 Since the random variables $V_k$ are i.i.d., this formulation makes it easier to derive joint and conditional probability distributions.
 
-\subsubsection{The Dirichlet Process}
+\subsubsection{The Dirichlet Process: A Distribution Over Grouped Data}
 
 In the context of topic models, the CRP can be used as a distribution over indices into an infinite i.i.d.\ set of topic vectors.
 In terms of the restaurant analogy, this corresponds to associating each table with an independent draw from some ``base distribution'' (in topic models, these draws are from a Dirichlet distribution); thus, selecting a table corresponds to selecting a topic vector.
@@ -621,9 +703,10 @@ With these definitions, a Dirichlet process $X \sim \text{DP}(\alpha, G_0)$ is e
 X &= \sum_{k=1}^\infty \pi_k \delta_{\theta_k} &&
 \end{alignat}
 
-\subsubsection{Defining the Nested Chinese Restaurant Process}
+\subsubsection{The Nested Chinese Restaurant Process: A Distribution Over Paths}
 
 Next, we define the Nested Chinese Restaurant Process (NCRP) in terms of the CRP.
+Whereas the CRP is a distribution over partitions, the NCRP is a distribution over paths in a tree.
 Continuing the restaurant analogy, suppose we have an infinite number of restaurants, each with an infinite number of infinite-capacity tables.
 There is one restaurant which is singled out as the ``root'' restaurant, and every customer begins by selecting a restaurant from this table according to the rules of the (non-nested) CRP.
 Each table has a card containing the address of another restaurant.
@@ -669,11 +752,7 @@ Note that even if we truncate the tree in terms of its depth, it still contains 
 
 \subsubsection{The NCRP Topic Model}
 
-Next, we discuss a topic model which was defined in Blei et al \cite{blei2010ncrp} and which is capable of learning a hierarchy of topics.
-
-There is some ambiguity in the terminology used in the literature, as the term ``NCRP'' can refer to the probability distribution defined above, but it has also been used to refer to the particular nested topic model discussed in this section.
-To disambiguate these terms, we will typically use the term ``NCRP distribution'' to refer to the former, and ``NCRP topic model'' to refer to the latter.
-
+Now we have the necessary ingredients to describe how the NCRP topic model is defined in terms of the NCRP distribution.
 In the NCRP topic model, a single draw from the NCRP distribution is used to define a global probability distribution over paths.
 Moreover, for each node in the infinite tree, a discrete distribution over the vocabulary is drawn from a Dirichlet distribution.
 To each document we assign a single path through the tree, as well as a distribution over ``levels of abstraction'' (i.e., a distribution over depths within the tree).
@@ -699,12 +778,12 @@ Again, this can be done via lazy evaluation.
 
 Here are the conditional probability distributions for this model:
 \begin{align}
-\theta_r &\sim \mathrm{Dirichlet}(\alpha^{(\theta)}) \\
-V_r &\sim \mathrm{Beta}(1, \alpha^{(V)}) \\
-\phi_d &\sim \mathrm{GEM}_2(\alpha^{(\phi)}_1, \alpha^{(\phi)}_2) \\
-z_{d,n} &\sim \mathrm{Categorical}(\phi_d) \\
+\theta_r &\sim \text{Dirichlet}(\alpha^{(\theta)}) \\
+V_r &\sim \text{Beta}(1, \alpha^{(V)}) \\
+\phi_d &\sim \text{GEM}_2(\alpha^{(\phi)}_1, \alpha^{(\phi)}_2) \\
+z_{d,n} &\sim \text{Categorical}(\phi_d) \\
 c_d &\sim \sum_{\substack{r:\text{path} \\ \text{of length } L}} \pi_r \delta_r \\
-t_{d,n} &\sim \mathrm{Categorical}(\theta[c_d[1:z_{d,n}]])
+t_{d,n} &\sim \text{Categorical}(\theta[c_d[1:z_{d,n}]])
 \shortintertext{where}
 \pi_r &= \prod_{\ell=1}^{\len(r)} \left( V_{r[1:\ell]} \prod_{j=1}^{r[\ell]-1} (1 - V_{r[1:\ell-1],j}) \right)
 \end{align}
@@ -712,7 +791,7 @@ In the case where the depth of the tree has been truncated to $L$, we draw the d
 We use $L+1$ components because topics can be drawn from anywhere between the root (at depth 0) and the leaves (at depth $L$).
 Hence, in the finite-depth case, we would substitute the following distribution for $\phi_d$:
 \begin{align}
-\phi_d \sim \mathrm{Dirichlet}(\alpha^{(\phi)})
+\phi_d \sim \text{Dirichlet}(\alpha^{(\phi)})
 \end{align}
 The plate diagram for this graphical model is shown in Figure~\ref{fig:plate-ncrp}.
 
@@ -752,7 +831,7 @@ The plate diagram for this graphical model is shown in Figure~\ref{fig:plate-ncr
 
 \subsubsection{Gibbs Sampling for the NCRP}
 
-Initially, papers such as \cite{griffiths2004hierarchical}, used NCRP inference algorithms based on Gibbs sampling.
+Initially, papers such as \cite{griffiths2004hierarchical} and \cite{blei2010ncrp} used NCRP inference algorithms based on Gibbs sampling.
 (In the next section, we will discuss an alternate inference algorithm that was introduced in \cite{wang2009vi_ncrp}.)
 
 %**TODO-actual-algorithm -- discuss what's specific to Gibbs-NCRP
@@ -769,7 +848,7 @@ The latent variables associated with the nodes that lie outside of this finite t
 In addition to this, the authors also incorporate greedy heuristics for pruning paths, adding paths, and merging paths in the finite tree.
 %***TODO CAVI NCRP algorithm
 
-\subsection{The Nested Hierarchical Dirichlet Process}
+\subsection{The Nested Hierarchical Dirichlet Process Topic Model}
 
 The primary limitation of the NCRP has to do with the fact that each document is associated with only a single path through the topic hierarchy.
 This creates problems when the training corpus contains documents with a variety of ``hybrid'' topics.
