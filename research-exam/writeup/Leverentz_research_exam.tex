@@ -118,7 +118,7 @@ If the corpus contains a sufficiently diverse set of documents, then most docume
 After constructing this matrix, we may optionally transform it according to per-term and per-document statistics.
 That is, if $M$ is an $N \times D$ matrix, we compute a new $N \times D$ matrix $X$ whose entries are given by
 \begin{align}
-X_{i,j} &= f(M_{i,j}, M_{1:D,j}, M_{i,1:N}).
+X_{i,j} &= f(M_{i,j}, M_{i,1:D}, M_{1:N,j}).
 \end{align}
 Several variants of LSA exist which use different transformations in this step, as described in \cite{wiki:lsa}, although the original paper \cite{deerwester1990lsa} uses an untransformed matrix, with $X = M$.
 Then, the singular value decomposition (SVD) of the matrix $X$ is computed.
@@ -401,13 +401,10 @@ This procedure is summarized in Algorithm~\ref{alg:gibbs}.
 \end{algorithmic}
 \end{algorithm}
 
-% % TODO: decide whether to include this
-% A closely related variant known as \emph{collapsed Gibbs sampling} divides the latent variables into ``local'' and ``global'' variables.
-% In the context of topic models, local latent variables can include either per-document or per-word variables.
-% In some models, we can integrate out all of the global latent variables, leaving us with a complete conditional that depends only on the local latent variables and the observed data.
-% Then, we use Gibbs sampling on the remaining latent variables.
-% The result will be an estimate of the posterior distribution over local latent variables, conditioned on the observed data.
-% Since this process does not directly estimate the posterior distribution over the global latent variables, additional post-processing steps are necessary to infer values for the global latent variables.
+A closely related variant known as \emph{collapsed Gibbs sampling} integrates out some of the latent variables, leaving us with a modified form of the complete conditional that depends only on the observed data and a subset of the latent variables.
+Then, we use Gibbs sampling on these remaining latent variables.
+The result will be an estimate of the posterior distribution over the remaining latent variables, conditioned on the observed data.
+% Since this process does not directly estimate the posterior distribution over some of the latent variables, additional post-processing steps are necessary to obtain estimates for the omitted latent variables.
 
 The main disadvantage of Gibbs sampling is that it can be difficult to determine when the Markov chain has reached equilibrium.
 Furthermore, compared to stochastic variational inference, which we discuss below, Gibbs sampling can require significantly more iterations through the full dataset.
@@ -874,10 +871,16 @@ The plate diagram for this graphical model is shown in Figure~\ref{fig:plate-ncr
 
 \subsubsection{Gibbs Sampling for the NCRP}
 
-Initially, papers such as \cite{griffiths2004hierarchical} and \cite{blei2010ncrp} used NCRP inference algorithms based on Gibbs sampling.
-(In the next section, we will discuss an alternate inference algorithm that was introduced in \cite{wang2009vi_ncrp}.)
+Papers such as \cite{griffiths2004hierarchical} and \cite{blei2010ncrp} used NCRP inference algorithms based on Gibbs sampling.
 
-%**TODO-actual-algorithm -- discuss what's specific to Gibbs-NCRP
+Initially, Griffiths et al \cite{griffiths2004hierarchical} used collapsed Gibbs sampling---integrating out the depth proportions $\phi_d$ and the topic vectors $\theta_k$--- and a finite-depth tree.
+Moreover, to avoid explicitly modeling an infinitely wide tree, they made use of the order-dependent ``restaurant analogy'' formulation of the NCRP.
+Thus, each Gibbs sampling step had the ability to grow or shrink the width of the tree.
+
+Later, Blei et al \cite{blei2010ncrp} focused on the Bayesian non-parametric nature of the NCRP, offering a way to handle an infinite-depth tree.
+They again used collapsed Gibbs sampling, integrating out $\phi_d$ and $\theta_k$.
+To handle the infinite-depth tree, they essentially used lazy evaluation.
+At any given point, only a finite number of layers $L$ were explicitly modeled, but if the deepest layer was ever sampled, a new layer would be added for subsequent iterations.
 
 \subsubsection{Variational Inference for the NCRP}
 
@@ -885,11 +888,15 @@ A variational inference algorithm for the NCRP model was proposed in Wang et al 
 The procedure described in section~\ref{sec:cavi} applies to traditional finite-dimensional models;
 however, in the context of Bayesian non-parametric models such as the NCRP, the latent variables belong to an infinite-dimensional space.
 This means that there are an infinite number of variational parameters that would need to be updated in each iteration.
-Hence, in order to obtain a feasible algorithm, we must make additional approximations.
+Hence, in order to obtain a feasible algorithm, it is necessary to make additional approximations.
+
 The approach taken in \cite{wang2009vi_ncrp} is to start with a finite version of the tree which has been truncated in terms of both its depth and its width.
-The latent variables associated with the nodes that lie outside of this finite truncation are assumed to be equal to the corresponding prior distribution; thus, outside of the finite truncation, there is no dependence on the variational parameters.
-In addition to this, the authors also incorporate greedy heuristics for pruning paths, adding paths, and merging paths in the finite tree.
-%***TODO CAVI NCRP algorithm
+Then, any latent variables associated with the nodes that lie outside of this finite truncation are assumed to be equal to the corresponding prior distribution; thus, outside of the finite truncation, there is no dependence on any variational parameters.
+With the variational distributions assumed to be of this truncated form, it becomes possible to compute a probability distribution over equivalence classes of paths.
+Paths which reach the deepest layer of the tree each belong to their own equivalence class; since the truncation is finite, there are a finite number of such singleton classes.
+On the other hand, paths which are not entirely included in the the truncated tree are grouped into infinitely large equivalence classes according to the nodes at which they exit the truncated tree.
+The authors then use this distribution over equivalence classes to implement greedy heuristics for adding, pruning, and merging paths in the finite tree.
+For example, if the expected number of observations that fall into one of the truncated equivalence classes grows large enough, the algorithm responds by adding a new path to the finite tree.
 
 \subsection{The Nested Hierarchical Dirichlet Process Topic Model}
 
@@ -1038,8 +1045,18 @@ t^d_n &\sim \text{Categorical}(\theta_{c^d_n})
 
 \subsubsection{Variational Inference for the NHDP}
 
-The inference algorithm for the NHDP model is based on stochastic variational inference, which was discussed in section~\ref{sec:svi}.
-%**TODO aspects of SVI that are specific to NHDP
+The inference algorithm for the NHDP topic model is based on stochastic variational inference.
+Once again, a naive implementation of variational inference is not possible, since there are an infinite number of latent variables.
+The authors solve this by restricting the model to a tree with both finite depth and finite width.
+As long as the finite tree is deep and wide enough to accommodate any tree that falls within the anticipated range of sizes, then the algorithm will be able to function as intended.
+
+Further simplifications involve the variational updates for the index variables $z^d_{r,j}$, which determine how branches from the global tree are rearranged in a document-specific way.
+First, the variables $z^d_{r,j}$ are given Dirac-$\delta$ variational distributions, which corresponds to making a hard assignment for each $z$.
+(This goes against the typical convention of choosing variational distributions which agree with the corresponding conditional.)
+Second, for any value of $d$ and $r$, the indices $z^d_{r,j}$ are assumed not to repeat; this corresponds to assuming that the document-specific index assignments only rearrange branches and never duplicate branches.
+Third, for each document $d$, a greedy algorithm is used to select only a small number of values for $z^d_{r,j}$; this corresponds to selecting a small subtree for each document.
+This greedy algorithm starts with just the root node, and adds new nodes only if doing so would increase the objective function (the ELBO) by a predetermined amount.
+With these simplifications in place, the remainder of the update rules follow the derivations in section~\ref{sec:svi}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Directions for Future Research}
