@@ -401,12 +401,13 @@ This procedure is summarized in Algorithm~\ref{alg:gibbs}.
 \end{algorithmic}
 \end{algorithm}
 
-A closely related variant known as \emph{collapsed Gibbs sampling} divides the latent variables into ``local'' and ``global'' variables.
-In the context of topic models, local latent variables can include either per-document or per-word variables.
-In some models, we can integrate out all of the global latent variables, leaving us with a complete conditional that depends only on the local latent variables and the observed data.
-Then, we use Gibbs sampling on the remaining latent variables.
-The result will be an estimate of the posterior distribution over local latent variables, conditioned on the observed data.
-Since this process does not directly estimate the posterior distribution over the global latent variables, additional post-processing steps are necessary to infer values for the global latent variables.
+% % TODO: decide whether to include this
+% A closely related variant known as \emph{collapsed Gibbs sampling} divides the latent variables into ``local'' and ``global'' variables.
+% In the context of topic models, local latent variables can include either per-document or per-word variables.
+% In some models, we can integrate out all of the global latent variables, leaving us with a complete conditional that depends only on the local latent variables and the observed data.
+% Then, we use Gibbs sampling on the remaining latent variables.
+% The result will be an estimate of the posterior distribution over local latent variables, conditioned on the observed data.
+% Since this process does not directly estimate the posterior distribution over the global latent variables, additional post-processing steps are necessary to infer values for the global latent variables.
 
 The main disadvantage of Gibbs sampling is that it can be difficult to determine when the Markov chain has reached equilibrium.
 Furthermore, compared to stochastic variational inference, which we discuss below, Gibbs sampling can require significantly more iterations through the full dataset.
@@ -531,11 +532,47 @@ q(\vec z) = \prod_{k=1}^m q_k(z_k; \nu_k)
 \label{sec:svi}
 
 Stochastic variational inference (which was introduced in \cite{hoffman2013stochastic}) allows variational inference to scale to larger datasets.
-This approach uses repeated sampling of mini-batches to update the variational parameters, and in this respect it is similar to stochastic gradient descent.
-The update rules for document-specific variables are the same as in traditional variational inference, but the ``global'' (i.e., corpus-wide) variables are updated using the \emph{natural gradient} of the objective function, estimated on small samples of the data.
+It does this by dividing the latent variables into ``local'' (i.e., per-document) and ``global'' (i.e., corpus-wide) latent variables.
+In this section, we will use the generic model illustrated in Figure~\ref{fig:svi-local-global} as a prototype, with $\beta$ denoting the global latent variables and $z_{1:N}$ denoting the local latent variables.
+Given a model of this structure, we can see the limitations of coordinate-ascent variational inference by considering how to compute the complete conditionals:
+\begin{alignat}{2}
+&\text{For local variables:}&\qquad& p(z_n \mid \alpha, \beta, z_{-n}, x_{1:N}) = p(z_n \mid \alpha, \beta, x_n) \\
+&\text{For global variables:}&\qquad& p(\beta \mid \alpha, z_{1:N}, x_{1:N})
+\end{alignat}
+In particular, note that if $\alpha$, $\beta$, and $x_n$ are given, then $z_n$ is conditionally independent of all other variables.
+Thus, the coordinate-ascent computations for local latent variables can be done efficiently, using one data point at a time.
+In contrast, a single update to the global latent variable $\beta$ requires computations involving the entire training dataset.
 
-Using a standard gradient for optimization makes sense in cases where Euclidean distance suffices for judging whether two candidate maximizers are sufficiently close to each other.
-However, in the case of parameterized probability distributions, the Euclidean distance between pairs of parameter vectors may not accurately reflect the ``true'' difference between the corresponding probability distributions.
+%%%%
+\begin{figure}[htb]
+%
+\centering
+\begin{tikzpicture}
+\node[obs] (x) {$x_n$};
+\node[latent, left=of x] (z) {$z_n$};
+\node[latent, above=0.5cm of z] (beta) {$\beta$};
+\node[const, left=of beta] (alpha) {$\alpha$};
+
+\edge{z}{x};
+\edge{beta}{z};
+\edge{beta}{x};
+\edge{alpha}{beta};
+\edge{alpha}{z};
+
+\plate{obs-plat}{(x)(z)}{$n \in \{1, \ldots, N\}$};
+\end{tikzpicture}
+%
+\caption{An illustration of the distinction between local and global latent variables in stochastic variational inference.  %
+Here, $\beta$ denotes the global latent variables, and $z_{1:N}$ denotes the local latent variables.}
+\label{fig:svi-local-global}
+\end{figure}
+%%%%
+
+To address this inefficiency, stochastic variational inference uses repeated sampling of mini-batches to update the global variational parameters.
+The update rules for the local latent variables are the same as in coordinate-ascent variational inference, but the global latent variables are updated using the \emph{natural gradient} of the objective function, estimated on small samples of the data.
+
+Traditional optimization routines use a standard gradient; this make sense in cases where Euclidean distance suffices for measuring similarities between candidate maximizers.
+However, in the case of parameterized probability distributions, the Euclidean distance between pairs of parameter vectors may not accurately reflect the ``true'' difference between the corresponding distributions.
 Hoffman \cite{hoffman2013stochastic} gives an example involving a normal distribution parameterized by its mean and variance.
 If we start with a mean of $\mu = 0$ and a variance of $\sigma^2 = 0.01$, then adding $1$ to the mean will have a relatively large effect, since $\text{Normal}(0, 0.01)$ has very little overlap with $\text{Normal}(1, 0.01)$.
 The situation is reversed if we start with $\mu = 0$ and $\sigma^2 = 1000$, since $\text{Normal}(0, 1000)$ is nearly identical to $\text{Normal}(1, 1000)$.
@@ -544,18 +581,37 @@ Thus, relying on gradients defined in terms of Euclidean distance can lead to un
 To address this, we define a matrix $G$ which encodes information about how the ``true'' distance function varies within a local neighborhood.
 This matrix $G$ is also known as a \emph{metric tensor}.
 When dealing with parameterized probability distributions, we can define $G$ in terms of a symmetric variant of KL divergence---in particular, we can use the arithmetic mean of KL divergence and reversed KL divergence.
-Then, rather than simply following the gradient of the objective function in Euclidean coordinates (i.e., $\nabla \mathcal L$), the natural gradient takes steps in direction of $G^{-1} \nabla \mathcal L$.
-The natural gradient update rule has a particularly simple form for exponential-family models, since the matrix $G^{-1}$ corresponding to symmetrized KL divergence cancels out entirely in such cases.
-Conveniently, the natural gradient turns out to be proportional to the corresponding coordinate-ascent update rules.
+We omit the details of the calculation, but $G$ turns out to be equal to a matrix known as the \emph{Fisher information matrix} of the variational distribution.
+Then, rather than simply following the gradient of the objective function in Euclidean coordinates (i.e., $\nabla \mathcal L$), the natural gradient takes steps in the direction of $G^{-1} \nabla \mathcal L$.
+For exponential-family models, the natural gradient update rule has a particularly simple form, since the inverse metric tensor $G^{-1}$ cancels out entirely in such cases.
+In particular, the natural gradient for the global parameters is
+\begin{align}
+G^{-1} \nabla \mathcal L
+&=
+E_q[\eta^{\text{global}}] - \mu.
+\end{align}
+Here, $\mu$ represents the current value of the variational parameters corresponding to the global variable $\beta$.
+Moreover, $\eta^{\text{global}}$ represents the exponential-family natural parameters corresponding to the complete conditional of the global variable, $p(\beta \mid \alpha, z_{1:N}, x_{1:N})$.
 
-Furthermore, instead of computing the gradient of the objective function based on the entire dataset, we can use stochastic optimization techniques to compute updates based on mini-batch sampling.
-As long as we base our updates on estimates which agree with the natural gradient \emph{in expectation}, we will still achieve reasonable convergence.
-(The same principle is at work in stochastic gradient descent.)
-Stochastic variational inference accomplishes this by repeatedly sampling mini-batches of observations.
+Now, instead of computing the natural gradient of the objective function based on the entire dataset, we can use stochastic optimization techniques to compute updates based on random subsets of the data called \emph{mini-batches}.
 For each observation in each mini-batch, the local per-observation parameters are updated according to the traditional coordinate-ascent formulas.
-For the global parameters, only a small modification is needed: we compute the variational-parameter updates as if the mini-batch had been scaled up to the size of the full dataset.
-In other words, if the full dataset has $D$ observations, and a mini-batch contains $S$ observations, with $S \ll D$, we perform updates for the global parameters using a virtual dataset consisting of $D / S$ copies of the mini-batch.
-This procedure is outlined in Algorithm~\ref{alg:svi}.
+For the global parameters, only a small modification is needed: we compute natural gradient using a virtual dataset containing multiple copies of the current mini-batch.
+In particular, if the full dataset has $N$ observations, and a mini-batch $b$ contains $S$ observations, we perform updates for the global parameters using a virtual dataset consisting of $\lceil N / S \rceil$ copies of the mini-batch.
+As long as we base our updates on estimates which agree with the natural gradient \emph{in expectation}, we will still achieve reasonable convergence;
+this same principle is also used in stochastic gradient descent.
+The update rule for the global parameters is then
+\begin{align}
+\mu
+&\gets \mu + \rho_t G^{-1} \nabla \mathcal L \\
+&= (1-\rho_t) \mu + \rho_t E_q[\eta^{\text{global}}_b]
+\end{align}
+Here $\{\rho_t\}_{t \geq 1}$ is a sequence of step-sizes satisfying $\sum_{t \geq 1} \rho_t = \infty$ and $\sum_{t \geq 1} \rho_t^2 < \infty$; for example, Hoffman \cite{hoffman2013stochastic} uses $\rho_t = (t + \tau)^{-\kappa}$, with $\tau \geq 0$ and $\kappa \in (0.5, 1]$.
+In addition, $\eta^{\text{global}}_b$ is essentially the same as $\eta^{\text{global}}$, except it is computed based on the virtual dataset derived from $\lceil N/S \rceil$ repetitions of the mini-batch $b$.
+The overall procedure for stochastic variational inference is outlined in Algorithm~\ref{alg:svi}.
+
+% By using stochastic variational inference, we end up with an algorithm which is, in practice, more efficient than either Gibbs sampling or coordinate-ascent variational inference.
+% This is because this algorithm typically requires fewer iterations through the full dataset.
+% In particular, it allows us to update our estimates for the global (corpus-wide) latent variables more frequently than once per iteration through the dataset.
 
 \begin{algorithm}[hbt]
 \caption{Stochastic Variational Inference}
@@ -565,44 +621,31 @@ This procedure is outlined in Algorithm~\ref{alg:svi}.
 \begin{itemize}[leftmargin=*]
 \item \textbf{Input:}
   \begin{itemize}
-  \item $\vec x$: observed dataset of length $D$
-  \item $\alpha$: vector of hyperparameters corresponding to the global variables
-  \item $\{\rho_t\}_{t \geq 1}$: sequence of step-sizes satisfying $\sum_{t \geq 1} \rho_t = \infty$ and $\sum_{t \geq 1} \rho_t^2 < \infty$
+  \item $\vec x$: dataset containing $N$ observations
   \end{itemize}
 \item \textbf{Output:}
   \begin{itemize}
-  \item $(\nu_{d,\ell})$: matrix of optimized parameters corresponding to the local latent variables. \\
-  Here, $\nu_{d,\ell}$ corresponds to the $\ell\nth$ local variable of the $d\nth$ observation.
-  \item $(\mu_1, \ldots, \mu_m)$: vector of optimized parameters corresponding to the global latent variables
+  \item $\mu$: an optimized parameter corresponding to the global latent variables
+  \item $\nu$: a length-$N$ vector of optimized parameters corresponding to the local latent variables
   \end{itemize}
 \item \textbf{Procedure:}
 \end{itemize}
 \begin{algorithmic}
-\State Initialize global parameters $(\mu_1, \ldots, \mu_m)$ and the matrix of local parameters $(\nu_{d,\ell})$ to ``reasonable'' guesses based on the input data.
+\State Initialize $\mu$ and $\nu$ to ``reasonable'' guesses based on the input data.
+\State Let $\{\rho_t\}_{t \geq 1}$ be a sequence of step-sizes satisfying $\sum_{t \geq 1} \rho_t = \infty$ and $\sum_{t \geq 1} \rho_t^2 < \infty$.
+\State Set $t \gets 0$
 \While{ELBO has not converged}
+  \State Update $t \gets t + 1$
   \State Randomly sample a mini-batch $b$ containing $S$ observations
   \For{each observation $x_i$ in $b$}
-    \For{each local variable $\ell \in \{1, \ldots, L\}$}
-      \State Update $\nu_{i,\ell} \gets \theta_\ell(E_{z \sim q}[\eta^{\text{local}}_{i,\ell}])$
-    \EndFor
+    \State Update $\nu_i \gets E_q[\eta^{\text{local}}_i]$
   \EndFor
-  \State Set $\hat \mu$ to be a vector of $m$ zeros
-  \For{each observation $x_i$ in $b$}
-    \For{each global variable $k \in \{1, \ldots, m\}$}
-      \State TODO***
-      %\State $\hat \mu \gets \hat \mu + E_{z \sim q}[\eta^{\text{global}}_{TODO}]
-    \EndFor
-  \EndFor
-  \State Update TODO***
+  \State Update $\mu \gets (1-\rho_t)\mu + \rho_t E_q[\eta^{\text{global}}_b]$
   \State Compute ELBO according equation~\eqref{eq:elbo}.
 \EndWhile
-\State \Return $(\mu_1, \ldots, \mu_m)$ and matrix $(\nu_{d,\ell})$
+\State \Return $\mu$, $\nu$
 \end{algorithmic}
 \end{algorithm}
-
-By using stochastic variational inference, we end up with an algorithm which is, in practice, more efficient than either Gibbs sampling or coordinate-ascent variational inference.
-This is because this algorithm typically requires fewer iterations through the full dataset.
-In particular, it allows us to update our estimates for the global (corpus-wide) latent variables more frequently than once per iteration through the dataset.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Hierarchical Topic Models Based on Dirichlet Processes}
@@ -612,11 +655,11 @@ The first such technique is known as the Nested Chinese Restaurant Process, and 
 
 \subsection{The Nested Chinese Restaurant Process Topic Model}
 
-Next, we discuss a topic model which was defined in Griffiths et al \cite{griffiths2004hierarchical} and Blei et al \cite{blei2010ncrp} and which is capable of learning a hierarchy of topics.
-There is some ambiguity in the terminology used in the literature, as the term ``NCRP'' can refer to the probability distribution defined above, but it has also been used to refer to the particular nested topic model discussed in this section.
+The NCRP topic model was defined in Griffiths et al \cite{griffiths2004hierarchical} and Blei et al \cite{blei2010ncrp} and is capable of learning a hierarchy of topics.
+There is some ambiguity in the terminology used in the literature, as the term ``NCRP'' can refer to a probability distribution over paths in a tree, but it has also been used to refer to the particular nested topic model discussed in this section.
 To disambiguate these terms, we will typically use the term ``NCRP distribution'' to refer to the former, and ``NCRP topic model'' to refer to the latter.
 
-The NCRP topic model is based on a probability distribution known as the Chinese Restaurant Process (CRP), which we will discuss first.
+Both the NCRP distribution and the NCRP topic model are based on a probability distribution known as the Chinese Restaurant Process (CRP), which we will discuss first.
 
 \subsubsection{The Chinese Restaurant Process: A Distribution Over Partitions}
 
