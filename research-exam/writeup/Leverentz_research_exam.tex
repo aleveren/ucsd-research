@@ -957,7 +957,7 @@ The generative process is as follows:
 \begin{outline}[enumerate]
 \1 For each node $r$ in the infinite tree, draw a topic vector $\theta_r$, representing a distribution over the vocabulary.
 Since this involves an infinite number of random draws, this step is performed via lazy evaluation.
-\1 For each node $r$ and each $j \geq 1$, draw a beta-distributed stick-breaking proportion $V^*_{r,j}$ via lazy evaluation:
+\1 For each node $r$ and each $j \geq 1$, draw a beta-distributed stick-breaking proportion $V^*_{r,j}$ via lazy evaluation.
 \1 For each document $d$:
   \2 For each node $r$ in the infinite tree, perform the following steps via lazy evaluation:
     \3 For each $j \geq 1$:
@@ -1017,9 +1017,10 @@ Figure~\ref{fig:prob-nhdp} shows the corresponding conditional probability distr
 \edge{alphaW}{th};
 %
 \plate{word-plate}{(t)(c)}{$n \in \{1, \ldots, N_d\}$};
-\plate{j-plate}{(z)(vstar)(v)}{$j \geq 1$};
-\centeredPlate{tree-plate}{(u)(v)(z)(th)(vstar)(j-plate)}{\begin{tabular}{c}$r: $ path to \\ any node\end{tabular}};
-\plate{doc-plate}{(word-plate)(z)(u)(v)}{$d \in \{1, \ldots, D\}$};
+\plate{j-plate-1}{(vstar)}{$j \geq 1$};
+\plate{j-plate-2}{(z)(v)}{$j \geq 1$};
+\centeredPlate{tree-plate}{(u)(th)(j-plate-1)(j-plate-2)}{\begin{tabular}{c}$r: $ path to \\ any node\end{tabular}};
+\plate{doc-plate}{(word-plate)(u)(j-plate-2)}{$d \in \{1, \ldots, D\}$};
 \end{tikzpicture}
 %
 \caption{Plate diagram for the NHDP topic model}
