@@ -3,8 +3,8 @@
 
 %\usepackage{pgfpages}  % for handout
 %\pgfpagesuselayout{4 on 1}[letterpaper,landscape,border shrink=5mm] % for handout
-%\setbeamertemplate{footline}[frame number] % for handout
 
+\setbeamertemplate{footline}[frame number]  % include frame numbers
 \usefonttheme[onlymath]{serif}  % use "article"-style math font
 
 \usepackage[utf8]{inputenc} % allow utf-8 input
@@ -22,14 +22,20 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{graphicx}
+\usepackage{outlines}
+\usepackage{dsfont}
 \usepackage{float}
 \usepackage{caption}
 \usepackage{tikz}
 
 \usetikzlibrary{bayesnet,positioning}
 
-\newcommand{\len}{\mathop{\text{len}}}
 \newcommand{\nth}{^{\text{th}}}
+\newcommand{\len}{\mathop{\text{len}}}
+\newcommand{\indicator}{\mathds{1}}
+\newcommand{\hackystatei}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{#1\strut}}
+\newcommand{\hackystateii}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent-\algorithmicindent}{#1\strut}}
+
 \newcommand{\customSectionFrame}[1]{%
   \begin{frame}[c]{ } %
   \Large
@@ -43,18 +49,19 @@
 \setbeamertemplate{navigation symbols}{}  % Omit navigation buttons
 \setbeamertemplate{bibliography item}{\insertbiblabel}
 
-\title{Hierarchical Topic Models}
-\author{Andrew Leverentz \\[1em] %
-    { \small %
-    \emph{Research Examination, Fall Quarter 2017} \\ %
-    \emph{UC San Diego, Dept.\ of Computer Science and Engineering}}}
-\date{}
-% TODO: \titlegraphic{\includegraphics[width=0.3\textwidth]{figures/some-figure.png}}
-
 \begin{document}
 
 \begin{frame}
-\titlepage
+\vspace{3em}
+\begin{center}
+\structure{\Large{Hierarchical Topic Models}} \\[1em]
+Andrew Leverentz \\[1em]
+{ \small
+\emph{Research Examination, Fall Quarter 2017} \\
+\emph{UC San Diego, Dept.\ of Computer Science and Engineering}} \\[2em]
+\includegraphics[width=0.7\textwidth]{../figures/title_image.png} \\[1em]
+{\color[rgb]{0.5,0.5,0.5} \tiny Image Source: Paisley et al \cite{paisley2015nhdp}}
+\end{center}
 \end{frame}
 
 \begin{frame}
@@ -209,7 +216,7 @@ p(\text{latent variables} \mid \text{data}, \text{fixed parameters}) \\
     \item \emph{Markov Chain}: Find stationary distribution of a stochastic process where update rules depend only on previous state
     \end{itemize}
 \item State vector $\vec z$; each component corresponds to a latent variable
-\item Repeatedly update $\vec z$ by iterating through random variables, updating $z_k$ by sampling from its \emph{complete conditional}:
+\item Repeatedly update $\vec z$ by iterating through latent variables, updating $z_k$ by sampling from its \emph{complete conditional}:
 \[ p(z_k \mid \vec z_{-k}, \vec x) \]
 Here, $\vec z_{-k}$ denotes all components of $\vec z$ except $z_k$
 \item The distribution of the samples $\vec z$ approaches the true posterior $p(\vec z \mid \vec x)$
@@ -245,8 +252,8 @@ Here, $\vec z_{-k}$ denotes all components of $\vec z$ except $z_k$
 \begin{itemize}[<+->]
 \item Coordinate ascent: optimize one latent variable's parameters at a time
 \item Works best for exponential-family models, where conditional distributions can be written as
-\[ p(x \mid \theta) = h(x) \exp( \alert<.(1)>{\eta(\theta)} \cdot \alert<.(2)>{T(x)} - a(\theta)) \]
-\onslide<+->{(\alert<.>{$\eta(\theta) =$ \emph{natural parameters}}, \alert<+>{$T(x) =$ \emph{sufficient statistics}})} \pause
+\[ p(x \mid \theta) = h(x) \exp( \alert<.(1)| handout:0>{\eta(\theta)} \cdot \alert<.(2)| handout:0>{T(x)} - a(\theta)) \]
+\onslide<+->{(\alert<.| handout:0>{$\eta(\theta) =$ \emph{natural parameters}}, \alert<+| handout:0>{$T(x) =$ \emph{sufficient statistics}})} \pause
 \item For exponential-family models, the update rule for $z_k$ is
 \[ \nu_k = E_q[\eta_k(\vec z_{-k}, \vec x)] \]
 where $\eta_k$ denotes the natural parameters of the complete conditional of $z_k$
@@ -259,10 +266,10 @@ where $\eta_k$ denotes the natural parameters of the complete conditional of $z_
 \item Generic model with local (per-observation) and global variables:
 \begin{center}
 \begin{tikzpicture}
-\node[obs] (x) {\alert<.(1)>{$x_n$}};
-\node[latent, left=of x] (z) {\alert<.(2)>{$z_n$}};
-\node[latent, above=0.5cm of z] (beta) {\alert<.(3)>{$\beta$}};
-\node[const, left=of beta] (alpha) {\alert<.(4)>{$\alpha$}};
+\node[obs] (x) {\alert<.(1)| handout:0>{$x_n$}};
+\node[latent, left=of x] (z) {\alert<.(2)| handout:0>{$z_n$}};
+\node[latent, above=0.5cm of z] (beta) {\alert<.(3)| handout:0>{$\beta$}};
+\node[const, left=of beta] (alpha) {\alert<.(4)| handout:0>{$\alpha$}};
 
 \edge{z}{x};
 \edge{beta}{z};
@@ -273,10 +280,10 @@ where $\eta_k$ denotes the natural parameters of the complete conditional of $z_
 \plate{obs-plat}{(x)(z)}{$n \in \{1, \ldots, N\}$};
 \end{tikzpicture}
 \end{center}
-\onslide<+->{\alert<.>{$x_n$}: observed data} \\
-\onslide<+->{\alert<.>{$z_n$}: local variables (one per observation)} \\
-\onslide<+->{\alert<.>{$\beta$}: global variable (shared for all observations)} \\
-\onslide<+->{\alert<.>{$\alpha$}: fixed parameters}
+\onslide<+->{\alert<.| handout:0>{$x_n$}: observed data} \\
+\onslide<+->{\alert<.| handout:0>{$z_n$}: local variables (one per observation)} \\
+\onslide<+->{\alert<.| handout:0>{$\beta$}: global variable (shared for all observations)} \\
+\onslide<+->{\alert<.| handout:0>{$\alpha$}: fixed parameters}
 \item Complete conditional for local variables simplifies:
 \[ p(z_n \mid \alpha, \beta, z_{-n}, x_{1:N}) = p(z_n \mid \alpha, \beta, x_n) \]
 \item Complete conditional for global variable requires full dataset:
@@ -303,8 +310,8 @@ where $\nu$ is the current value of the local variational params
 \begin{itemize}[<+->]
 \item For global variables, repeatedly draw \emph{mini-batches} $b$ containing $S$ observations
 \item Compute an \emph{unbiased estimate} of the natural gradient $G^{-1} \nabla \mathcal L$ for each batch:
-\[ \mu = E_q[\alert<.(1)>{\eta^{\text{global}}_b}] - \nu^{\text{global}} \]
-\onslide<+->{Here, \alert<.>{$\eta^{\text{global}}_b$} denotes the natural parameters of the complete conditional of the global variable, but with the true dataset replaced by $N / S$ copies of the mini-batch $b$}
+\[ \mu = E_q[\alert<.(1)| handout:0>{\eta^{\text{global}}_b}] - \nu^{\text{global}} \]
+\onslide<+->{Here, \alert<.| handout:0>{$\eta^{\text{global}}_b$} denotes the natural parameters of the complete conditional of the global variable, but with the true dataset replaced by $N / S$ copies of the mini-batch $b$}
 \item Update according to a decaying schedule of step sizes $\rho_t$:
 \begin{align*}
 \nu^{\text{global}}
@@ -322,7 +329,7 @@ where $\nu$ is the current value of the local variational params
 \begin{frame}
 \frametitle{Topic Modeling with Hierarchies}
 \begin{itemize}[<+->]
-\item Goal: extend LDA model so that:
+\item Goal: extend LDA model so that: %\alt<.>{\ldots}{:}
     \begin{itemize}[<+->]
     \item Topics are arranged in a tree \\ (root $\rightarrow$ abstract; leaves $\rightarrow$ concrete)
     \item The size and structure of the tree can be determined in a data-driven way
@@ -363,28 +370,141 @@ where $\nu$ is the current value of the local variational params
     \item If the first $k$ tables are occupied, with the $i\nth$ table containing $m_i$ customers, sit at table $i$ with probability $\frac{m_i}{n+\alpha}$
     \item Sit at the next empty table with probability $\frac{\alpha}{n + \alpha}$
     \end{itemize}
-\item Parameter $\alpha$: as $\alpha \to \infty$, number of occupied tables increases
+\item Parameter $\alpha$: As $\alpha \to \infty$, number of occupied tables increases
+\item Stick-breaking construction:
+    \begin{itemize}
+    \item Draw infinite sequence of beta-distributed variables:
+    \[ V_k \sim \text{Beta}(1, \alpha) \qquad \text{for $k \geq 1$} \]
+    \item Draw table index $k$ with probability $\pi_k = V_k \prod_{j=1}^{k-1} (1-V_j)$
+    \end{itemize}
 \end{itemize}
 \end{frame}
 
 \begin{frame}
 \frametitle{Dirichlet Process: Distribution Over Grouped Data}
 \begin{itemize}[<+->]
-\item TODO
+\item Alternative formulation: when CRP is used as an index into a set of i.i.d.\ random variables
+\item Parameterized by $\alpha$ and a base distribution $G_0$
+\item Let $X \sim \text{DP}(\alpha, G_0)$ denote:
+\begin{align*}
+\onslide<+->{\theta_k &\sim G_0} \\
+\onslide<+->{V_k &\sim \text{Beta}(1, \alpha)} \\
+\onslide<+->{\pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j)} \\
+\onslide<+->{X &= \sum_{k \geq 1} \pi_k \delta_{\theta_k}}
+\end{align*}
+\item So, $X$ is a discrete distribution over a countable set of ``atoms'' drawn from $G_0$
 \end{itemize}
 \end{frame}
 
 \begin{frame}
 \frametitle{Nested CRP: Distribution Over Paths}
 \begin{itemize}[<+->]
-\item TODO
+\item Analogy: Infinitely many restaurants, arranged in a tree
+\item Customers enter the ``root'' restaurant and select a table
+\item Once seated, customers move to a restaurant indicated by a card at their table
+\item This process repeats indefinitely at new restaurants
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Nested CRP: Distribution Over Paths}
+\begin{itemize}[<+->]
+\item A single draw from the NCRP is a distribution over infinite paths (finite-depth variant also exists)
+\item Stick-breaking construction:  $T \sim \text{NCRP}(\alpha)$ denotes:
+\begin{align*}
+\onslide<+->{V_r &\sim \text{Beta}(1, \alpha) \qquad \text{for any finite-length path $r$}} \\
+\onslide<+->{V_{()} &= 1} \\
+\onslide<+->{\pi_{()} &= 1} \\
+\onslide<+->{\pi_{r[1:\ell]} &= \pi_{r[1:\ell-1]} \cdot \left( V_{r[1:\ell]} \prod_{j=1}^{r[\ell]-1} (1-V_{r[1:\ell-1],j}) \right)} \\
+\onslide<+->{T &= \sum_{{\mathclap{r : \text{infinite path}}}} \pi_r \delta_r}
+\end{align*}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{The GEM Distribution}
+\begin{itemize}[<+->]
+\item Within a path, how to sample individual nodes?
+\item Select depth via GEM distribution over positive integers \\
+(GEM = Griffiths, Engen, and McCloskey)
+\item Notation: $\vec \pi \sim \text{GEM}_2(\alpha_1, \alpha_2)$ is shorthand for
+\begin{align*}
+V_k &\sim \text{Beta}(\alpha_1, \alpha_2) \qquad \text{for } k \geq 1 \\
+\pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j) \qquad \text{for } k \geq 1
+\end{align*}
+\item Then, select depth via
+\begin{align*}
+Z &\sim \text{Categorical}(\{\pi_k\}_{k \geq 1})
+\end{align*}
 \end{itemize}
 \end{frame}
 
 \begin{frame}
 \frametitle{NCRP Topic Model}
 \begin{itemize}[<+->]
-\item TODO
+\item Draw an infinite tree of topics, $\theta_r \sim \text{Dirichlet}(\alpha^{(\theta)})$
+\item Draw a global distribution over paths, $T \sim \text{NCRP}(\alpha^{(V)})$
+\item For each document $d$:
+    \begin{itemize}
+    \item Draw a path $c_d \sim T$
+    \item Draw a distribution over depths $\phi_d \sim \text{GEM}_2(\alpha^{(\phi)}_1, \alpha^{(\phi)}_2)$
+    \item For each word-slot $n$:
+        \begin{itemize}
+        \item Draw a depth $z_{d,n} \sim \text{Categorical}(\phi_d)$
+        \item Draw a vocabulary word $t_{d,n} \sim \text{Categorical}(\theta[c_d[1:z_{d,n}]])$
+        \end{itemize}
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{NCRP Topic Model}
+\begin{center}
+\begin{tikzpicture}
+\node[obs] (t) {$t_{d,n}$};
+\node[latent, above=of t] (c) {$c_d$};
+\node[latent, right=1.5cm of c] (v) {$V_r$};
+\node[latent, right=1.5cm of t] (th) {$\theta_r$};
+\node[latent, left=of t] (z) {$z_{d,n}$};
+\node[latent, above=of z] (phi) {$\phi_d$};
+\node[const, left=of phi] (alphaPhi) {$\alpha^{(\phi)}$};
+\node[const, right=of v] (alphaV) {$\alpha^{(V)}$};
+\node[const, right=of th] (alphaTheta) {$\alpha^{(\theta)}$};
+
+\edge{phi}{z};
+\edge{z}{t};
+\edge{c}{t};
+\edge{v}{c};
+\edge{th}{t};
+\edge{alphaPhi}{phi};
+\edge{alphaV}{v};
+\edge{alphaTheta}{th};
+
+\centeredPlate{word-plate}{(t)(z)}{$n \in \{1, \ldots, N_d\}$};
+\centeredPlate{doc-plate}{(phi)(c)(z)(t)(word-plate)}{$d \in \{1, \ldots, D\}$};
+\centeredPlate{tree-plate}{(th)(v)}{\begin{tabular}{c}$r: $ path to \\ any node\end{tabular}};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{NCRP Topic Model: Gibbs Sampling}
+\begin{itemize}[<+->]
+\item Collapsed Gibbs sampling (marginalize out depth proportions $\phi_d$ and topic vectors $\theta_r$)
+\item Griffiths et al \cite{griffiths2004hierarchical}: Finite depth, uses order-dependent ``restaurant analogy'' formulation to avoid tracking infinitely many paths; each sampling step may grow or shrink the tree
+\item Blei et al \cite{blei2010ncrp}: Uses lazy evaluation; if final layer is ever sampled, then start tracking one extra layer
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{NCRP Topic Model: Variational Inference}
+\begin{itemize}[<+->]
+\item Infinitely many latent variables: need additional approximations
+\item Start with finite-depth, finite-width tree
+\item Depth stays constant, but width may change throughout algorithm
+\item Outside of the finite truncation, all variational distributions assumed constant
+\item Divide infinite set of paths into finitely many equivalence classes
+\item If one equivalence class becomes sufficiently likely, add a representative path from it
 \end{itemize}
 \end{frame}
 
@@ -392,12 +512,174 @@ where $\nu$ is the current value of the local variational params
 \frametitle{Nested Hierarchical Dirichlet Process}
 \begin{itemize}[<+->]
 \item Idea: Global probability distribution over nodes, and each document samples a re-weighted version of that distribution
+\item Handles ``hybrid'' topics better than NCRP
+\begin{center}
+\includegraphics[width=0.8\textwidth]{../figures/ncrp_vs_nhdp.png} \\
+\footnotesize Source: Paisley et al \cite{paisley2015nhdp}
+\end{center}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Hierarchical Dirichlet Process}
+\begin{itemize}[<+->]
+\item A model for grouped data, with unbounded number of groups
+\item Formulation:
+\begin{align*}
+H &\sim \text{DP}(\alpha, G_0) \\
+H_d &\sim \text{DP}(\beta, H) \\
+\mu_{d,n} &\sim H_d \\
+x_{d,n} &\sim F(\mu_{d,n})
+\end{align*}
+\item Global distribution $H$ drawn from Dirichlet Process applied to base distribution $G_0$
+\item Per-group distributions $H_d$ drawn from another Dirichlet Process applied to $H$
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{NHDP Topic Model}
+\begin{itemize}[<+->]
+\item Each node in infinite tree associated with a topic vector
+\item NHDP uses an instance of HDP at each node in the infinite tree
+\item Interleaves per-document path-propagation variables to define a document-specific distribution over nodes
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{NHDP Topic Model: Generative Process}
+Global steps:
+\begin{itemize}[<+->]
+\item For each node $r$ in the infinite tree, draw a topic vector $\theta_r$
+\item For each node $r$ and each $j \geq 1$, draw stick-breaking proportion $V^*_{r,j}$
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{NHDP Topic Model: Generative Process}
+\onslide<+->{For each document $d$:}
+  \begin{itemize}[<+->]
+  \item For each node $r$ in the infinite tree:
+    \begin{itemize}
+    \item For each $j \geq 1$:
+      \begin{itemize}
+      \item Draw an index $z^d_{r,j} \geq 1$ according to a discrete distribution with probabilities given by $\pi_k = V^*_{r,k} \prod_{i=1}^{k-1} (1-V^*_{r,i})$.
+      \item Draw a beta-distributed stick-breaking proportion $V^d_{r,j}$.
+      \end{itemize}
+    \item Draw a beta-distributed path-propagation random variable $U^d_r$.
+    \end{itemize}
+  \item For each word-slot $n$ in document $d$:
+    \begin{itemize}
+    \item Let $r = ()$, the empty path.
+    \item Repeat the following steps until a value for $c^d_n$ is chosen:
+      \begin{itemize}
+      \item Draw a Bernoulli random variable with mean $U^d_r$.
+      \item If the outcome is $1$, then set $c^d_n = r$ and break out of this loop; otherwise, continue.
+      \item For all $j \geq 1$, let $S_j =$ set of indices $k$ such that $z^d_{r,k} = j$. \\
+      Define $\mu_j = \sum_{k \in S_j} V^d_{r,k} \prod_{i=1}^{k-1} (1-V^d_{r,i})$.
+      \item Draw an index $\tilde z \geq 1$ from a discrete probability distribution with probabilities given by $\mu_j$ as defined above.
+      \item Update $r \gets (r, \tilde z)$.
+      \end{itemize}
+    \item Draw a vocabulary word $t^d_n$ from $\text{Categorical}(\theta_{c^d_n})$.
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{NHDP Topic Model: Conditional Distributions}
+{
+\footnotesize
+\begin{align*}
+\theta_r &\sim \text{Dirichlet}(\alpha^{(\theta)}) \\
+V^*_{r,j} &\sim \text{Beta}(1, \alpha^{(V^*)}) \\
+V^d_{r,j} &\sim \text{Beta}(1, \alpha^{(V)}) \\
+U^d_r &\sim \text{Beta}(\alpha^{(U)}_1, \alpha^{(U)}_2) \\
+z^d_{r,j} &\sim \sum_{k \geq 1} \left( V^*_{r,k} \prod_{i=1}^{k-1} (1-V^*_{r,i}) \right) \delta_k \\
+c^d_n &\sim \sum_{r: \text{path}} A(r, V^d, z^d) \, B(r, U^d) \, \delta_r \\
+A(r, V^d, z^d) &= \prod_{m=0}^{\len(r)-1} \sum_{k \geq 1} \indicator \left[ z^d_{r[1:m],k} = r[m+1] \right] \left( V^d_{r[1:m],k} \prod_{i=1}^{k-1} \left( 1 - V^d_{r[1:m],i} \right) \right) \\
+B(r, U^d) &= U^d_r \prod_{m=0}^{\len(r)-1} \left( 1 - U^d_{r[1:m]} \right) \\
+t^d_n &\sim \text{Categorical}(\theta_{c^d_n})
+\end{align*}
+}
+\end{frame}
+
+\begin{frame}
+\frametitle{NHDP Topic Model: Plate Diagram}
+\begin{center}
+\begin{tikzpicture}
+\node[obs] (t) {$t^d_n$};
+\node[latent, left=of t] (c) {$c^d_n$};
+\node[latent, left=of c] (v) {$V^d_{r,j}$};
+\node[latent, below=of v] (u) {$U^d_r$};
+\node[latent, above=of v] (z) {$z^d_{r,j}$};
+\node[latent, left=of z] (vstar) {$V^*_{r,j}$};
+\node[latent, below=of u] (th) {$\theta_r$};
+\node[const, left=of vstar] (alphaVstar) {$\alpha^{(V^*)}$};
+\node[const, left=3cm of th] (alphaW) {$\alpha^{(\theta)}$};
+\node[const, left=3cm of v] (alphaV) {$\alpha^{(V)}$};
+\node[const, left=3cm of u] (alphaU) {$\alpha^{(U)}$};
+%
+\edge{c}{t};
+\edge{z}{c}
+\edge{v}{c};
+\edge{u}{c};
+\edge{vstar}{z};
+\edge{th}{t};
+\edge{alphaV}{v};
+\edge{alphaU}{u};
+\edge{alphaVstar}{vstar};
+\edge{alphaW}{th};
+%
+\plate{word-plate}{(t)(c)}{$n \in \{1, \ldots, N_d\}$};
+\plate{j-plate-1}{(vstar)}{$j \geq 1$};
+\plate{j-plate-2}{(z)(v)}{$j \geq 1$};
+\centeredPlate{tree-plate}{(u)(th)(j-plate-1)(j-plate-2)}{\begin{tabular}{c}$r: $ path to \\ any node\end{tabular}};
+\plate{doc-plate}{(word-plate)(u)(j-plate-2)}{$d \in \{1, \ldots, D\}$};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{NHDP: Stochastic Variational Inference}
+\begin{itemize}[<+->]
+\item Use a finite-depth, finite-width tree
+\item Simplifications for document-specific indices $z^d_{r,j}$:
+    \begin{itemize}
+    \item Use Dirac-$\delta$ variational distributions
+    \item For any $d$ and any $r$, the indices $z^d_{r,j}$ do not repeat
+    \item For each document, greedy algorithm selects small number of nodes to include
+    \end{itemize}
+\item Greedy algorithm: start with root, add a node only if it increases ELBO by some threshold
+\item Remainder of algorithm is a standard application of stochastic variational inference
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Directions for Future Research}
+\begin{itemize}
+\item Scalable algorithms
+\item Interpreting models
+\item Incorporating human feedback
+\item Moving beyond the bag-of-words model
+\item Frameworks for Bayesian non-parametric inference
 \end{itemize}
 \end{frame}
 
 %%%%%%%%%%%%%
 
-\customSectionFrame{Thank You!}
+\begin{frame}
+\frametitle{Acknowledgements}
+\begin{itemize}
+\item \textbf{Advisor:} Sanjoy Dasgupta
+\item \textbf{LANL Mentor:} Kari Sentz
+\item \textbf{Research Exam Committee:} \\ Vineet Bafna (chair), Yoav Freund, Julian McAuley
+\end{itemize}
+\vspace{2em}
+\begin{center}
+\Large
+\color[rgb]{0,0,0.6}
+Thank You!
+\end{center}
+\end{frame}
 
 {
 \setbeamertemplate{frametitle continuation}{}
