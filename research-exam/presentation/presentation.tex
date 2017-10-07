@@ -412,7 +412,16 @@ where $\nu$ is the current value of the local variational params
 \begin{itemize}[<+->]
 \item Idea: Each document samples a path from an infinite tree
 \item Within each document, we can only select nodes (ie, topics) from the sampled path
-\vspace{1em}
+\end{itemize}
+\begin{center}
+\includegraphics[width=0.4\textwidth]{../figures/ncrp.png} \\
+{\tiny Source: Paisley et al \cite{paisley2015nhdp}}
+\end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Nested Chinese Restaurant Process: Preliminaries}
+\begin{itemize}[<+->]
 \item How to define distributions over paths in an infinite (or arbitrarily large) tree? \\
 \onslide<+->{Nested Chinese Restaurant Process}
 \item How to define distributions over arbitrarily large partitions? \\
@@ -431,13 +440,62 @@ where $\nu$ is the current value of the local variational params
     \item If the first $k$ tables are occupied, with the $i\nth$ table containing $m_i$ customers, sit at table $i$ with probability $\frac{m_i}{n+\alpha}$
     \item Sit at the next empty table with probability $\frac{\alpha}{n + \alpha}$
     \end{itemize}
+    \onslide<+->{
+    \begin{center}
+    \begin{tikzpicture}
+    \node[draw, circle] (t1) {$1$};
+    \node[draw, circle, right=of t1] (t2) {$2$};
+    \node[draw, circle, right=of t2] (t3) {$3$};
+    \node[draw, circle, right=of t3] (t4) {$4$};
+    \node[right=of t4] (dots) {$\cdots$};
+    \node[above=0cm of t1] (c1) {\tiny $1$};
+    \node[above=0cm of t2] (c2) {\tiny $2$};
+    \node[right=0cm of t1] (c3) {\tiny $3$};
+    \node[right=0cm of t2] (c4) {\tiny $4$};
+    \node[below=0cm of t1] (c5) {\tiny $5$};
+    \node[above=0cm of t3] (c6) {\tiny $6$};
+    \node[below=0cm of t2] (c7) {\tiny $7$};
+    \node[ left=0cm of t2] (c8) {\tiny $8$};
+    \node[ left=0cm of t1] (c9) {\tiny $9$};
+    \node[above=0cm of t4] (c10) {\tiny $10$};
+    \node[right=0cm of t3] (c11) {\tiny $11$};
+    \end{tikzpicture}
+    \end{center}
+    }
 \item Parameter $\alpha$: As $\alpha \to \infty$, number of occupied tables increases
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Chinese Restaurant Process: Distribution Over Partitions}
+\begin{itemize}[<+->]
 \item Stick-breaking construction:
     \begin{itemize}
     \item Draw infinite sequence of beta-distributed variables:
     \[ V_k \sim \text{Beta}(1, \alpha) \qquad \text{for $k \geq 1$} \]
     \item Draw table index $k$ with probability $\pi_k = V_k \prod_{j=1}^{k-1} (1-V_j)$
     \end{itemize}
+\onslide<+->{
+\begin{center}
+\begin{tikzpicture}
+\node (start) {};
+\node[draw, circle, right=of start] (v1) {$V_1$};
+\node[draw, rectangle, below=of v1] (v1box) {$k=1$};
+\node[draw, circle, right=of v1] (v2) {$V_2$};
+\node[draw, rectangle, below=of v2] (v2box) {$k=2$};
+\node[draw, circle, right=of v2] (v3) {$V_3$};
+\node[draw, rectangle, below=of v3] (v3box) {$k=3$};
+\node[right=of v3] (dots) {$\cdots$};
+\draw[->] (start) -- (v1);
+\draw[->] (v1) -- node[above] {$0$} (v2);
+\draw[->] (v2) -- node[above] {$0$} (v3);
+\draw[->] (v3) -- node[above] {$0$} (dots);
+\draw[->] (v1) -- node[right] {$1$} (v1box);
+\draw[->] (v2) -- node[right] {$1$} (v2box);
+\draw[->] (v3) -- node[right] {$1$} (v3box);
+\end{tikzpicture}
+\end{center}
+}
 \end{itemize}
 \end{frame}
 
@@ -480,6 +538,45 @@ where $\nu$ is the current value of the local variational params
 \onslide<+->{T &= \sum_{{\mathclap{r : \text{infinite path}}}} \pi_r \delta_r}
 \end{align*}
 \end{itemize}
+\end{frame}
+
+\newcommand{\trans}[4]{\draw[-latex] (#1) -- node[#2] {\tiny \(#3\)} (#4);}
+
+\begin{frame}
+\frametitle{Nested CRP: A Finite-Depth Example}
+\begin{center}
+\begin{tikzpicture}
+\tikzset{c/.style={draw, circle}}
+\tikzset{r/.style={draw, rectangle}}
+\node (start) {};
+\node[c,below=of start] (v1) {\tiny $V_{(1)}$};
+\node[c,right=4cm of v1] (v2) {\tiny $V_{(2)}$};
+\node[right=of v2] (dots) {\tiny $\cdots$};
+\node[c,below=of v1] (v11) {\tiny $V_{(1,1)}$};
+\node[c,right=of v11] (v12) {\tiny $V_{(1,2)}$};
+\node[right=0.5cm of v12] (dots1) {\tiny $\cdots$};
+\node[c,below=of v2] (v21) {\tiny $V_{(2,1)}$};
+\node[c,right=of v21] (v22) {\tiny $V_{(2,2)}$};
+\node[right=0.5cm of v22] (dots2) {\tiny $\cdots$};
+\node[r,below=of v11] (r11) {\tiny $r=(1,1)$};
+\node[r,below=of v12] (r12) {\tiny $r=(1,2)$};
+\node[r,below=of v21] (r21) {\tiny $r=(2,1)$};
+\node[r,below=of v22] (r22) {\tiny $r=(2,2)$};
+\trans{start}{}{}{v1}
+\trans{v1}{above}{0}{v2}
+\trans{v2}{above}{0}{dots}
+\trans{v11}{above}{0}{v12}
+\trans{v12}{above}{0}{dots1}
+\trans{v21}{above}{0}{v22}
+\trans{v22}{above}{0}{dots2}
+\trans{v1}{right}{1}{v11}
+\trans{v2}{right}{1}{v21}
+\trans{v11}{right}{1}{r11}
+\trans{v12}{right}{1}{r12}
+\trans{v21}{right}{1}{r21}
+\trans{v22}{right}{1}{r22}
+\end{tikzpicture}
+\end{center}
 \end{frame}
 
 \begin{frame}
@@ -562,9 +659,9 @@ Z &\sim \text{Categorical}(\{\pi_k\}_{k \geq 1})
 \begin{itemize}[<+->]
 \item Infinitely many latent variables: need additional approximations
 \item Start with finite-depth, finite-width tree
-\item Depth stays constant, but width may change throughout algorithm
-\item Outside of the finite truncation, all variational distributions assumed constant
-\item Divide infinite set of paths into finitely many equivalence classes
+\item Depth stays constant, but width may change
+\item Outside of the finite truncation, variational distributions are assumed constant
+\item Divide infinite set of paths into equivalence classes
 \item If one equivalence class becomes sufficiently likely, add a representative path from it
 \end{itemize}
 \end{frame}
@@ -576,7 +673,7 @@ Z &\sim \text{Categorical}(\{\pi_k\}_{k \geq 1})
 \item Handles ``hybrid'' topics better than NCRP
 \begin{center}
 \includegraphics[width=0.8\textwidth]{../figures/ncrp_vs_nhdp.png} \\
-\footnotesize Source: Paisley et al \cite{paisley2015nhdp}
+{\tiny Source: Paisley et al \cite{paisley2015nhdp}}
 \end{center}
 \end{itemize}
 \end{frame}
