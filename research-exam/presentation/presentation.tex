@@ -23,6 +23,9 @@
 \usepackage{float}
 \usepackage{caption}
 \usepackage{tikz}
+\usepackage{multirow}
+\usepackage{bigdelim}
+\usepackage{scalerel}
 
 \usetikzlibrary{bayesnet,positioning}
 
@@ -87,13 +90,66 @@ Andrew Leverentz \\[1em]
 \end{frame}
 
 \begin{frame}
+\frametitle{Example: Documents as Mixtures of Topics}
+\begin{tabular}{rrll}
+Topics:
+&$\theta_1$ &$=$ ``sports'' &
+\begin{tikzpicture}[baseline=0.2cm]
+\draw (0,0) -- (4,0);
+\fill (0.1, 0) rectangle (0.9, 0.5);
+\fill (1.1, 0) rectangle (1.9, 0.6);
+\fill (2.1, 0) rectangle (2.9, 0.2);
+\node at (0.5, -0.2) {\tiny team};
+\node at (1.5, -0.2) {\tiny player};
+\node at (2.5, -0.2) {\tiny injury};
+\node at (3.5, -0.2) {\tiny illness};
+\end{tikzpicture}
+\\
+&$\theta_2$ &$=$ ``medicine'' &
+\begin{tikzpicture}[baseline=0.2cm]
+\draw (0,0) -- (4cm,0);
+\fill (2.1, 0) rectangle (2.9, 0.5);
+\fill (3.1, 0) rectangle (3.9, 0.7);
+\node at (0.5, -0.2) {\tiny team};
+\node at (1.5, -0.2) {\tiny player};
+\node at (2.5, -0.2) {\tiny injury};
+\node at (3.5, -0.2) {\tiny illness};
+\end{tikzpicture}
+\\[3em]
+%
+Documents:
+&$\phi_1$ &$=$ ``document 1'' &
+\begin{tikzpicture}[baseline=0.2cm]
+\draw (0,0) -- (4,0);
+\fill (0.2, 0) rectangle (1.8, 0.7);
+\fill (2.2, 0) rectangle (3.8, 0.3);
+\node at (1, -0.2) {\tiny topic 1};
+\node at (3, -0.2) {\tiny topic 2};
+\end{tikzpicture}
+\\
+&$\phi_2$ &$=$ ``document 2'' &
+\begin{tikzpicture}[baseline=0.2cm]
+\draw (0,0) -- (4,0);
+\fill (0.2, 0) rectangle (1.8, 0.3);
+\fill (2.2, 0) rectangle (3.8, 0.7);
+\node at (1, -0.2) {\tiny topic 1};
+\node at (3, -0.2) {\tiny topic 2};
+\end{tikzpicture}
+\end{tabular}
+\end{frame}
+
+\begin{frame}
 \frametitle{Outline}
 \begin{itemize}[<+->]
-\item The probabilistic framework for topic modeling \\ (``flat'' topic models)
+\item ``Flat'' topic models
 \item Bayesian inference algorithms
 \item Learning hierarchies of topics
 \end{itemize}
 \end{frame}
+
+%%%%%%%%%%%%%
+
+\customSectionFrame{``Flat'' Topic Models}
 
 \begin{frame}
 \frametitle{Latent Semantic Analysis: A Non-Probabilistic Precursor}
@@ -688,11 +744,11 @@ Thank You!
 
 {
 \setbeamertemplate{frametitle continuation}{}
-\setbeamerfont{bibliography item}{size=\footnotesize}
-\setbeamerfont{bibliography entry author}{size=\footnotesize}
-\setbeamerfont{bibliography entry title}{size=\footnotesize}
-\setbeamerfont{bibliography entry location}{size=\footnotesize}
-\setbeamerfont{bibliography entry note}{size=\footnotesize}
+\setbeamerfont{bibliography item}{size=\tiny}
+\setbeamerfont{bibliography entry author}{size=\tiny}
+\setbeamerfont{bibliography entry title}{size=\tiny}
+\setbeamerfont{bibliography entry location}{size=\tiny}
+\setbeamerfont{bibliography entry note}{size=\tiny}
 \begin{frame}[allowframebreaks]
 \frametitle{References}
 \nocite{*}
