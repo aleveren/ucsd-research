@@ -29,13 +29,18 @@
 \usepackage{xifthen}
 
 \usetikzlibrary{bayesnet,positioning}
+\usetikzlibrary{decorations.pathreplacing}
 
 \newcommand{\nth}{^{\text{th}}}
 \newcommand{\len}{\mathop{\text{len}}}
 \newcommand{\indicator}{\mathds{1}}
 \newcommand{\hackystatei}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{#1\strut}}
 \newcommand{\hackystateii}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent-\algorithmicindent}{#1\strut}}
+
 \newcommand{\trans}[4]{\draw[-latex] (#1) -- node[#2] {\tiny \(#3\)} (#4);}
+\newcommand{\tick}[2]{\draw[xshift=#1cm,yshift=#2cm] (0,-2pt) -- (0,2pt);}
+\newcommand{\widebraceabove}[4]{\draw [decorate,decoration={brace,amplitude=10pt},yshift=5pt] (#1,#3) -- (#2,#3) node [midway,yshift=17pt] {#4};}
+\newcommand{\widebracebelow}[4]{\draw [decorate,decoration={brace,amplitude=10pt},yshift=-5pt] (#2,#3) -- (#1,#3) node [midway,yshift=-17pt] {#4};}
 
 \newcommand{\customSectionFrame}[1]{%
   \begin{frame}[c]{ } %
@@ -73,11 +78,12 @@ Andrew Leverentz \\[1em]
 \item Internet and digital archives $\rightarrow$ large collections of text data
 \item How can we navigate these collections efficiently?
 \item Typical task: find sets of documents that share the same topic or subject matter
-\item Ambiguities of natural language $\rightarrow$ superficial attributes of documents aren't enough
-    \begin{itemize}[<+->]
-    \item \emph{Synonymy}: Many words, same meaning
-    \item \emph{Polysemy}: One word, many meanings (depending on context)
-    \end{itemize}
+\item Natural language can be both redundant and ambiguous
+    % \begin{itemize}[<+->]
+    % \item \emph{Synonymy}: Many words, same meaning
+    % \item \emph{Polysemy}: One word, many meanings (depending on context)
+    % \end{itemize}
+\item Superficial attributes of documents aren't enough
 \item We need a notion of \emph{latent semantics}, or underlying meaning
 \end{itemize}
 \end{frame}
@@ -151,32 +157,32 @@ Documents:
 \end{tabular}
 \end{frame}
 
-\begin{frame}
-\frametitle{Outline}
-\begin{itemize}[<+->]
-\item ``Flat'' topic models
-\item Bayesian inference algorithms
-\item Learning hierarchies of topics
-\end{itemize}
-\end{frame}
+% \begin{frame}
+% \frametitle{Outline}
+% \begin{itemize}[<+->]
+% \item ``Flat'' topic models
+% \item Bayesian inference algorithms
+% \item Learning hierarchies of topics
+% \end{itemize}
+% \end{frame}
 
 %%%%%%%%%%%%%
 
 \customSectionFrame{``Flat'' Topic Models}
 
-\begin{frame}
-\frametitle{Latent Semantic Analysis: A Non-Probabilistic Precursor}
-\begin{itemize}[<+->]
-\item Compute matrix of word frequencies:
-\[ M_{i,j} = \text{number of times the $i\nth$ word appears in document $j$} \]
-\item Optionally, transform via per-term and per-document statistics
-\[ X_{i,j} = f(M_{i,j}, M_{i,1:D}, M_{1:N,j}) \]
-\item Compute singular-value decomposition (SVD) of this matrix
-\[ X = U \Sigma V^\top \]
-\item Low-rank truncation represents documents and terms as low-dimensional \emph{latent semantic vectors}
-\item Similarity between documents $=$ normalized dot product of latent semantic vectors
-\end{itemize}
-\end{frame}
+% \begin{frame}
+% \frametitle{Latent Semantic Analysis: A Non-Probabilistic Precursor}
+% \begin{itemize}[<+->]
+% \item Compute matrix of word frequencies:
+% \[ M_{i,j} = \text{number of times the $i\nth$ word appears in document $j$} \]
+% \item Optionally, transform via per-term and per-document statistics
+% \[ X_{i,j} = f(M_{i,j}, M_{i,1:D}, M_{1:N,j}) \]
+% \item Compute singular-value decomposition (SVD) of this matrix
+% \[ X = U \Sigma V^\top \]
+% \item Low-rank truncation represents documents and terms as low-dimensional \emph{latent semantic vectors}
+% \item Similarity between documents $=$ normalized dot product of latent semantic vectors
+% \end{itemize}
+% \end{frame}
 
 \begin{frame}
 \frametitle{Probabilistic Latent Semantic Analysis}
@@ -301,7 +307,7 @@ Here, $\vec z_{-k}$ denotes all components of $\vec z$ except $z_k$
 \frametitle{Collapsed Gibbs Sampling}
 \begin{itemize}[<+->]
 \item For some models, we can eliminate some latent variables by marginalization
-\item For the remaining latent variables, we compute a modified form of the complete conditionas:
+\item For the remaining latent variables, we compute a modified form of the complete conditionals:
 \[ p(z_k \mid \vec z_{\text{subset}-k}, \vec x) \]
 \item Running Gibbs sampling based on these distributions yields an estimate for
 \[ p(\vec z_{\text{subset}} \mid \vec x) \]
@@ -314,6 +320,8 @@ Here, $\vec z_{-k}$ denotes all components of $\vec z$ except $z_k$
 \begin{itemize}[<+->]
 \item Approximation technique: select an approximating family of distributions and search for best approximation
 \item Measure closeness using reversed Kullback-Leibler divergence
+\[ \text{KL}(q,\, p(\cdot \,\vert\, \vec x))
+= E_{\vec z \sim q}[\log q(\vec z) - \log p(\vec z \,\vert\, \vec x)] \]
 \item Mean-field approximation: consider parameterized functions which factor cleanly:
 \[ q(\vec z) = \prod_k q_k(z_k; \nu_k) \]
 \item Minimizing reversed KL corresponds to maximizing \emph{evidence lower bound} (ELBO):
@@ -327,7 +335,7 @@ Here, $\vec z_{-k}$ denotes all components of $\vec z$ except $z_k$
 \item Coordinate ascent: optimize one latent variable's parameters at a time
 \item Works best for exponential-family models, where conditional distributions can be written as
 \[ p(x \mid \theta) = h(x) \exp( \alert<.(1)| handout:0>{\eta(\theta)} \cdot \alert<.(2)| handout:0>{T(x)} - a(\theta)) \]
-\onslide<+->{(\alert<.| handout:0>{$\eta(\theta) =$ \emph{natural parameters}}, \alert<+| handout:0>{$T(x) =$ \emph{sufficient statistics}})} \pause
+\onslide<+->{(\alert<.| handout:0>{$\eta(\theta) =$ \emph{natural parameters}}, \alert<+| handout:0>{$T(x) =$ \emph{sufficient statistics}})}
 \item For exponential-family models, the update rule for $z_k$ is
 \[ \nu_k = E_q[\eta_k(\vec z_{-k}, \vec x)] \]
 where $\eta_k$ denotes the natural parameters of the complete conditional of $z_k$
@@ -340,10 +348,10 @@ where $\eta_k$ denotes the natural parameters of the complete conditional of $z_
 \item Generic model with local (per-observation) and global variables:
 \begin{center}
 \begin{tikzpicture}
-\node[obs] (x) {\alert<.(1)| handout:0>{$x_n$}};
-\node[latent, left=of x] (z) {\alert<.(2)| handout:0>{$z_n$}};
-\node[latent, above=0.5cm of z] (beta) {\alert<.(3)| handout:0>{$\beta$}};
-\node[const, left=of beta] (alpha) {\alert<.(4)| handout:0>{$\alpha$}};
+\node[obs] (x) {$x_n$};
+\node[latent, left=of x] (z) {$z_n$};
+\node[latent, above=0.5cm of z] (beta) {$\beta$};
+\node[const, left=of beta] (alpha) {$\alpha$};
 
 \edge{z}{x};
 \edge{beta}{z};
@@ -354,10 +362,10 @@ where $\eta_k$ denotes the natural parameters of the complete conditional of $z_
 \plate{obs-plat}{(x)(z)}{$n \in \{1, \ldots, N\}$};
 \end{tikzpicture}
 \end{center}
-\onslide<+->{\alert<.| handout:0>{$x_n$}: observed data} \\
-\onslide<+->{\alert<.| handout:0>{$z_n$}: local variables (one per observation)} \\
-\onslide<+->{\alert<.| handout:0>{$\beta$}: global variable (shared for all observations)} \\
-\onslide<+->{\alert<.| handout:0>{$\alpha$}: fixed parameters}
+$x_n$: observed data \\
+$z_n$: local variables (one per observation) \\
+$\beta$: global variable (shared for all observations) \\
+$\alpha$: fixed parameters
 \item Complete conditional for local variables simplifies:
 \[ p(z_n \mid \alpha, \beta, z_{-n}, x_{1:N}) = p(z_n \mid \alpha, \beta, x_n) \]
 \item Complete conditional for global variable requires full dataset:
@@ -494,42 +502,81 @@ where $\nu$ is the current value of the local variational params
 \onslide<+->{
 \begin{center}
 \begin{tikzpicture}
-\node (start) {};
-\node[draw, circle, right=of start] (v1) {$V_1$};
-\node[draw, rectangle, below=of v1] (v1box) {$k=1$};
-\node[draw, circle, right=of v1] (v2) {$V_2$};
-\node[draw, rectangle, below=of v2] (v2box) {$k=2$};
-\node[draw, circle, right=of v2] (v3) {$V_3$};
-\node[draw, rectangle, below=of v3] (v3box) {$k=3$};
-\node[right=of v3] (dots) {$\cdots$};
-\draw[->] (start) -- (v1);
-\draw[->] (v1) -- node[above] {$0$} (v2);
-\draw[->] (v2) -- node[above] {$0$} (v3);
-\draw[->] (v3) -- node[above] {$0$} (dots);
-\draw[->] (v1) -- node[right] {$1$} (v1box);
-\draw[->] (v2) -- node[right] {$1$} (v2box);
-\draw[->] (v3) -- node[right] {$1$} (v3box);
+
+\draw (0,0) -- (10,0);
+\widebraceabove{0}{10}{0}{$1$}
+\tick{0}{0}
+\tick{10}{0}
+\onslide<+->
+\tick{3}{0}
+\widebracebelow{0}{3}{0}{$V_1$}
+\widebracebelow{3}{10}{0}{$1-V_1$}
+
+\onslide<+->
+\draw[dashed] (3,0) -- (3,-1.5);
+\draw[dashed] (10,0) -- (10,-1.5);
+\draw (3,-1.5) -- (10,-1.5);
+\tick{3}{-1.5}
+\tick{10}{-1.5}
+\tick{6}{-1.5}
+\widebracebelow{3}{6}{-1.5}{$(1-V_1)V_2$}
+\widebracebelow{6}{10}{-1.5}{$(1-V_1)(1-V_2)$}
+
+\onslide<+->
+\draw[dashed] (6,-1.5) -- (6,-3);
+\draw[dashed] (10,-1.5) -- (10,-3);
+\draw (6,-3) -- (10,-3);
+\tick{6}{-3}
+\tick{10}{-3}
+\tick{8}{-3}
+\widebracebelow{6}{8}{-3}{{$(1-V_1)(1-V_2)V_3$}}
+
+\node at (8,-4.5) {$\vdots$};
+
 \end{tikzpicture}
 \end{center}
 }
 \end{itemize}
 \end{frame}
 
-\begin{frame}
-\frametitle{Dirichlet Process: Distribution Over Grouped Data}
-\begin{itemize}[<+->]
-\item Alternative formulation: when CRP is used as an index into a set of i.i.d.\ random variables
-\item Parameterized by $\alpha$ and a base distribution $G_0$
-\item Let $X \sim \text{DP}(\alpha, G_0)$ denote:
-\begin{align*}
-\onslide<+->{\theta_k &\sim G_0} \\
-\onslide<+->{V_k &\sim \text{Beta}(1, \alpha)} \\
-\onslide<+->{\pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j)} \\
-\onslide<+->{X &= \sum_{k \geq 1} \pi_k \delta_{\theta_k}}
-\end{align*}
-\item So, $X$ is a discrete distribution over a countable set of ``atoms'' drawn from $G_0$
-\end{itemize}
-\end{frame}
+% \begin{frame}
+% \frametitle{CRP: Stick-Breaking Construction}
+% \begin{center}
+% \begin{tikzpicture}
+% \node (start) {};
+% \node[draw, circle, right=of start] (v1) {$V_1$};
+% \node[draw, rectangle, below=of v1] (v1box) {$k=1$};
+% \node[draw, circle, right=of v1] (v2) {$V_2$};
+% \node[draw, rectangle, below=of v2] (v2box) {$k=2$};
+% \node[draw, circle, right=of v2] (v3) {$V_3$};
+% \node[draw, rectangle, below=of v3] (v3box) {$k=3$};
+% \node[right=of v3] (dots) {$\cdots$};
+% \draw[->] (start) -- (v1);
+% \draw[->] (v1) -- node[above] {$0$} (v2);
+% \draw[->] (v2) -- node[above] {$0$} (v3);
+% \draw[->] (v3) -- node[above] {$0$} (dots);
+% \draw[->] (v1) -- node[right] {$1$} (v1box);
+% \draw[->] (v2) -- node[right] {$1$} (v2box);
+% \draw[->] (v3) -- node[right] {$1$} (v3box);
+% \end{tikzpicture}
+% \end{center}
+% \end{frame}
+
+% \begin{frame}
+% \frametitle{Dirichlet Process: Distribution Over Grouped Data}
+% \begin{itemize}[<+->]
+% \item Alternative formulation: when CRP is used as an index into a set of i.i.d.\ random variables
+% \item Parameterized by $\alpha$ and a base distribution $G_0$
+% \item Let $X \sim \text{DP}(\alpha, G_0)$ denote:
+% \begin{align*}
+% \onslide<+->{\theta_k &\sim G_0} \\
+% \onslide<+->{V_k &\sim \text{Beta}(1, \alpha)} \\
+% \onslide<+->{\pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j)} \\
+% \onslide<+->{X &= \sum_{k \geq 1} \pi_k \delta_{\theta_k}}
+% \end{align*}
+% \item So, $X$ is a discrete distribution over a countable set of ``atoms'' drawn from $G_0$
+% \end{itemize}
+% \end{frame}
 
 \begin{frame}
 \frametitle{Nested CRP: Distribution Over Paths}
@@ -593,23 +640,23 @@ where $\nu$ is the current value of the local variational params
 \end{center}
 \end{frame}
 
-\begin{frame}
-\frametitle{The GEM Distribution}
-\begin{itemize}[<+->]
-\item Within a path, how to sample individual nodes?
-\item Select depth via GEM distribution over positive integers \\
-(GEM = Griffiths, Engen, and McCloskey)
-\item Notation: $\vec \pi \sim \text{GEM}_2(\alpha_1, \alpha_2)$ is shorthand for
-\begin{align*}
-V_k &\sim \text{Beta}(\alpha_1, \alpha_2) \qquad \text{for } k \geq 1 \\
-\pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j) \qquad \text{for } k \geq 1
-\end{align*}
-\item Then, select depth via
-\begin{align*}
-Z &\sim \text{Categorical}(\{\pi_k\}_{k \geq 1})
-\end{align*}
-\end{itemize}
-\end{frame}
+% \begin{frame}
+% \frametitle{The GEM Distribution}
+% \begin{itemize}[<+->]
+% \item Within a path, how to sample individual nodes?
+% \item Select depth via GEM distribution over positive integers \\
+% (GEM = Griffiths, Engen, and McCloskey)
+% \item Notation: $\vec \pi \sim \text{GEM}_2(\alpha_1, \alpha_2)$ is shorthand for
+% \begin{align*}
+% V_k &\sim \text{Beta}(\alpha_1, \alpha_2) \qquad \text{for } k \geq 1 \\
+% \pi_k &= V_k \prod_{j=1}^{k-1} (1-V_j) \qquad \text{for } k \geq 1
+% \end{align*}
+% \item Then, select depth via
+% \begin{align*}
+% Z &\sim \text{Categorical}(\{\pi_k\}_{k \geq 1})
+% \end{align*}
+% \end{itemize}
+% \end{frame}
 
 \begin{frame}
 \frametitle{NCRP Topic Model}
@@ -619,7 +666,8 @@ Z &\sim \text{Categorical}(\{\pi_k\}_{k \geq 1})
 \item For each document $d$:
     \begin{itemize}
     \item Draw a path $c_d \sim T$
-    \item Draw a distribution over depths $\phi_d \sim \text{GEM}_2(\alpha^{(\phi)}_1, \alpha^{(\phi)}_2)$
+    \item Draw a stick-breaking distribution over depths $\phi_d$
+    %\item Draw a distribution over depths $\phi_d \sim \text{GEM}_2(\alpha^{(\phi)}_1, \alpha^{(\phi)}_2)$
     \item For each word-slot $n$:
         \begin{itemize}
         \item Draw a depth $z_{d,n} \sim \text{Categorical}(\phi_d)$
@@ -756,69 +804,76 @@ Z &\sim \text{Categorical}(\{\pi_k\}_{k \geq 1})
 \end{itemize}
 \end{frame}
 
-\begin{frame}
-\frametitle{Hierarchical Dirichlet Process}
-\begin{itemize}[<+->]
-\item A model for grouped data, with unbounded number of groups
-\item Formulation:
-\begin{align*}
-H &\sim \text{DP}(\alpha, G_0) \\
-H_d &\sim \text{DP}(\beta, H) \\
-\mu_{d,n} &\sim H_d \\
-x_{d,n} &\sim F(\mu_{d,n})
-\end{align*}
-\item Global distribution $H$ drawn from Dirichlet Process applied to base distribution $G_0$
-\item Per-group distributions $H_d$ drawn from another Dirichlet Process applied to $H$
-\end{itemize}
-\end{frame}
+% \begin{frame}
+% \frametitle{Hierarchical Dirichlet Process}
+% \begin{itemize}[<+->]
+% \item A model for grouped data, with unbounded number of groups
+% \item Formulation:
+% \begin{align*}
+% H &\sim \text{DP}(\alpha, G_0) \\
+% H_d &\sim \text{DP}(\beta, H) \\
+% \mu_{d,n} &\sim H_d \\
+% x_{d,n} &\sim F(\mu_{d,n})
+% \end{align*}
+% \item Global distribution $H$ drawn from Dirichlet Process applied to base distribution $G_0$
+% \item Per-group distributions $H_d$ drawn from another Dirichlet Process applied to $H$
+% \end{itemize}
+% \end{frame}
 
 \begin{frame}
 \frametitle{NHDP Topic Model}
 \begin{itemize}[<+->]
-\item Each node in infinite tree associated with a topic vector
-\item NHDP uses one HDP per node in the infinite tree
-\item Interleaves per-document path-propagation variables to define a document-specific distribution over nodes
+\item Each node in infinite tree associated with a topic vector $\theta_r$
+\item Global distribution over paths drawn from an NCRP distribution \\
+    (i.e., draw global stick-breaking proportions $V^*_{r,j}$)
+\item Per-document:
+    \begin{itemize}[<+->]
+    \item<.-> Permutation of branches $z^d_{r,j}$
+    \item ``Re-weighting'' stick-breaking proportions $V^d_{r,j}$
+    \item ``Path-propagation'' proportions $U^d_r$
+    \end{itemize}
+\item Together, $z^d_{r,j}$, $V^d_{r,j}$, and $U^d_r$ define a document-specific distribution over nodes
 \end{itemize}
 \end{frame}
 
-\begin{frame}
-\frametitle{NHDP Topic Model: Generative Process}
-Global steps:
-\begin{itemize}[<+->]
-\item For each node $r$ in the infinite tree, draw a topic vector $\theta_r$
-\item For each node $r$ and each $j \geq 1$, draw stick-breaking proportion $V^*_{r,j}$
-\end{itemize}
-\end{frame}
+% \begin{frame}
+% \frametitle{NHDP Topic Model: Generative Process}
+% Global steps:
+% \begin{itemize}[<+->]
+% \item For each node $r$ in the infinite tree, draw a topic vector $\theta_r$
+% \item For each node $r$ and each $j \geq 1$, draw stick-breaking proportion $V^*_{r,j}$
+% \end{itemize}
+% \end{frame}
 
-\begin{frame}<1-4>[label=nhdpGen]
-\frametitle{NHDP Topic Model: Generative Process}
-\onslide<+->{For each document $d$:}
-  \begin{itemize}[<+->]
-  \item For each node $r$ in the infinite tree:
-    \begin{itemize}
-    \item For each $j \geq 1$:
-      \begin{itemize}
-      \item Draw an index $z^d_{r,j} \geq 1$ according to a discrete distribution with probabilities given by $\pi_k = V^*_{r,k} \prod_{i=1}^{k-1} (1-V^*_{r,i})$.
-      \item Draw a beta-distributed stick-breaking proportion $V^d_{r,j}$.
-      \end{itemize}
-    \item Draw a beta-distributed path-propagation random variable $U^d_r$.
-    \end{itemize}
-  \item For each word-slot $n$ in document $d$:
-    \begin{itemize}
-    \item Let $r = ()$, the empty path.
-    \item Repeat the following steps until a value for $c^d_n$ is chosen:
-      \begin{itemize}
-      \item Draw a Bernoulli random variable with mean $U^d_r$.
-      \item If the outcome is $1$, then set $c^d_n = r$ and break out of this loop; otherwise, continue.
-      \item For all $j \geq 1$, let $S_j =$ set of indices $k$ such that $z^d_{r,k} = j$. \\
-      Define $\mu_j = \sum_{k \in S_j} V^d_{r,k} \prod_{i=1}^{k-1} (1-V^d_{r,i})$.
-      \item Draw an index $\tilde z \geq 1$ from a discrete probability distribution with probabilities given by $\mu_j$ as defined above.
-      \item Update $r \gets (r, \tilde z)$.
-      \end{itemize}
-    \item Draw a vocabulary word $t^d_n$ from $\text{Categorical}(\theta_{c^d_n})$.
-    \end{itemize}
-  \end{itemize}
-\end{frame}
+% \begin{frame}<1-4>[label=nhdpGen]
+% \frametitle{NHDP Topic Model: Generative Process}
+% \onslide<+->{For each document $d$:}
+%   \begin{itemize}[<+->]
+%   \item For each node $r$ in the infinite tree:
+%     \begin{itemize}
+%     \item For each $j \geq 1$:
+%       \begin{itemize}
+%       \item Draw an index $z^d_{r,j} \geq 1$ according to a discrete distribution with probabilities given by $\pi_k = V^*_{r,k} \prod_{i=1}^{k-1} (1-V^*_{r,i})$.
+%       \item Draw a beta-distributed stick-breaking proportion $V^d_{r,j}$.
+%       \end{itemize}
+%     \item Draw a beta-distributed path-propagation random variable $U^d_r$.
+%     \end{itemize}
+%   \item For each word-slot $n$ in document $d$:
+%     \begin{itemize}
+%     \item Let $r = ()$, the empty path.
+%     \item Repeat the following steps until a value for $c^d_n$ is chosen:
+%       \begin{itemize}
+%       \item Draw a Bernoulli random variable with mean $U^d_r$.
+%       \item If the outcome is $1$, then set $c^d_n = r$ and break out of this loop; otherwise, continue.
+%       \item For all $j \geq 1$, let $S_j =$ set of indices $k$ such that $z^d_{r,k} = j$. \\
+%       Define $\mu_j = \sum_{k \in S_j} V^d_{r,k} \prod_{i=1}^{k-1} (1-V^d_{r,i})$.
+%       \item Draw an index $\tilde z \geq 1$ from a discrete probability distribution with probabilities given by $\mu_j$ as defined above.
+%       \item Update $r \gets (r, \tilde z)$.
+%       \end{itemize}
+%     \item Draw a vocabulary word $t^d_n$ from $\text{Categorical}(\theta_{c^d_n})$.
+%     \end{itemize}
+%   \end{itemize}
+% \end{frame}
 
 \begin{frame}
 \frametitle{NHDP Topic Model: Selecting Indices}
@@ -880,11 +935,11 @@ Global steps:
 \end{itemize}
 \end{frame}
 
-\againframe<5-| handout:0>{nhdpGen}
+% \againframe<5-| handout:0>{nhdpGen}
 
 \begin{frame}
 \frametitle{NHDP Topic Model: Path Propagation}
-Ignoring any document-specific branch permutations \\ (i.e., assuming $z^d_{r,j} = j$) \\
+Visualizing $V^d_{r,j}$ and $U^d_r$, ignoring branch permutations \\ (i.e., assuming $z^d_{r,j} = j$) \\
 \begin{tikzpicture}[node distance = 0.5cm]
 \tikzset{c/.style={draw, circle, inner sep=1pt}}
 \tikzset{rec/.style={draw, rectangle, inner sep=1pt}}
