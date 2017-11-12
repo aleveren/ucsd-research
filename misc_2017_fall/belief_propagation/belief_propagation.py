@@ -17,8 +17,6 @@ class QueryMixin(object):
         return list(self.variables.keys())
 
     def query_mixin(self, event, evidence = None):
-        #print("DEBUGGING: query(event = {}, evidence = {})".format(event, evidence))
-
         if evidence is not None:
             numer_event = dict()
             numer_event.update(event)
@@ -31,7 +29,6 @@ class QueryMixin(object):
             return numer / denom
 
         def query_recursive(event, unassigned_combinations):
-            #print("DEBUGGING: query_recursive(event = {}, unassigned_combinations = {})".format(event, unassigned_combinations))
             if len(unassigned_combinations) == 0:
                 return self.joint_probability(event)
 
@@ -103,9 +100,7 @@ class ConditionalTable(object):
         assert (set(self.parent_names) | set([self.var.name])) == set(self.key_order)
 
     def query(self, event):
-        #print("DEBUGGING: {}.query(event = {})".format(self, event))
         key = self._convert_to_assignment(event)
-        #print("DEBUGGING: key = {}".format(key))
         return self.table[key]
 
     def __str__(self):
@@ -115,7 +110,7 @@ class ConditionalTable(object):
         return self.__str__()
 
     def _convert_to_assignment(self, event):
-        assert hasattr(event, "keys")
+        assert set(event.keys()) == set(self.key_order)
         key = []
         for var in self.key_order:
             key.append(var)
@@ -141,17 +136,10 @@ def _get_var_values(key):
 
 class Factor(namedtuple("Factor", [
         "variables",
-        "function",
-        "cond_table"])):
+        "function"])):
     def evaluate(self, event):
-        # TODO: clean this up...
-        return self.cond_table.query(event)
-        # TODO: diagnose: why was the code below wrong?
-        # a = tuple([v.name for v in self.variables])
-        # b = self.cond_table.key_order
-        # assert a == b, "{} != {}".format(a, b)
-        # assert hasattr(event, "keys")
-        # return self.function(event)
+        assert hasattr(event, "keys")
+        return self.function(event)
 
     def __str__(self):
         return "Factor([{}])".format(", ".join(v.name for v in self.variables))
@@ -170,14 +158,11 @@ class FactorGraph(namedtuple("FactorGraph", [
         return result
 
     def joint_probability(self, event):
-        #print("DEBUGGING: event = {}".format(event))
         assert hasattr(event, "keys")
         result = 1.0
         for f in self.factors:
             sub_event = {v.name: event[v.name] for v in f.variables}
-            #print("DEBUGGING: f = {}, sub_event = {}".format(f, sub_event))
             factor_result = f.evaluate(sub_event)
-            #print("DEBUGGING: factor_result = {}".format(factor_result))
             result *= factor_result
         return result
 
@@ -191,7 +176,8 @@ class FactorGraph(namedtuple("FactorGraph", [
         tables = model.table_by_name
         for t in tables.values():
             variables = [model.variables[v] for v in t.key_order]
-            current_factor = Factor(variables = variables, function = lambda x, t=t: t.query(x), cond_table = t)
+            current_function = (lambda x, t=t: t.query(x))
+            current_factor = Factor(variables = variables, function = current_function)
             factors.append(current_factor)
         return cls(factors = factors)
 
@@ -232,17 +218,23 @@ def main():
 
     # Example query: probability that it rained today, given that the grass is wet
     # P(Rain = 1 | GrassWet = 1)
+    query_kwargs = dict(event = {"Rain": 1}, evidence = {"GrassWet": 1})
+
     expected = 891./2491
     print("Expected result: {}".format(expected))
 
-    result1 = grass_network.query(event = {"Rain": 1}, evidence = {"GrassWet": 1})
+    result1 = grass_network.query(**query_kwargs)
     print("Result 1:        {}".format(result1))
 
-    result2 = graph.query(event = {"Rain": 1}, evidence = {"GrassWet": 1})
+    result2 = graph.query(**query_kwargs)
     print("Result 2:        {}".format(result2))
+
+    result3 = graph.query_mixin(**query_kwargs)
+    print("Result 3:        {}".format(result3))
 
     np.testing.assert_allclose(result1, expected)
     np.testing.assert_allclose(result2, expected)
+    np.testing.assert_allclose(result3, expected)
 
 if __name__ == "__main__":
     main()
