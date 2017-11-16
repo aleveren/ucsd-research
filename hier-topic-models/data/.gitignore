@@ -1,2 +1,5 @@
 *.xml
 *.npz
+abstracts*.mat
+abstracts*.txt
+abstracts*.txt.trunc
