@@ -26,9 +26,10 @@ def expectation_log_dirichlet(nu, axis):
     return digamma(nu) - digamma(nu.sum(axis = axis, keepdims = True))
 
 class SimpleHierarchicalTopicModel(object):
-    def __init__(self, branching_factors, num_iter):
-        self.num_iter = num_iter
+    def __init__(self, branching_factors, num_epochs, vocab):
+        self.num_epochs = num_epochs
         self.branching_factors = branching_factors
+        self.vocab = np.asarray(vocab, dtype='object')
 
         self.num_depths = len(self.branching_factors) + 1
         self.num_leaves = np.prod(self.branching_factors)
@@ -91,34 +92,42 @@ class SimpleHierarchicalTopicModel(object):
         self.prior_params_DD = np.ones(self.num_depths)
         self.prior_params_DV = np.ones(self.vocab_size)
 
-        _logger.debug("Allocating variational params")
-        self.var_params_DL = np.ones((self.num_docs, self.num_leaves))
-        self.var_params_DD = np.ones((self.num_docs, self.num_depths))
-        self.var_params_DV = np.ones((self.num_nodes, self.vocab_size))
-        self.var_params_L = np.ones((self.total_corpus_length, self.num_leaves)) / self.num_leaves
-        self.var_params_D = np.ones((self.total_corpus_length, self.num_depths)) / self.num_depths
+        def init_noisy(shape, softmax_normalize = False):
+            X = np.ones(shape) + np.random.uniform(-0.1, 0.1, shape)
+            if softmax_normalize:
+                X = softmax(X, axis=-1)
+            return X
 
-        for iter_index in range(self.num_iter):
+        _logger.debug("Allocating variational params")
+        self.var_params_DL = init_noisy((self.num_docs, self.num_leaves))
+        self.var_params_DD = init_noisy((self.num_docs, self.num_depths))
+        self.var_params_DV = init_noisy((self.num_nodes, self.vocab_size))
+        self.var_params_L = init_noisy((self.total_corpus_length, self.num_leaves), softmax_normalize = True)
+        self.var_params_D = init_noisy((self.total_corpus_length, self.num_depths), softmax_normalize = True)
+
+        step_index = 0
+        for epoch_index in range(self.num_epochs):
             ## TODO: pick a random permutation and iterate through dataset in that order
-            #for doc_index in np.random.permutation(sef.num_docs):
-            #    self.update(iter_index, doc_index)
-            doc_index = np.random.choice(self.num_docs)
-            self.update(iter_index, doc_index)
+            for doc_index in np.random.permutation(self.num_docs):
+                self.print_top_words_by_node(num_words = 5)
+                self.update(epoch_index, step_index, doc_index)
+                step_index += 1
+            #doc_index = np.random.choice(self.num_docs)
+            #self.update(step_index, doc_index)
 
         return self
 
-    def rho(self, iter_index):
-        return 1. / (1 + iter_index)
+    def step_size(self, step_index):
+        return 0.5 / (1 + step_index)
 
-    def update(self, iter_index, doc_index):
-        _logger.debug("Iteration {}, document = {}".format(iter_index, doc_index))
+    def update(self, epoch_index, step_index, doc_index):
+        _logger.debug("Epoch {}, step {}, document {}".format(epoch_index, step_index, doc_index))
 
         lo = self.token_offsets_by_document[doc_index]
         hi = self.token_offsets_by_document[doc_index + 1]
         num_tokens = hi - lo
 
-        TODO = 0  # TODO
-
+        _logger.debug("at step 1")
         doc = np.asarray(self.data[:, doc_index].todense()).squeeze().astype('int')
         offsets = np.concatenate([[0], np.cumsum(doc)])
         vocab_word_by_slot = np.empty(num_tokens, dtype='int')
@@ -130,43 +139,13 @@ class SimpleHierarchicalTopicModel(object):
                 vocab_word_by_slot[start:end] = vocab_word_index
                 indicator_token_vocab[start:end, vocab_word_index] = 1
 
-        #_logger.debug("doc: {}, offsets: {}, vocab_word_by_slot: {}".format(doc, offsets, vocab_word_by_slot))
-
-        def fake_einsum(*args):
-            from collections import defaultdict
-            shapes = []
-            sizes_by_index = defaultdict(list)
-            for i, a in enumerate(args):
-                if i % 2 == 1:
-                    which_tensor = (i - 1) // 2
-                    assert len(a) == len(current_shape), "len mismatch in tensor {}: {} vs {}".format(which_tensor, a, current_shape)
-                    for dim, size in zip(a, current_shape):
-                        sizes_by_index[dim].append((size, "tensor={}".format(which_tensor)))
-                elif i < len(args) - 1:
-                    current_shape = a.shape
-                    shapes.append(current_shape)
-                else:
-                    output_indices = a
-
-            sizes_final = dict()
-            for k, v in sizes_by_index.items():
-                sizes = set([vi[0] for vi in v])
-                assert len(sizes) == 1
-                sizes_final[k] = list(sizes)[0]
-
-            output_shape = [sizes_final[dim] for dim in output_indices]
-
-            print(shapes)
-            print(sizes_final)
-            print(sizes_by_index)
-            print(output_indices)
-            print(output_shape)
-
+        _logger.debug("at step 2")
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
 
         # Convention for Einstein-summation (np.einsum) indices:
         # 0 = node, 1 = leaf, 2 = depth, 3 = word slot, 4 = vocab word
 
+        _logger.debug("at step 3")
         log_L = expectation_log_dirichlet(self.var_params_DL[np.newaxis, doc_index, :], axis = -1) \
             + np.einsum(
                 self.indicator_rlk, [0, 1, 2],
@@ -174,8 +153,10 @@ class SimpleHierarchicalTopicModel(object):
                 indicator_token_vocab, [3, 4],
                 expectation_log_DV, [0, 4],
                 [3, 1])  # output indices are (word slot, leaf)
+        _logger.debug("at step 4")
         self.var_params_L[lo:hi, :] = softmax(log_L, axis = -1)
 
+        _logger.debug("at step 5")
         log_D = expectation_log_dirichlet(self.var_params_DD[np.newaxis, doc_index, :], axis = -1) \
             + np.einsum(
                 self.indicator_rlk, [0, 1, 2],
@@ -183,18 +164,41 @@ class SimpleHierarchicalTopicModel(object):
                 indicator_token_vocab, [3, 4],
                 expectation_log_DV, [0, 4],
                 [3, 2])  # output indices are (word slot, depth)
+        _logger.debug("at step 6")
         self.var_params_D[lo:hi, :] = softmax(log_D, axis = -1)
 
-        self.var_params_DL[doc_index, :] = self.prior_params_DL[np.newaxis, :] + np.sum(self.var_params_L[lo:hi, :], axis=0)
-        self.var_params_DD[doc_index, :] = self.prior_params_DD[np.newaxis, :] + np.sum(self.var_params_D[lo:hi, :], axis=0)
+        _logger.debug("at step 7")
+        self.var_params_DL[doc_index, :] = self.prior_params_DL + np.sum(self.var_params_L[lo:hi, :], axis=0)
+        _logger.debug("at step 8")
+        self.var_params_DD[doc_index, :] = self.prior_params_DD + np.sum(self.var_params_D[lo:hi, :], axis=0)
 
+        _logger.debug("at step 9")
         local_contrib_DV = np.einsum(
             self.indicator_rlk, [0, 1, 2],
             indicator_token_vocab, [3, 4],
             self.var_params_D[lo:hi, :], [3, 2],
             self.var_params_L[lo:hi, :], [3, 1],
             [0, 4])  # output indices are (node, vocab word)
-        self.var_params_DV = (1 - self.rho(iter_index)) * self.var_params_DV + self.rho(iter_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
+        _logger.debug("at step 10")
+        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
+        _logger.debug("at step 11")
+
+    def get_expected_topic_vectors(self):
+        return self.var_params_DV / self.var_params_DV.sum(axis = -1, keepdims = True)
+
+    def get_top_words_by_node(self, num_words):
+        topic_vectors = self.get_expected_topic_vectors()
+        top_vocab_indices = np.argsort(-topic_vectors, axis=-1)[:, :num_words]
+        result = dict()
+        for node_index, path in enumerate(self.nodes):
+            result[path] = self.vocab[top_vocab_indices[node_index]]
+        return result
+
+    def print_top_words_by_node(self, num_words):
+        top_words = self.get_top_words_by_node(num_words = num_words)
+        print("Top words by node:")
+        for path in self.nodes:
+            print("{}: {}".format(path, ", ".join(list(top_words[path]))))
 
 def main():
     np.random.seed(1)
@@ -214,9 +218,10 @@ def main():
     print("Vocab size = {}".format(len(vocab)))
     assert data.shape[0] == len(vocab)
     branching_factors = [2, 2]
-    model = SimpleHierarchicalTopicModel(branching_factors = branching_factors, num_iter = 5)
+    model = SimpleHierarchicalTopicModel(branching_factors = branching_factors, num_epochs = 1, vocab = vocab)
     model.fit(data)
-    #print("Results")
+    top_words = model.get_top_words_by_node(num_words = 10)
+    model.print_top_words_by_node(num_words = 10)
 
 if __name__ == "__main__":
     main()
