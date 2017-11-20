@@ -3,8 +3,10 @@ from __future__ import print_function, division
 import numpy as np
 from scipy.io import loadmat
 from scipy.special import digamma
+import sys
 import io
 import logging
+import pickle
 
 
 try:
@@ -204,11 +206,13 @@ class SimpleHierarchicalTopicModel(object):
             result[path] = self.vocab[top_vocab_indices[node_index]]
         return result
 
-    def print_top_words_by_node(self, num_words):
+    def print_top_words_by_node(self, num_words, file=None):
+        if file is None:
+            file = sys.stdout
         top_words = self.get_top_words_by_node(num_words = num_words)
-        print("Top words by node:")
+        print("Top words by node:", file=file)
         for path in self.nodes:
-            print("{}: {}".format(path, ", ".join(list(top_words[path]))))
+            print("{}: {}".format(path, ", ".join(list(top_words[path]))), file=file)
 
 def main():
     np.random.seed(1)
@@ -217,10 +221,14 @@ def main():
         level = logging.DEBUG,
         format = "%(asctime)s %(message)s")
 
+    output_file = "output.txt"
+    model_file = None  #"model.pkl"
+
     print("Loading data...")
     data = loadmat("/Users/aleverentz/Code/anchor-word-recovery/M_nips.full_docs.mat.trunc.mat")["M"]
     #data = loadmat("/Users/aleverentz/ucsd-research/hier-topic-models/data/abstracts.mat")["M"]
-    print("Data shape = {}".format(data.shape))
+    print("Vocab size: {}".format(data.shape[0]))
+    print("Num documents: {}".format(data.shape[1]))
     print("Nonzero entries: {}".format(data.nnz))
     print("Loading vocab...")
     vocab = load_vocab("/Users/aleverentz/Code/anchor-word-recovery/vocab.nips.txt.trunc")
@@ -232,6 +240,14 @@ def main():
     model.fit(data)
     top_words = model.get_top_words_by_node(num_words = 10)
     model.print_top_words_by_node(num_words = 10)
+    if output_file is not None:
+        print("Outputting to {}".format(output_file))
+        with io.open(output_file, mode='w', encoding='utf8') as f:
+            model.print_top_words_by_node(num_words = 10, file=f)
+    if model_file is not None:
+        print("Saving model to {}".format(model_file))
+        with open(model_file, 'wb') as f:
+            pickle.dump(model, f)
 
 if __name__ == "__main__":
     main()
