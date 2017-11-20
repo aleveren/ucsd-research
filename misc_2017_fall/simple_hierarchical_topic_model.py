@@ -118,17 +118,33 @@ class SimpleHierarchicalTopicModel(object):
         self.var_params_L = init_noisy((self.total_corpus_length, self.num_leaves), softmax_normalize = True)
         self.var_params_D = init_noisy((self.total_corpus_length, self.num_depths), softmax_normalize = True)
 
+        _logger.debug("Generating per-document word-slot arrays")
+        self.docs_expanded = []
+        for doc_index in range(self.num_docs):
+            doc = np.asarray(self.data[:, doc_index].todense()).squeeze().astype('int')
+            offsets = np.concatenate([[0], np.cumsum(doc)])
+            num_tokens = (self.token_offsets_by_document[doc_index + 1]
+                - self.token_offsets_by_document[doc_index])
+            vocab_word_by_slot = np.empty(num_tokens, dtype='int')
+            for vocab_word_index in range(self.vocab_size):
+                # TODO: make this more efficient, using sparse structure of data matrix
+                start = offsets[vocab_word_index]
+                end = offsets[vocab_word_index + 1]
+                if end > start:
+                    vocab_word_by_slot[start:end] = vocab_word_index
+            self.docs_expanded.append(vocab_word_by_slot)
+
+        _logger.debug("Training model")
         with progress_bar(total = self.num_epochs * self.num_docs, mininterval=1.0) as pbar:
             step_index = 0
             for epoch_index in range(self.num_epochs):
-                ## TODO: pick a random permutation and iterate through dataset in that order
-                for doc_index in np.random.permutation(self.num_docs):
-                    #self.print_top_words_by_node(num_words = 5)
+                # Pick a random permutation and iterate through dataset in that order
+                # TODO: implement mini-batches
+                doc_order = np.random.permutation(self.num_docs)
+                for doc_index in doc_order:
                    self.update(epoch_index, step_index, doc_index)
                    step_index += 1
                    pbar.update()
-                #doc_index = np.random.choice(self.num_docs)
-                #self.update(step_index, doc_index)
 
         return self
 
@@ -138,18 +154,7 @@ class SimpleHierarchicalTopicModel(object):
     def update(self, epoch_index, step_index, doc_index):
         lo = self.token_offsets_by_document[doc_index]
         hi = self.token_offsets_by_document[doc_index + 1]
-        num_tokens = hi - lo
-
-        doc = np.asarray(self.data[:, doc_index].todense()).squeeze().astype('int')
-        offsets = np.concatenate([[0], np.cumsum(doc)])
-        vocab_word_by_slot = np.empty(num_tokens, dtype='int')
-        #indicator_token_vocab = np.zeros((num_tokens, self.vocab_size), dtype='int')
-        for vocab_word_index in range(self.vocab_size):
-            start = offsets[vocab_word_index]
-            end = offsets[vocab_word_index + 1]
-            if end > start:
-                vocab_word_by_slot[start:end] = vocab_word_index
-                #indicator_token_vocab[start:end, vocab_word_index] = 1
+        vocab_word_by_slot = self.docs_expanded[doc_index]
 
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
 
@@ -180,13 +185,12 @@ class SimpleHierarchicalTopicModel(object):
         local_contrib_DV_by_word_slot = np.einsum(
             self.indicator_rl, [NODE, LEAF],
             self.var_params_D[lo:hi, self.depth_by_node], [WORD_SLOT, NODE],
-            #self.indicator_rk, [NODE, DEPTH],
-            #self.var_params_D[lo:hi, :], [WORD_SLOT, DEPTH],
             self.var_params_L[lo:hi, :], [WORD_SLOT, LEAF],
             [NODE, WORD_SLOT])
+        # Sum local contribs by grouping word-slots according to vocab words
         local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
-        for word_slot_index, vocab_word_index in enumerate(vocab_word_by_slot):
-            local_contrib_DV[:, vocab_word_index] = local_contrib_DV_by_word_slot[:, word_slot_index]
+        np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
+        # Update topics according to stochastic update rule
         self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
 
     def get_expected_topic_vectors(self):
