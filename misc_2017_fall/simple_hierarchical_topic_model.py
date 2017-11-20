@@ -164,6 +164,17 @@ class SimpleHierarchicalTopicModel(object):
         # 0 = node, 1 = leaf, 2 = word slot, 3 = vocab word, 4 = depth
         NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH = list(range(5))
 
+        local_contrib_DV_by_word_slot = np.einsum(
+            self.indicator_rl, [NODE, LEAF],
+            self.var_params_D[lo:hi, self.depth_by_node], [WORD_SLOT, NODE],
+            self.var_params_L[lo:hi, :], [WORD_SLOT, LEAF],
+            [NODE, WORD_SLOT])
+        # Sum local contribs by grouping word-slots according to vocab words
+        local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
+        np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
+        # Update topics according to stochastic update rule
+        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
+
         log_L = expectation_log_dirichlet(self.var_params_DL[np.newaxis, doc_index, :], axis = -1) \
             + np.einsum(
                 self.indicator_rl, [NODE, LEAF],
@@ -183,17 +194,6 @@ class SimpleHierarchicalTopicModel(object):
 
         self.var_params_DL[doc_index, :] = self.prior_params_DL + np.sum(self.var_params_L[lo:hi, :], axis=0)
         self.var_params_DD[doc_index, :] = self.prior_params_DD + np.sum(self.var_params_D[lo:hi, :], axis=0)
-
-        local_contrib_DV_by_word_slot = np.einsum(
-            self.indicator_rl, [NODE, LEAF],
-            self.var_params_D[lo:hi, self.depth_by_node], [WORD_SLOT, NODE],
-            self.var_params_L[lo:hi, :], [WORD_SLOT, LEAF],
-            [NODE, WORD_SLOT])
-        # Sum local contribs by grouping word-slots according to vocab words
-        local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
-        np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
-        # Update topics according to stochastic update rule
-        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
 
     def get_expected_topic_vectors(self):
         return self.var_params_DV / self.var_params_DV.sum(axis = -1, keepdims = True)
