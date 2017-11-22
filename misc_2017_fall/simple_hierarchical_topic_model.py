@@ -218,14 +218,18 @@ class SimpleHierarchicalTopicModel(object):
             result[path] = self.vocab[top_vocab_indices[node_index]]
         return result
 
-    def print_top_words_by_node(self, num_words, file=None):
+    def print_top_words_by_node(self, num_words, depth_first=False, file=None):
         if file is None:
             file = sys.stdout
         max_str_len_path = max([len(str(path)) for path in self.nodes])
         format_str = "{:" + str(max_str_len_path) + "}: {}"
         top_words = self.get_top_words_by_node(num_words = num_words)
+        if depth_first:
+            node_order = self.nodes
+        else:
+            node_order = sorted(self.nodes, key=lambda x: (len(x),) + x)
         print("Top words by node:", file=file)
-        for path in self.nodes:
+        for path in node_order:
             print(format_str.format(str(path), ", ".join(list(top_words[path]))), file=file)
         return top_words
 
