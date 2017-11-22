@@ -3,6 +3,7 @@ from __future__ import print_function, division
 import numpy as np
 from scipy.io import loadmat
 from scipy.special import digamma
+from scipy.sparse import csc_matrix, isspmatrix_csc
 import sys
 import io
 import logging
@@ -86,11 +87,11 @@ class SimpleHierarchicalTopicModel(object):
 
         self.depth_by_node = np.array([len(path) for path in self.nodes], dtype='int')
 
-        #_logger.debug("nodes:\n{}\n{}".format(self.nodes, self.path_to_node_index))
-        #_logger.debug("leaves:\n{}\n{}".format(self.leaves, self.path_to_leaf_index))
-        #_logger.debug("indicator_rl:\n{}".format(self.indicator_rl.transpose((2,0,1))))
-
     def fit(self, data):
+        if not isspmatrix_csc(data):
+            _logger.debug("Converting input data to sparse format (CSC)")
+            data = csc_matrix(data)
+
         self.data = data
         self.vocab_size = data.shape[0]
         self.num_docs = data.shape[1]
@@ -124,17 +125,16 @@ class SimpleHierarchicalTopicModel(object):
         _logger.debug("Generating per-document word-slot arrays")
         self.docs_expanded = []
         for doc_index in range(self.num_docs):
-            doc = np.asarray(self.data[:, doc_index].todense()).squeeze().astype('int')
-            offsets = np.concatenate([[0], np.cumsum(doc)])
-            num_tokens = (self.token_offsets_by_document[doc_index + 1]
-                - self.token_offsets_by_document[doc_index])
+            start = self.data.indptr[doc_index]
+            end = self.data.indptr[doc_index + 1]
+            counts = self.data.data[start:end].astype('int')
+            vocab_indices = self.data.indices[start:end].astype('int')
+            num_tokens = counts.sum()
             vocab_word_by_slot = np.empty(num_tokens, dtype='int')
-            for vocab_word_index in range(self.vocab_size):
-                # TODO: make this more efficient, using sparse structure of data matrix
-                start = offsets[vocab_word_index]
-                end = offsets[vocab_word_index + 1]
-                if end > start:
-                    vocab_word_by_slot[start:end] = vocab_word_index
+            token_index = 0
+            for count, vocab_word_index in zip(counts, vocab_indices):
+                vocab_word_by_slot[token_index : token_index + count] = vocab_word_index
+                token_index += count
             self.docs_expanded.append(vocab_word_by_slot)
 
         _logger.debug("Training model")
