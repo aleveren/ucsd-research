@@ -105,22 +105,20 @@ class SimpleHierarchicalTopicModel(object):
         _logger.debug("Total corpus length = {}".format(self.total_corpus_length))
 
         _logger.debug("Allocating prior params")
-        self.prior_params_DL = np.ones(self.num_leaves)
-        self.prior_params_DD = np.ones(self.num_depths)
-        self.prior_params_DV = np.ones(self.vocab_size)
+        self.prior_params_DL = 0.01 * np.ones(self.num_leaves)
+        self.prior_params_DD = 1.0 * np.ones(self.num_depths)
+        self.prior_params_DV = 0.01 * np.ones(self.vocab_size)
 
-        def init_noisy(shape, softmax_normalize = False):
-            X = np.ones(shape) + np.random.uniform(-0.1, 0.1, shape)
-            if softmax_normalize:
-                X = softmax(X, axis=-1)
-            return X
+        def add_noise(X, repeats, relative):
+            assert relative > 0
+            return np.random.uniform(1 - relative, 1 + relative, (repeats,) + X.shape) * X[np.newaxis, ...]
 
         _logger.debug("Allocating variational params")
-        self.var_params_DL = init_noisy((self.num_docs, self.num_leaves))
-        self.var_params_DD = init_noisy((self.num_docs, self.num_depths))
-        self.var_params_DV = init_noisy((self.num_nodes, self.vocab_size))
-        self.var_params_L = init_noisy((self.total_corpus_length, self.num_leaves), softmax_normalize = True)
-        self.var_params_D = init_noisy((self.total_corpus_length, self.num_depths), softmax_normalize = True)
+        self.var_params_DL = add_noise(self.prior_params_DL, self.num_docs, relative=0.1)
+        self.var_params_DD = add_noise(self.prior_params_DD, self.num_docs, relative=0.1)
+        self.var_params_DV = add_noise(self.prior_params_DV, self.num_nodes, relative=0.8)
+        self.var_params_L = softmax(np.random.uniform(-0.1, 0.1, (self.total_corpus_length, self.num_leaves)), axis=-1)
+        self.var_params_D = softmax(np.random.uniform(-0.1, 0.1, (self.total_corpus_length, self.num_depths)), axis=-1)
 
         _logger.debug("Generating per-document word-slot arrays")
         self.docs_expanded = []
@@ -153,7 +151,7 @@ class SimpleHierarchicalTopicModel(object):
         return self
 
     def step_size(self, step_index):
-        return 0.5 / (1 + step_index)
+        return 1.0 / (1 + step_index)
 
     def update(self, epoch_index, step_index, doc_indices):
         word_slot_indices = []
@@ -172,17 +170,6 @@ class SimpleHierarchicalTopicModel(object):
         # Convention for Einstein-summation (np.einsum) indices:
         # 0 = node, 1 = leaf, 2 = word slot, 3 = vocab word, 4 = depth
         NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH = list(range(5))
-
-        local_contrib_DV_by_word_slot = np.einsum(
-            self.indicator_rl, [NODE, LEAF],
-            self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
-            self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
-            [NODE, WORD_SLOT])
-        # Sum local contribs by grouping word-slots according to vocab words
-        local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
-        np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
-        # Update topics according to stochastic update rule
-        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
 
         log_L = expectation_log_dirichlet(self.var_params_DL[docs_by_word_slot, :], axis = -1) \
             + np.einsum(
@@ -208,6 +195,17 @@ class SimpleHierarchicalTopicModel(object):
         var_params_DD_by_word_slot = (self.prior_params_DD[np.newaxis, :]
             + self.var_params_D[word_slot_indices, :])
         np.add.at(self.var_params_DD, (docs_by_word_slot, slice(None)), var_params_DD_by_word_slot)
+
+        local_contrib_DV_by_word_slot = np.einsum(
+            self.indicator_rl, [NODE, LEAF],
+            self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
+            self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
+            [NODE, WORD_SLOT])
+        # Sum local contribs by grouping word-slots according to vocab words
+        local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
+        np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
+        # Update topics according to stochastic update rule
+        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
 
     def get_expected_topic_vectors(self):
         return self.var_params_DV / self.var_params_DV.sum(axis = -1, keepdims = True)
