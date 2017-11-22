@@ -229,6 +229,7 @@ class SimpleHierarchicalTopicModel(object):
         print("Top words by node:", file=file)
         for path in self.nodes:
             print(format_str.format(str(path), ", ".join(list(top_words[path]))), file=file)
+        return top_words
 
 def main():
     np.random.seed(1)
@@ -256,8 +257,7 @@ def main():
         branching_factors = branching_factors, num_epochs = 20,
         batch_size = 100, vocab = vocab)
     model.fit(data)
-    top_words = model.get_top_words_by_node(num_words = 10)
-    model.print_top_words_by_node(num_words = 10)
+    top_words = model.print_top_words_by_node(num_words = 10)
     if output_file is not None:
         print("Outputting to {}".format(output_file))
         with io.open(output_file, mode='w', encoding='utf8') as f:
