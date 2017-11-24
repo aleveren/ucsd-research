@@ -16,6 +16,7 @@ except:
     def progress_bar(*args, **kwargs):
         return args[0]
     progress_bar.update = lambda n=1: None
+    progress_bar.set_postfix = lambda x: None
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())
@@ -36,11 +37,12 @@ def expectation_log_dirichlet(nu, axis):
     return digamma(nu) - digamma(nu.sum(axis = axis, keepdims = True))
 
 class SimpleHierarchicalTopicModel(object):
-    def __init__(self, branching_factors, num_epochs, batch_size, vocab):
+    def __init__(self, branching_factors, num_epochs, batch_size, vocab, do_compute_ELBO = True):
         self.num_epochs = num_epochs
         self.branching_factors = branching_factors
         self.vocab = np.asarray(vocab, dtype='object')
         self.batch_size = batch_size
+        self.do_compute_ELBO = do_compute_ELBO
 
         self.num_depths = len(self.branching_factors) + 1
         self.num_leaves = np.prod(self.branching_factors)
@@ -122,23 +124,35 @@ class SimpleHierarchicalTopicModel(object):
 
         _logger.debug("Generating per-document word-slot arrays")
         self.docs_expanded = []
+        self.docs_by_word_slot = np.empty(self.total_corpus_length, dtype='int')
+        self.overall_vocab_word_by_slot = []
+        overall_token_index = 0
         for doc_index in range(self.num_docs):
             start = self.data.indptr[doc_index]
             end = self.data.indptr[doc_index + 1]
             counts = self.data.data[start:end].astype('int')
             vocab_indices = self.data.indices[start:end].astype('int')
+
             num_tokens = counts.sum()
+            self.docs_by_word_slot[overall_token_index : overall_token_index + num_tokens] = doc_index
+
             vocab_word_by_slot = np.empty(num_tokens, dtype='int')
             token_index = 0
             for count, vocab_word_index in zip(counts, vocab_indices):
                 vocab_word_by_slot[token_index : token_index + count] = vocab_word_index
                 token_index += count
+                overall_token_index += count
             self.docs_expanded.append(vocab_word_by_slot)
+            self.overall_vocab_word_by_slot.extend(vocab_word_by_slot)
 
         _logger.debug("Training model")
+        self.elbo_sequence = []
+        elbo = np.nan
         with progress_bar(total = self.num_epochs * self.num_docs, mininterval=1.0) as pbar:
             step_index = 0
             for epoch_index in range(self.num_epochs):
+                if self.do_compute_ELBO:
+                    pbar.set_postfix({"Status": "updating params", "ELBO": elbo})
                 # Pick a random permutation and iterate through dataset in that order
                 doc_order = np.random.permutation(self.num_docs)
                 while len(doc_order) > 0:
@@ -147,6 +161,10 @@ class SimpleHierarchicalTopicModel(object):
                     self.update(epoch_index, step_index, mini_batch_doc_indices)
                     step_index += 1
                     pbar.update(n = len(mini_batch_doc_indices))
+                if self.do_compute_ELBO:
+                    pbar.set_postfix({"Status": "computing ELBO", "previousELBO": elbo})
+                    elbo = self.compute_ELBO()
+                    self.elbo_sequence.append(elbo)
 
         return self
 
@@ -206,6 +224,43 @@ class SimpleHierarchicalTopicModel(object):
         # Update topics according to stochastic update rule
         self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV \
             + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + local_contrib_DV * self.num_docs / len(doc_indices))
+
+    def compute_ELBO(self):
+        # Convention for Einstein-summation (np.einsum) indices:
+        NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
+
+        expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
+        expectation_log_DL = expectation_log_dirichlet(self.var_params_DL, axis = -1)
+        expectation_log_DD = expectation_log_dirichlet(self.var_params_DD, axis = -1)
+
+        elbo = 0.0
+        elbo += np.einsum(
+            self.prior_params_DV[np.newaxis, :] - self.var_params_DV, [NODE, VOCAB_WORD],
+            expectation_log_DV, [NODE, VOCAB_WORD],
+            [])  # output is a scalar
+        elbo += np.einsum(
+            self.prior_params_DL[np.newaxis, :] - self.var_params_DL, [DOC, LEAF],
+            expectation_log_DL, [DOC, LEAF],
+            [])  # output is a scalar
+        elbo += np.einsum(
+            self.prior_params_DD[np.newaxis, :] - self.var_params_DD, [DOC, DEPTH],
+            expectation_log_DD, [DOC, DEPTH],
+            [])  # output is a scalar
+        elbo += np.einsum(
+            self.var_params_L, [WORD_SLOT, LEAF],
+            expectation_log_DL[self.docs_by_word_slot, :] - np.log(self.var_params_L), [WORD_SLOT, LEAF],
+            [])  # output is a scalar
+        elbo += np.einsum(
+            self.var_params_D, [WORD_SLOT, DEPTH],
+            expectation_log_DD[self.docs_by_word_slot, :] - np.log(self.var_params_D), [WORD_SLOT, DEPTH],
+            [])  # output is a scalar
+        elbo += np.einsum(
+            self.indicator_rl, [NODE, LEAF],
+            self.var_params_D[:, self.depth_by_node], [WORD_SLOT, NODE],
+            self.var_params_L, [WORD_SLOT, LEAF],
+            expectation_log_DV[:, self.overall_vocab_word_by_slot], [NODE, WORD_SLOT],
+            [])  # output is a scalar
+        return elbo
 
     def get_expected_topic_vectors(self):
         return self.var_params_DV / self.var_params_DV.sum(axis = -1, keepdims = True)
