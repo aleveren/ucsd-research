@@ -168,7 +168,6 @@ class SimpleHierarchicalTopicModel(object):
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
 
         # Convention for Einstein-summation (np.einsum) indices:
-        # 0 = node, 1 = leaf, 2 = word slot, 3 = vocab word, 4 = depth
         NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH = list(range(5))
 
         log_L = expectation_log_dirichlet(self.var_params_DL[docs_by_word_slot, :], axis = -1) \
@@ -205,7 +204,8 @@ class SimpleHierarchicalTopicModel(object):
         local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
         np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
         # Update topics according to stochastic update rule
-        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + self.num_docs * local_contrib_DV)
+        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV \
+            + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + local_contrib_DV * self.num_docs / len(doc_indices))
 
     def get_expected_topic_vectors(self):
         return self.var_params_DV / self.var_params_DV.sum(axis = -1, keepdims = True)
