@@ -162,7 +162,7 @@ class SimpleHierarchicalTopicModel(object):
                     step_index += 1
                     pbar.update(n = len(mini_batch_doc_indices))
                 if self.do_compute_ELBO:
-                    pbar.set_postfix({"Status": "computing ELBO", "previousELBO": elbo})
+                    pbar.set_postfix({"Status": "computing ELBO", "ELBO_previous": elbo})
                     elbo = self.compute_ELBO()
                     self.elbo_sequence.append(elbo)
 
