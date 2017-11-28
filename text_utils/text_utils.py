@@ -96,10 +96,13 @@ def xml_to_document_strings(filename, within, eachdoc, parser_type):
 
     return doc_strings
 
-def document_strings_to_sparse_term_doc(docs, tokenizer):
+def document_strings_to_sparse_term_doc(docs, tokenizer, vocab = None):
     # Tokenize and build up vocabulary
-    vocab = []
-    all_token_indices = dict()
+    if vocab is None:
+        vocab = []
+        all_token_indices = dict()
+    else:
+        all_token_indices = {v: i for i, v in enumerate(vocab)}
     token_indices_by_document = []
     for doc in docs:
         tokens = tokenizer.tokenize(doc)
