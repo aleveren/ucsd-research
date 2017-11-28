@@ -115,6 +115,21 @@ class SimpleHierarchicalTopicModel(object):
             assert relative > 0
             return np.random.uniform(1 - relative, 1 + relative, (repeats,) + X.shape) * X[np.newaxis, ...]
 
+        '''
+        Variable-naming convention:
+        DV = distribution over vocab (global; these distributions constitute the "topics")
+        DL = distribution over leaves (per document)
+        DD = distribution over depths (per document)
+        L = choice of leaf (per word-slot, per document)
+        D = choice of depth (per word-slot, per document)
+
+        Comparison to notation in paper:
+        var_params_DL[d,i] = mu^lambda_{d,i}
+        var_params_DD[d,k] = mu^phi_{d,k}
+        var_params_DV[r,v] = mu^theta_{r,v}
+        var_params_L[slot(d,n),i] = mu^l_{d,n,i}
+        var_params_D[slot(d,n),k] = mu^z_{d,n,k}
+        '''
         _logger.debug("Allocating variational params")
         self.var_params_DL = add_noise(self.prior_params_DL, self.num_docs, relative=0.1)
         self.var_params_DD = add_noise(self.prior_params_DD, self.num_docs, relative=0.1)
