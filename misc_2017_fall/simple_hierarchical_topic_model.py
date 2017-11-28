@@ -106,15 +106,6 @@ class SimpleHierarchicalTopicModel(object):
         assert len(self.token_offsets_by_document) == self.num_docs + 1
         _logger.debug("Total corpus length = {}".format(self.total_corpus_length))
 
-        _logger.debug("Allocating prior params")
-        self.prior_params_DL = 0.01 * np.ones(self.num_leaves)
-        self.prior_params_DD = 1.0 * np.ones(self.num_depths)
-        self.prior_params_DV = 0.01 * np.ones(self.vocab_size)
-
-        def add_noise(X, repeats, relative):
-            assert relative > 0
-            return np.random.uniform(1 - relative, 1 + relative, (repeats,) + X.shape) * X[np.newaxis, ...]
-
         '''
         Variable-naming convention:
         DV = distribution over vocab (global; these distributions constitute the "topics")
@@ -130,12 +121,17 @@ class SimpleHierarchicalTopicModel(object):
         var_params_L[slot(d,n),i] = mu^l_{d,n,i}
         var_params_D[slot(d,n),k] = mu^z_{d,n,k}
         '''
+        _logger.debug("Allocating prior params")
+        self.prior_params_DL = 0.01 * np.ones(self.num_leaves)
+        self.prior_params_DD = 1.0 * np.ones(self.num_depths)
+        self.prior_params_DV = 0.1 * np.ones(self.vocab_size)
+
         _logger.debug("Allocating variational params")
-        self.var_params_DL = add_noise(self.prior_params_DL, self.num_docs, relative=0.1)
-        self.var_params_DD = add_noise(self.prior_params_DD, self.num_docs, relative=0.1)
-        self.var_params_DV = add_noise(self.prior_params_DV, self.num_nodes, relative=0.8)
-        self.var_params_L = softmax(np.random.uniform(-0.1, 0.1, (self.total_corpus_length, self.num_leaves)), axis=-1)
-        self.var_params_D = softmax(np.random.uniform(-0.1, 0.1, (self.total_corpus_length, self.num_depths)), axis=-1)
+        self.var_params_DL = np.random.uniform(0.99, 1.01, (self.num_docs, self.num_leaves))
+        self.var_params_DD = np.random.uniform(0.99, 1.01, (self.num_docs, self.num_depths))
+        self.var_params_DV = np.random.uniform(0.99, 1.01, (self.num_nodes, self.vocab_size))
+        self.var_params_L = softmax(np.random.uniform(0.99, 1.01, (self.total_corpus_length, self.num_leaves)), axis = -1)
+        self.var_params_D = softmax(np.random.uniform(0.99, 1.01, (self.total_corpus_length, self.num_depths)), axis = -1)
 
         _logger.debug("Generating per-document word-slot arrays")
         self.docs_expanded = []
