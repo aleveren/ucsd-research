@@ -157,7 +157,7 @@ class SimpleHierarchicalTopicModel(object):
             self.overall_vocab_word_by_slot.extend(vocab_word_by_slot)
 
         _logger.debug("Training model")
-        self.elbo_sequence = []
+        self.stats_by_epoch = []
         elbo = np.nan
         with progress_bar(total = self.num_epochs * self.num_docs, mininterval=1.0) as pbar:
             step_index = 0
@@ -172,12 +172,17 @@ class SimpleHierarchicalTopicModel(object):
                     self.update(epoch_index, step_index, mini_batch_doc_indices)
                     step_index += 1
                     pbar.update(n = len(mini_batch_doc_indices))
+                stats = dict(epoch_index = epoch_index)
                 if self.do_compute_ELBO:
                     pbar.set_postfix({"Status": "computing ELBO", "ELBO_previous": elbo})
                     elbo = self.compute_ELBO()
-                    self.elbo_sequence.append(elbo)
+                    stats["ELBO"] = elbo
+                self.stats_by_epoch.append(stats)
 
         return self
+
+    def get_stats_by_epoch(self, key, **kwargs):
+        return np.array([entry[key] for entry in self.stats_by_epoch], **kwargs)
 
     def step_size(self, step_index):
         return 1.0 / (1 + step_index)
