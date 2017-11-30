@@ -37,12 +37,14 @@ def expectation_log_dirichlet(nu, axis):
     return digamma(nu) - digamma(nu.sum(axis = axis, keepdims = True))
 
 class SimpleHierarchicalTopicModel(object):
-    def __init__(self, branching_factors, num_epochs, batch_size, vocab, do_compute_ELBO = True):
+    def __init__(self, branching_factors, num_epochs, batch_size, vocab,
+            do_compute_ELBO = True, save_params_history = False):
         self.num_epochs = num_epochs
         self.branching_factors = branching_factors
         self.vocab = np.asarray(vocab, dtype='object')
         self.batch_size = batch_size
         self.do_compute_ELBO = do_compute_ELBO
+        self.save_params_history = save_params_history
 
         self.num_depths = len(self.branching_factors) + 1
         self.num_leaves = np.prod(self.branching_factors)
@@ -158,12 +160,12 @@ class SimpleHierarchicalTopicModel(object):
 
         _logger.debug("Training model")
         self.stats_by_epoch = []
-        elbo = np.nan
+        self.update_stats_by_epoch(epoch_index = -1, step_index = 0)
         with progress_bar(total = self.num_epochs * self.num_docs, mininterval=1.0) as pbar:
             step_index = 0
             for epoch_index in range(self.num_epochs):
-                if self.do_compute_ELBO:
-                    pbar.set_postfix({"Status": "updating params", "ELBO": elbo})
+                pbar.set_postfix({"Status": "updating params"})
+
                 # Pick a random permutation and iterate through dataset in that order
                 doc_order = np.random.permutation(self.num_docs)
                 while len(doc_order) > 0:
@@ -172,17 +174,33 @@ class SimpleHierarchicalTopicModel(object):
                     self.update(epoch_index, step_index, mini_batch_doc_indices)
                     step_index += 1
                     pbar.update(n = len(mini_batch_doc_indices))
-                stats = dict(epoch_index = epoch_index)
-                if self.do_compute_ELBO:
-                    pbar.set_postfix({"Status": "computing ELBO", "ELBO_previous": elbo})
-                    elbo = self.compute_ELBO()
-                    stats["ELBO"] = elbo
-                self.stats_by_epoch.append(stats)
+
+                pbar.set_postfix({"Status": "computing statistics"})
+                self.update_stats_by_epoch(epoch_index, step_index)
 
         return self
 
-    def get_stats_by_epoch(self, key, **kwargs):
-        return np.array([entry[key] for entry in self.stats_by_epoch], **kwargs)
+    def update_stats_by_epoch(self, epoch_index, step_index):
+        if epoch_index >= 0 and self.do_compute_ELBO:
+            elbo = self.compute_ELBO()
+        else:
+            elbo = np.nan
+        stats = dict(epoch_index = epoch_index, step_index = step_index,
+            ELBO = elbo, step_size = self.step_size(step_index))
+        if self.save_params_history:
+            stats["var_params_L"] = self.var_params_L.copy()
+            stats["var_params_D"] = self.var_params_D.copy()
+            stats["var_params_DL"] = self.var_params_DL.copy()
+            stats["var_params_DD"] = self.var_params_DD.copy()
+            stats["var_params_DV"] = self.var_params_DV.copy()
+        self.stats_by_epoch.append(stats)
+
+    def get_stats_by_epoch(self, key, include_init = True, **kwargs):
+        if include_init:
+            stats = self.stats_by_epoch
+        else:
+            stats = (x for x in self.stats_by_epoch if x["epoch_index"] >= 0)
+        return np.array([entry[key] for entry in stats], **kwargs)
 
     def step_size(self, step_index):
         return 1.0 / (1 + step_index)
