@@ -36,6 +36,9 @@ def softmax(X, axis):
 def expectation_log_dirichlet(nu, axis):
     return digamma(nu) - digamma(nu.sum(axis = axis, keepdims = True))
 
+# Convention for Einstein-summation (np.einsum) indices:
+NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
+
 class SimpleHierarchicalTopicModel(object):
     def __init__(self, branching_factors, num_epochs, batch_size, vocab,
             do_compute_ELBO = True, save_params_history = False):
@@ -224,9 +227,7 @@ class SimpleHierarchicalTopicModel(object):
 
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
 
-        # Convention for Einstein-summation (np.einsum) indices:
-        NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH = list(range(5))
-
+        # Update L
         log_L = expectation_log_dirichlet(self.var_params_DL[docs_by_word_slot, :], axis = -1) \
             + np.einsum(
                 self.indicator_rl, [NODE, LEAF],
@@ -235,6 +236,7 @@ class SimpleHierarchicalTopicModel(object):
                 [WORD_SLOT, LEAF])
         self.var_params_L[word_slot_indices, :] = softmax(log_L, axis = -1)
 
+        # Update D
         log_D = expectation_log_dirichlet(self.var_params_DD[docs_by_word_slot, :], axis = -1) \
             + np.einsum(
                 self.indicator_rl, [NODE, LEAF],
@@ -244,14 +246,17 @@ class SimpleHierarchicalTopicModel(object):
                 [WORD_SLOT, DEPTH])
         self.var_params_D[word_slot_indices, :] = softmax(log_D, axis = -1)
 
+        # Update DL
         var_params_DL_by_word_slot = (self.prior_params_DL[np.newaxis, :]
             + self.var_params_L[word_slot_indices, :])
         np.add.at(self.var_params_DL, (docs_by_word_slot, slice(None)), var_params_DL_by_word_slot)
 
+        # Update DD
         var_params_DD_by_word_slot = (self.prior_params_DD[np.newaxis, :]
             + self.var_params_D[word_slot_indices, :])
         np.add.at(self.var_params_DD, (docs_by_word_slot, slice(None)), var_params_DD_by_word_slot)
 
+        # Update DV
         local_contrib_DV_by_word_slot = np.einsum(
             self.indicator_rl, [NODE, LEAF],
             self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
@@ -265,9 +270,6 @@ class SimpleHierarchicalTopicModel(object):
             + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + local_contrib_DV * self.num_docs / len(doc_indices))
 
     def compute_ELBO(self):
-        # Convention for Einstein-summation (np.einsum) indices:
-        NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
-
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
         expectation_log_DL = expectation_log_dirichlet(self.var_params_DL, axis = -1)
         expectation_log_DD = expectation_log_dirichlet(self.var_params_DD, axis = -1)
