@@ -158,6 +158,11 @@ class SimpleHierarchicalTopicModel(object):
             self.docs_expanded.append(vocab_word_by_slot)
             self.overall_vocab_word_by_slot.extend(vocab_word_by_slot)
 
+        if self.batch_size is None or self.batch_size <= 0:
+            _batch_size = self.num_docs
+        else:
+            _batch_size = self.batch_size
+
         _logger.debug("Training model")
         self.stats_by_epoch = []
         self.update_stats_by_epoch(epoch_index = -1, step_index = 0)
@@ -169,8 +174,8 @@ class SimpleHierarchicalTopicModel(object):
                 # Pick a random permutation and iterate through dataset in that order
                 doc_order = np.random.permutation(self.num_docs)
                 while len(doc_order) > 0:
-                    mini_batch_doc_indices = doc_order[:self.batch_size]
-                    doc_order = doc_order[self.batch_size:]
+                    mini_batch_doc_indices = doc_order[:_batch_size]
+                    doc_order = doc_order[_batch_size:]
                     self.update(epoch_index, step_index, mini_batch_doc_indices)
                     step_index += 1
                     pbar.update(n = len(mini_batch_doc_indices))
