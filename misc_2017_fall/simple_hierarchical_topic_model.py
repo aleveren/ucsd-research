@@ -82,17 +82,17 @@ class SimpleHierarchicalTopicModel(object):
         self.path_to_node_index = dict()
         self.leaves = []
         self.path_to_leaf_index = dict()
-        self.indicator_rl = np.zeros((self.num_nodes, self.num_leaves))
-        # indicator_rl[path r, leaf l] = 1 iff r is prefix of l
-        self.indicator_rk = np.zeros((self.num_nodes, self.num_depths))
-        # indicator_rk[path r, depth k] = 1 iff len(r) == k
+        self.indicator_node_leaf = np.zeros((self.num_nodes, self.num_leaves))
+        # indicator_node_leaf[path r, leaf l] = 1 iff r is prefix of l
+        self.indicator_node_depth = np.zeros((self.num_nodes, self.num_depths))
+        # indicator_node_depth[path r, depth k] = 1 iff len(r) == k
 
         for path in explore(self.branching_factors, ()):
             node_index = len(self.nodes)
             self.path_to_node_index[path] = node_index
             self.nodes.append(path)
 
-            self.indicator_rk[node_index, len(path)] = 1
+            self.indicator_node_depth[node_index, len(path)] = 1
 
             if len(path) == len(self.branching_factors):
                 leaf_index = len(self.leaves)
@@ -102,7 +102,7 @@ class SimpleHierarchicalTopicModel(object):
                 for subpath_len in range(self.num_depths):
                     subpath = path[:subpath_len]
                     subpath_index = self.path_to_node_index[subpath]
-                    self.indicator_rl[subpath_index, leaf_index] = 1
+                    self.indicator_node_leaf[subpath_index, leaf_index] = 1
 
         self.depth_by_node = np.array([len(path) for path in self.nodes], dtype='int')
 
@@ -254,7 +254,7 @@ class SimpleHierarchicalTopicModel(object):
                 # Update L
                 log_L = expectation_log_dirichlet(self.var_params_DL[docs_by_word_slot, :], axis = -1) \
                     + np.einsum(
-                        self.indicator_rl, [NODE, LEAF],
+                        self.indicator_node_leaf, [NODE, LEAF],
                         self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
                         expectation_log_DV[:, vocab_word_by_slot], [NODE, WORD_SLOT],
                         [WORD_SLOT, LEAF])
@@ -264,8 +264,8 @@ class SimpleHierarchicalTopicModel(object):
                 # Update D
                 log_D = expectation_log_dirichlet(self.var_params_DD[docs_by_word_slot, :], axis = -1) \
                     + np.einsum(
-                        self.indicator_rl, [NODE, LEAF],
-                        self.indicator_rk, [NODE, DEPTH],
+                        self.indicator_node_leaf, [NODE, LEAF],
+                        self.indicator_node_depth, [NODE, DEPTH],
                         self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
                         expectation_log_DV[:, vocab_word_by_slot], [NODE, WORD_SLOT],
                         [WORD_SLOT, DEPTH])
@@ -286,7 +286,7 @@ class SimpleHierarchicalTopicModel(object):
             elif update_name == "DV":
                 # Update DV
                 local_contrib_DV_by_word_slot = np.einsum(
-                    self.indicator_rl, [NODE, LEAF],
+                    self.indicator_node_leaf, [NODE, LEAF],
                     self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
                     self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
                     [NODE, WORD_SLOT])
@@ -327,7 +327,7 @@ class SimpleHierarchicalTopicModel(object):
             expectation_log_DD[self.docs_by_word_slot, :] - np.log(self.var_params_D), [WORD_SLOT, DEPTH],
             [])  # output is a scalar
         elbo += np.einsum(
-            self.indicator_rl, [NODE, LEAF],
+            self.indicator_node_leaf, [NODE, LEAF],
             self.var_params_D[:, self.depth_by_node], [WORD_SLOT, NODE],
             self.var_params_L, [WORD_SLOT, LEAF],
             expectation_log_DV[:, self.overall_vocab_word_by_slot], [NODE, WORD_SLOT],
