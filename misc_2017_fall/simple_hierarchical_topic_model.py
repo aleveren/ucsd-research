@@ -141,11 +141,11 @@ class SimpleHierarchicalTopicModel(object):
         self.prior_params_DV = 0.1 * np.ones(self.vocab_size)
 
         _logger.debug("Allocating variational params")
-        self.var_params_DL = np.random.uniform(0.99, 1.01, (self.num_docs, self.num_leaves))
-        self.var_params_DD = np.random.uniform(0.99, 1.01, (self.num_docs, self.num_depths))
-        self.var_params_DV = np.random.uniform(0.99, 1.01, (self.num_nodes, self.vocab_size))
-        self.var_params_L = softmax(np.random.uniform(0.99, 1.01, (self.total_corpus_length, self.num_leaves)), axis = -1)
-        self.var_params_D = softmax(np.random.uniform(0.99, 1.01, (self.total_corpus_length, self.num_depths)), axis = -1)
+        self.var_params_DL = np.random.uniform(0.01, 1.99, (self.num_docs, self.num_leaves))
+        self.var_params_DD = np.random.uniform(0.01, 1.99, (self.num_docs, self.num_depths))
+        self.var_params_DV = np.random.uniform(0.01, 1.99, (self.num_nodes, self.vocab_size))
+        self.var_params_L = softmax(np.random.uniform(0.01, 1.99, (self.total_corpus_length, self.num_leaves)), axis = -1)
+        self.var_params_D = softmax(np.random.uniform(0.01, 1.99, (self.total_corpus_length, self.num_depths)), axis = -1)
 
         _logger.debug("Generating per-document word-slot arrays")
         self.docs_expanded = []
