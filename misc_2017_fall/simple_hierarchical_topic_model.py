@@ -211,7 +211,7 @@ class SimpleHierarchicalTopicModel(object):
         return np.array([entry[key] for entry in stats], **kwargs)
 
     def step_size(self, step_index):
-        return 1.0 / (1 + step_index)
+        return (1 + step_index) ** -0.5
 
     def update(self, epoch_index, step_index, doc_indices):
         word_slot_indices = []
