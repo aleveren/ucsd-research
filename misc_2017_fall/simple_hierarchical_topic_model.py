@@ -45,13 +45,16 @@ _default_update_order = ["L", "D", "DL", "DD", "DV"]
 class SimpleHierarchicalTopicModel(object):
     def __init__(self, branching_factors, num_epochs, batch_size, vocab,
             do_compute_ELBO = True, save_params_history = False,
-            update_order = None):
+            update_order = None, custom_initializer = None):
         self.num_epochs = num_epochs
         self.branching_factors = branching_factors
         self.vocab = np.asarray(vocab, dtype='object')
         self.batch_size = batch_size
         self.do_compute_ELBO = do_compute_ELBO
         self.save_params_history = save_params_history
+        self.custom_initializer = custom_initializer
+        if custom_initializer is not None:
+            assert set(custom_initializer.keys()) == set(_default_update_order)
         if update_order is None:
             self.update_order = copy.copy(_default_update_order)
         else:
@@ -146,6 +149,16 @@ class SimpleHierarchicalTopicModel(object):
         self.var_params_DV = np.random.uniform(0.01, 1.99, (self.num_nodes, self.vocab_size))
         self.var_params_L = softmax(np.random.uniform(0.01, 1.99, (self.total_corpus_length, self.num_leaves)), axis = -1)
         self.var_params_D = softmax(np.random.uniform(0.01, 1.99, (self.total_corpus_length, self.num_depths)), axis = -1)
+
+        if self.custom_initializer is not None:
+            for k, initializer in self.custom_initializer.items():
+                setattr(self, "var_params_{}".format(k), initializer.copy())
+
+        assert self.var_params_DL.shape == (self.num_docs, self.num_leaves)
+        assert self.var_params_DD.shape == (self.num_docs, self.num_depths)
+        assert self.var_params_L.shape == (self.total_corpus_length, self.num_leaves)
+        assert self.var_params_D.shape == (self.total_corpus_length, self.num_depths)
+        assert self.var_params_DV.shape == (self.num_nodes, self.vocab_size)
 
         _logger.debug("Generating per-document word-slot arrays")
         self.docs_expanded = []
