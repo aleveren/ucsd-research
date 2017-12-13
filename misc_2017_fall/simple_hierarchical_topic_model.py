@@ -8,6 +8,7 @@ import sys
 import io
 import logging
 import pickle
+import copy
 
 
 try:
@@ -39,15 +40,23 @@ def expectation_log_dirichlet(nu, axis):
 # Convention for Einstein-summation (np.einsum) indices:
 NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
 
+_default_update_order = ["L", "D", "DL", "DD", "DV"]
+
 class SimpleHierarchicalTopicModel(object):
     def __init__(self, branching_factors, num_epochs, batch_size, vocab,
-            do_compute_ELBO = True, save_params_history = False):
+            do_compute_ELBO = True, save_params_history = False,
+            update_order = None):
         self.num_epochs = num_epochs
         self.branching_factors = branching_factors
         self.vocab = np.asarray(vocab, dtype='object')
         self.batch_size = batch_size
         self.do_compute_ELBO = do_compute_ELBO
         self.save_params_history = save_params_history
+        if update_order is None:
+            self.update_order = copy.copy(_default_update_order)
+        else:
+            self.update_order = copy.copy(update_order)
+        assert set(self.update_order) == set(_default_update_order)
 
         self.num_depths = len(self.branching_factors) + 1
         self.num_leaves = np.prod(self.branching_factors)
@@ -227,47 +236,56 @@ class SimpleHierarchicalTopicModel(object):
 
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
 
-        # Update L
-        log_L = expectation_log_dirichlet(self.var_params_DL[docs_by_word_slot, :], axis = -1) \
-            + np.einsum(
-                self.indicator_rl, [NODE, LEAF],
-                self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
-                expectation_log_DV[:, vocab_word_by_slot], [NODE, WORD_SLOT],
-                [WORD_SLOT, LEAF])
-        self.var_params_L[word_slot_indices, :] = softmax(log_L, axis = -1)
+        for update_name in self.update_order:
+            if update_name == "L":
+                # Update L
+                log_L = expectation_log_dirichlet(self.var_params_DL[docs_by_word_slot, :], axis = -1) \
+                    + np.einsum(
+                        self.indicator_rl, [NODE, LEAF],
+                        self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
+                        expectation_log_DV[:, vocab_word_by_slot], [NODE, WORD_SLOT],
+                        [WORD_SLOT, LEAF])
+                self.var_params_L[word_slot_indices, :] = softmax(log_L, axis = -1)
 
-        # Update D
-        log_D = expectation_log_dirichlet(self.var_params_DD[docs_by_word_slot, :], axis = -1) \
-            + np.einsum(
-                self.indicator_rl, [NODE, LEAF],
-                self.indicator_rk, [NODE, DEPTH],
-                self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
-                expectation_log_DV[:, vocab_word_by_slot], [NODE, WORD_SLOT],
-                [WORD_SLOT, DEPTH])
-        self.var_params_D[word_slot_indices, :] = softmax(log_D, axis = -1)
+            elif update_name == "D":
+                # Update D
+                log_D = expectation_log_dirichlet(self.var_params_DD[docs_by_word_slot, :], axis = -1) \
+                    + np.einsum(
+                        self.indicator_rl, [NODE, LEAF],
+                        self.indicator_rk, [NODE, DEPTH],
+                        self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
+                        expectation_log_DV[:, vocab_word_by_slot], [NODE, WORD_SLOT],
+                        [WORD_SLOT, DEPTH])
+                self.var_params_D[word_slot_indices, :] = softmax(log_D, axis = -1)
 
-        # Update DL
-        var_params_DL_by_word_slot = (self.prior_params_DL[np.newaxis, :]
-            + self.var_params_L[word_slot_indices, :])
-        np.add.at(self.var_params_DL, (docs_by_word_slot, slice(None)), var_params_DL_by_word_slot)
+            elif update_name == "DL":
+                # Update DL
+                var_params_DL_by_word_slot = (self.prior_params_DL[np.newaxis, :]
+                    + self.var_params_L[word_slot_indices, :])
+                np.add.at(self.var_params_DL, (docs_by_word_slot, slice(None)), var_params_DL_by_word_slot)
 
-        # Update DD
-        var_params_DD_by_word_slot = (self.prior_params_DD[np.newaxis, :]
-            + self.var_params_D[word_slot_indices, :])
-        np.add.at(self.var_params_DD, (docs_by_word_slot, slice(None)), var_params_DD_by_word_slot)
+            elif update_name == "DD":
+                # Update DD
+                var_params_DD_by_word_slot = (self.prior_params_DD[np.newaxis, :]
+                    + self.var_params_D[word_slot_indices, :])
+                np.add.at(self.var_params_DD, (docs_by_word_slot, slice(None)), var_params_DD_by_word_slot)
 
-        # Update DV
-        local_contrib_DV_by_word_slot = np.einsum(
-            self.indicator_rl, [NODE, LEAF],
-            self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
-            self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
-            [NODE, WORD_SLOT])
-        # Sum local contribs by grouping word-slots according to vocab words
-        local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
-        np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
-        # Update topics according to stochastic update rule
-        self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV \
-            + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + local_contrib_DV * self.num_docs / len(doc_indices))
+            elif update_name == "DV":
+                # Update DV
+                local_contrib_DV_by_word_slot = np.einsum(
+                    self.indicator_rl, [NODE, LEAF],
+                    self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
+                    self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
+                    [NODE, WORD_SLOT])
+                # Sum local contribs by grouping word-slots according to vocab words
+                local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
+                np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
+                # Update topics according to stochastic update rule
+                self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV \
+                    + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + local_contrib_DV * self.num_docs / len(doc_indices))
+
+            else:
+                raise ValueError("Unsupported update type: {}".format(update_name))
 
     def compute_ELBO(self):
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
