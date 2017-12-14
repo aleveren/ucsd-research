@@ -293,9 +293,14 @@ class SimpleHierarchicalTopicModel(object):
                 # Sum local contribs by grouping word-slots according to vocab words
                 local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
                 np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
-                # Update topics according to stochastic update rule
-                self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV \
-                    + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + local_contrib_DV * self.num_docs / len(doc_indices))
+
+                if len(doc_indices) == self.num_docs:
+                    # Use coordinate-ascent update rule
+                    self.var_params_DV = self.prior_params_DV[np.newaxis, :] + local_contrib_DV
+                else:
+                    # Update topics according to stochastic update rule
+                    self.var_params_DV = (1 - self.step_size(step_index)) * self.var_params_DV \
+                        + self.step_size(step_index) * (self.prior_params_DV[np.newaxis, :] + local_contrib_DV * self.num_docs / len(doc_indices))
 
             else:
                 raise ValueError("Unsupported update type: {}".format(update_name))
