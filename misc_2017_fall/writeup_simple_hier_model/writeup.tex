@@ -294,6 +294,40 @@ To assess the convergence of this algorithm, we can compute the evidence lower b
 &+ \sum_\dDoc \sum_\nWordSlot \sum_\iLeaf \sum_\kDepth \sum_\rPath \sum_\vVocab \indicator[r = i[1:k]] E_q[\indicator[z_{d,n} = k]] E_q[\indicator[\ell_{d,n} = i]] \indicator[t_{d,n} = v] E_q[\log \theta_{r,v}]. \nonumber
 \end{align}
 
+\section{Gibbs Sampling}
+
+By again using computations that involve the complete conditionals of this model, we can derive a Gibbs sampling algorithm.
+The update rules are as follows:
+\begin{align}
+\phi_d &\gets \text{sample from Dirichlet}(\gamma^{(\phi)}_d) \\
+\lambda_d &\gets \text{sample from Dirichlet}(\gamma^{(\lambda)}_d) \\
+\theta_r &\gets \text{sample from Dirichlet}(\gamma^{(\theta)}_r) \\
+z_{d,n} &\gets \text{sample from Categorical}(\gamma^{(z)}_{d,n}) \\
+\ell_{d,n} &\gets \text{sample from Categorical}(\gamma^{(\ell)}_{d,n})
+\end{align}
+%
+Here, the parameters $\gamma$ for the complete conditionals are given by
+\begin{align}
+\gamma^{(\phi)}_d
+&= \left( \alpha^{(\phi)}_k + \sum_\nWordSlot \indicator[z_{d,n} = k] \right)_\kDepthSet \\
+%
+\gamma^{(\lambda)}_d
+&= \left( \alpha^{(\lambda)}_i + \sum_\nWordSlot \indicator[\ell_{d,n} = i] \right)_\iLeaf \\
+%
+\gamma^{(\theta)}_r
+&= \left( \alpha^{(\theta)}_v + \sum_\dDoc \sum_\nWordSlot \indicator[t_{d,n} = v] \cdot \indicator[r = \ell_{d,n}[1:z_{d,n}]] \right)_\vVocab \\
+%
+\gamma^{(z)}_{d,n}
+&= \softmax_\kDepthSet \left( \log \phi_{d,k} + \log \theta_{\ell_{d,n}[1:k], t_{d,n}} \right) \\
+%
+\gamma^{(\ell)}_{d,n}
+&= \softmax_\iLeaf \left( \log \lambda_{d,i} + \log \theta_{i[1:z_{d,n}], t_{d,n}} \right)
+\end{align}
+
+Note that the update rule for $\theta_r$ is particularly slow, since the computation of $\gamma^{(\theta)}_r$ involves a pass through the entire dataset.
+
+% TODO: can we derive a Collapsed Gibbs sampler?
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %\clearpage
 %\nocite{*}
