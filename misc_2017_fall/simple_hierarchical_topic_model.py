@@ -2,7 +2,7 @@ from __future__ import print_function, division
 
 import numpy as np
 from scipy.io import loadmat
-from scipy.special import digamma
+from scipy.special import gammaln, digamma
 from scipy.sparse import csc_matrix, isspmatrix_csc
 import sys
 import io
@@ -306,32 +306,54 @@ class SimpleHierarchicalTopicModel(object):
         expectation_log_DD = expectation_log_dirichlet(self.var_params_DD, axis = -1)
 
         elbo = 0.0
+
         elbo += np.einsum(
             self.prior_params_DV[np.newaxis, :] - self.var_params_DV, [NODE, VOCAB_WORD],
             expectation_log_DV, [NODE, VOCAB_WORD],
             [])  # output is a scalar
+        elbo -= self.num_nodes * gammaln(self.prior_params_DV).sum()
+        elbo += self.num_nodes * gammaln(self.prior_params_DV.sum(axis = -1))
+        elbo += gammaln(self.var_params_DV).sum()
+        elbo -= gammaln(self.var_params_DV.sum(axis = -1)).sum()
+
         elbo += np.einsum(
             self.prior_params_DL[np.newaxis, :] - self.var_params_DL, [DOC, LEAF],
             expectation_log_DL, [DOC, LEAF],
             [])  # output is a scalar
+        elbo -= self.num_docs * gammaln(self.prior_params_DL).sum()
+        elbo += self.num_docs * gammaln(self.prior_params_DL.sum(axis = -1))
+        elbo += gammaln(self.var_params_DL).sum()
+        elbo -= gammaln(self.var_params_DL.sum(axis = -1)).sum()
+
         elbo += np.einsum(
             self.prior_params_DD[np.newaxis, :] - self.var_params_DD, [DOC, DEPTH],
             expectation_log_DD, [DOC, DEPTH],
             [])  # output is a scalar
+        elbo -= self.num_docs * gammaln(self.prior_params_DD).sum()
+        elbo += self.num_docs * gammaln(self.prior_params_DD.sum(axis = -1))
+        elbo += gammaln(self.var_params_DD).sum()
+        elbo -= gammaln(self.var_params_DD.sum(axis = -1)).sum()
+
         elbo += np.einsum(
             self.var_params_L, [WORD_SLOT, LEAF],
             expectation_log_DL[self.docs_by_word_slot, :] - np.log(self.var_params_L), [WORD_SLOT, LEAF],
             [])  # output is a scalar
+
         elbo += np.einsum(
             self.var_params_D, [WORD_SLOT, DEPTH],
             expectation_log_DD[self.docs_by_word_slot, :] - np.log(self.var_params_D), [WORD_SLOT, DEPTH],
             [])  # output is a scalar
+
         elbo += np.einsum(
             self.indicator_node_leaf, [NODE, LEAF],
             self.var_params_D[:, self.depth_by_node], [WORD_SLOT, NODE],
             self.var_params_L, [WORD_SLOT, LEAF],
             expectation_log_DV[:, self.overall_vocab_word_by_slot], [NODE, WORD_SLOT],
             [])  # output is a scalar
+
+        assert np.ndim(elbo) == 0, \
+            "Internal error: ELBO should be scalar but has shape {}".format(np.shape(elbo))
+
         return elbo
 
     def get_expected_topic_vectors(self):
