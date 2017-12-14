@@ -280,11 +280,17 @@ To assess the convergence of this algorithm, we can compute the evidence lower b
 \text{ELBO}
 ={}& \phantom{{}-{}} E_q[\log p(\{\theta_r\}, \{\lambda_d\}, \{\phi_d\}, \{\ell_{d,n}\}, \{z_{d,n}\}, \{t_{d,n}\})] \\
 & - E_q[\log q(\{\theta_r\}, \{\lambda_d\}, \{\phi_d\}, \{\ell_{d,n}\}, \{z_{d,n}\}\})] \nonumber \\
-={}& \phantom{{}+{}} \sum_\rPath \sum_\vVocab (\alpha^{(\theta)}_v - \mu^{(\theta)}_{r,v}) E_q[\log \theta_{r,v}] \\
-&+ \sum_\dDoc \sum_\iLeaf (\alpha^{(\lambda)}_i - \mu^{(\lambda)}_{d,i}) E_q[\log \lambda_{d,i}] \nonumber \\
-&+ \sum_\dDoc \sum_\kDepth (\alpha^{(\phi)}_k - \mu^{(\phi)}_{d,k}) E_q[\log \phi_{d,k}] \nonumber \\
-&+ \sum_\dDoc \sum_\nWordSlot \sum_\iLeaf E_q[\indicator[\ell_{d,n} = i]] (E_q[\log \lambda_{d,i}] - \log \mu^{(\ell)}_{d,n,i}) \nonumber \\
-&+ \sum_\dDoc \sum_\nWordSlot \sum_\kDepth E_q[\indicator[z_{d,n} = k]] (E_q[\log \phi_{d,k}] - \log \mu^{(z)}_{d,n,k}) \nonumber \\
+={}& \phantom{{}+{}} \sum_\rPath \sum_\vVocab \left(\alpha^{(\theta)}_v - \mu^{(\theta)}_{r,v}\right) E_q[\log \theta_{r,v}] \\
+&- |\mathcal T| \sum_\vVocab \log \Gamma\left( \alpha^{(\theta)}_{v} \right) + |\mathcal T| \log \Gamma\left( \sum_\vVocab \alpha^{(\theta)}_{v} \right)
+ + \sum_\rPath \sum_\vVocab \log \Gamma\left( \mu^{(\theta)}_{r,v} \right) - \sum_\rPath \log \Gamma\left( \sum_\vVocab \mu^{(\theta)}_{r,v} \right) \nonumber \\
+&+ \sum_\dDoc \sum_\iLeaf \left(\alpha^{(\lambda)}_i - \mu^{(\lambda)}_{d,i}\right) E_q[\log \lambda_{d,i}] \nonumber \\
+&- D \sum_\iLeaf \log \Gamma\left( \alpha^{(\lambda)}_{i} \right) + D \log \Gamma\left( \sum_\iLeaf \alpha^{(\lambda)}_{i} \right)
+ + \sum_\dDoc \sum_\iLeaf \log \Gamma\left( \mu^{(\lambda)}_{d,i} \right) - \sum_\dDoc \log \Gamma\left( \sum_\iLeaf \mu^{(\lambda)}_{d,i} \right) \nonumber \\
+&+ \sum_\dDoc \sum_\kDepth \left(\alpha^{(\phi)}_k - \mu^{(\phi)}_{d,k}\right) E_q[\log \phi_{d,k}] \nonumber \\
+&- D \sum_\kDepth \log \Gamma\left( \alpha^{(\phi)}_{k} \right) + D \log \Gamma\left( \sum_\kDepth \alpha^{(\phi)}_{k} \right)
+ + \sum_\dDoc \sum_\kDepth \log \Gamma\left( \mu^{(\phi)}_{d,k} \right) - \sum_\dDoc \log \Gamma\left( \sum_\kDepth \mu^{(\phi)}_{d,k} \right) \nonumber \\
+&+ \sum_\dDoc \sum_\nWordSlot \sum_\iLeaf E_q[\indicator[\ell_{d,n} = i]] \left(E_q[\log \lambda_{d,i}] - \log \mu^{(\ell)}_{d,n,i}\right) \nonumber \\
+&+ \sum_\dDoc \sum_\nWordSlot \sum_\kDepth E_q[\indicator[z_{d,n} = k]] \left(E_q[\log \phi_{d,k}] - \log \mu^{(z)}_{d,n,k}\right) \nonumber \\
 &+ \sum_\dDoc \sum_\nWordSlot \sum_\iLeaf \sum_\kDepth \sum_\rPath \sum_\vVocab \indicator[r = i[1:k]] E_q[\indicator[z_{d,n} = k]] E_q[\indicator[\ell_{d,n} = i]] \indicator[t_{d,n} = v] E_q[\log \theta_{r,v}]. \nonumber
 \end{align}
 
