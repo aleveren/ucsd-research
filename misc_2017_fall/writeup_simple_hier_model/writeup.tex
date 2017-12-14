@@ -137,7 +137,7 @@ The generative process for this model is
     \[ \ell_{d,n} \sim \text{Categorical}(\lambda_d). \]
     \3 Draw a depth according to the probabilities in $\phi_d$.  That is,
     \[ z_{d,n} \sim \text{Categorical}(\phi_d). \]
-    \3 Let $r_d = \ell_{d,n}[1:z_{d,n}]$ represent the node at depth $z_{d,n} - 1$ along the path from the root to the leaf $\ell_{d,n}$.
+    \3 Let $r_d = \ell_{d,n}[1:z_{d,n}]$ represent the node at depth $z_{d,n}$ along the path from the root to the leaf $\ell_{d,n}$.  (Here, we allow $z_{d,n}$ to be $0$, corresponding to the root node.)
     \3 Draw a vocabulary word according to the probabilities in $\theta_{r_d}$.  That is,
     \[ t_{d,n} \sim \text{Categorical}(\theta_{r_d}). \]
 \end{outline}
@@ -183,8 +183,8 @@ The plate diagram for this model is shown in Figure~\ref{fig:plate-simple}.
 \newcommand{\rPath}{{r \in \mathcal T}}
 \newcommand{\vVocab}{{v \in \mathcal V}}
 \newcommand{\iLeaf}{{i \in \mathcal L(\mathcal T)}}
-\newcommand{\kDepth}{{k = 1}^{m}}
-\newcommand{\kDepthSet}{{k \in \{1, \ldots, m\}}}
+\newcommand{\kDepth}{{k = 0}^{m}}
+\newcommand{\kDepthSet}{{k \in \{0, \ldots, m\}}}
 \newcommand{\nWordSlot}{{n = 1}^{N_d}}
 \newcommand{\dDoc}{{d = 1}^D}
 \newcommand{\softmax}{\mathop{\text{softmax}}}
@@ -252,7 +252,7 @@ E_q[\log \theta_{r,v}]
 E_q[\log \lambda_{d,i}]
 &= \psi \left( \mu^{(\lambda)}_{d,i} \right) - \psi \left( \sum_{i' \in \mathcal L(\mathcal T)} \mu^{(\lambda)}_{d,i'} \right) \\
 E_q[\log \phi_{d,k}]
-&= \psi \left( \mu^{(\phi)}_{d,k} \right) - \psi \left( \sum_{k' = 1}^m \mu^{(\phi)}_{d,k'} \right) \\
+&= \psi \left( \mu^{(\phi)}_{d,k} \right) - \psi \left( \sum_{k' = 0}^m \mu^{(\phi)}_{d,k'} \right) \\
 E_q[\indicator[z_{d,n} = k]]
 &= \mu^{(z)}_{d,n,k} \\
 E_q[\indicator[\ell_{d,n} = i]]
