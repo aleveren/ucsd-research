@@ -137,9 +137,9 @@ The generative process for this model is
     \[ \ell_{d,n} \sim \text{Categorical}(\lambda_d). \]
     \3 Draw a depth according to the probabilities in $\phi_d$.  That is,
     \[ z_{d,n} \sim \text{Categorical}(\phi_d). \]
-    \3 Let $r_d = \ell_{d,n}[1:z_{d,n}]$ represent the node at depth $z_{d,n}$ along the path from the root to the leaf $\ell_{d,n}$.  (Here, we allow $z_{d,n}$ to be $0$, corresponding to the root node.)
-    \3 Draw a vocabulary word according to the probabilities in $\theta_{r_d}$.  That is,
-    \[ t_{d,n} \sim \text{Categorical}(\theta_{r_d}). \]
+    \3 Let $r_{d,n} = \ell_{d,n}[1:z_{d,n}]$ represent the node at depth $z_{d,n}$ along the path from the root to the leaf $\ell_{d,n}$.  (Here, we allow $z_{d,n}$ to be $0$, corresponding to the root node.)
+    \3 Draw a vocabulary word according to the probabilities in $\theta_{r_{d,n}}$.  That is,
+    \[ t_{d,n} \sim \text{Categorical}(\theta_{r_{d,n}}). \]
 \end{outline}
 
 The plate diagram for this model is shown in Figure~\ref{fig:plate-simple}.
@@ -197,7 +197,7 @@ To derive the variational updates, we first express the log joint probability of
 ={}& \phantom{{}+{}} \sum_\rPath \log p(\theta_r) + \sum_\dDoc \log p(\lambda_d) + \sum_\dDoc \log p(\phi_d) \\
 &+ \sum_\dDoc \sum_\nWordSlot \log p(\ell_{d,n} \mid \lambda_d) + \sum_\dDoc \sum_\nWordSlot \log p(z_{d,n} \mid \phi_d) \nonumber \\
 &+ \sum_\dDoc \sum_\nWordSlot \log p(t_{d,n} \mid \{\theta_r\}, \ell_{d,n}, z_{d,n}) \nonumber \\
-={}& \phantom{{}+{}} \sum_\rPath \sum_\vVocab (\alpha^{(\theta)}_v - 1) \log \theta_{r,v} \\
+={}& \text{constant} + \sum_\rPath \sum_\vVocab (\alpha^{(\theta)}_v - 1) \log \theta_{r,v} \\
 &+ \sum_\dDoc \sum_\iLeaf (\alpha^{(\lambda)}_i - 1) \log \lambda_{d,i} \nonumber \\
 &+ \sum_\dDoc \sum_\kDepth (\alpha^{(\phi)}_k - 1) \log \phi_{d,k} \nonumber \\
 &+ \sum_\dDoc \sum_\nWordSlot \sum_\iLeaf \indicator[\ell_{d,n} = i] \log \lambda_{d,i} \nonumber \\
@@ -279,7 +279,7 @@ To assess the convergence of this algorithm, we can compute the evidence lower b
 \begin{align}
 \text{ELBO}
 ={}& \phantom{{}-{}} E_q[\log p(\{\theta_r\}, \{\lambda_d\}, \{\phi_d\}, \{\ell_{d,n}\}, \{z_{d,n}\}, \{t_{d,n}\})] \\
-& - E_q[\log q(\{\theta_r\}, \{\lambda_d\}, \{\phi_d\}, \{\ell_{d,n}\}, \{z_{d,n}\}\})] \nonumber \\
+& - E_q[\log q(\{\theta_r\}, \{\lambda_d\}, \{\phi_d\}, \{\ell_{d,n}\}, \{z_{d,n}\})] \nonumber \\
 ={}& \phantom{{}+{}} \sum_\rPath \sum_\vVocab \left(\alpha^{(\theta)}_v - \mu^{(\theta)}_{r,v}\right) E_q[\log \theta_{r,v}] \\
 &- |\mathcal T| \sum_\vVocab \log \Gamma\left( \alpha^{(\theta)}_{v} \right) + |\mathcal T| \log \Gamma\left( \sum_\vVocab \alpha^{(\theta)}_{v} \right)
  + \sum_\rPath \sum_\vVocab \log \Gamma\left( \mu^{(\theta)}_{r,v} \right) - \sum_\rPath \log \Gamma\left( \sum_\vVocab \mu^{(\theta)}_{r,v} \right) \nonumber \\
