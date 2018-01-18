@@ -97,24 +97,29 @@ class Model(object):
     def log_joint_probability(self):
         # TODO: add param ignore_constants_relative_to (default: None)
 
-        def create_term(rv):
-            return ("TODO_term_for", rv)
-
-        result = None
-        for rv in self.random_vars:
-            term = create_term(rv)
-            assert term is not None
-            if term == 0:
-                continue
-            if result is None:
-                result = term
+        def get_terms(rv):
+            value = ("index", rv, rv.subscript) if rv.subscript else rv
+            result = rv.distribution.log_probability(value)
+            if result == 0:
+                result = []
             elif isinstance(result, tuple) and result[0] == "add":
-                result = ("add",) + result[1:] + (term,)
+                result = list(result[1:])
             else:
-                result = ("add", result, term)
-        if result is None:
-            result = 0
-        return result
+                result = [result]
+            remaining_subscripts = rv.subscript
+            while len(remaining_subscripts) > 0:
+                sub = remaining_subscripts[-1]
+                result = [("sum", sub, term) for term in result]
+                remaining_subscripts = remaining_subscripts[:-1]
+            return result
+
+        terms = []
+        for rv in self.random_vars:
+            terms.extend(get_terms(rv))
+        if len(terms) == 0:
+            return 0
+        else:
+            return ("add",) + tuple(terms)
 
 class Indicator(object):
     def __init__(self, a, b):
@@ -128,11 +133,26 @@ class Indicator(object):
         return self.__repr__()
 
 _dummy_count = 0
-def dummy_index_over(idx):
+def dummy_var():
     global _dummy_count
     var_name = "dummy{}".format(_dummy_count)
     _dummy_count += 1
-    return index_over(var_name = var_name, set_name = idx.set_name, subscript = idx.subscript)
+    return var_name
+
+def pretty_print(obj):
+    print(pretty_print_str(obj))
+
+def pretty_print_str(obj, indent = 0):
+    def simple(x):
+        # TODO: handle namedtuples differently?
+        return not isinstance(x, tuple)
+    if simple(obj) or all(simple(x) for x in obj):
+        return " " * indent + str(obj)
+    else:
+        first_line = str(obj[0])
+        remaining_lines = [pretty_print_str(x, indent = indent + 2) for x in obj[1:]]
+        return "{}({},\n{}\n{})".format(
+            " " * indent, first_line, ",\n".join(remaining_lines), " " * indent)
 
 ###################
 # Distributions
@@ -151,12 +171,15 @@ class CategoricalDistrib(object):
         self.probabilities = probabilities
 
     def log_probability(self, value):
-        idx = self.probabilities.indexed_by
-        dummy_idx = dummy_index_over(idx)
+        try:
+            indexed_by = self.probabilities.distribution.indexed_by
+        except:  # TODO: REMOVE
+            raise Exception("Tried to get indexed_by from {}".format(self.probabilities.distribution))
+        dummy_idx = index_over(dummy_var(), indexed_by)
         return ("sum", dummy_idx,
             ("multiply",
-                ("indicator", value, dummy_idx.name),
-                ("log", ("index", probabilities, dummy_idx.name))))
+                ("indicator", value, dummy_idx.var_name),
+                ("log", ("index", self.probabilities, dummy_idx.var_name))))
 
 class DeterministicDistrib(object):
     def __init__(self, function, args, range_indexed_by = None):
@@ -166,7 +189,7 @@ class DeterministicDistrib(object):
 
     def log_probability(self, value):
         # TODO: FIXME - probably shouldn't use self.args directly?
-        dummy_idx = dummy_index_over(self.range_indexed_by)
+        dummy_idx = index_over(dummy_var(), self.range_indexed_by)
         return ("sum", dummy_idx,
             ("indicator", (self.function,) + tuple(self.args), value))
 
@@ -175,11 +198,14 @@ class DirichletDistrib(object):
         self.alphas = alphas
 
     def log_probability(self, value):
-        idx = self.alphas.indexed_by
-        dummy_idx = dummy_index_over(idx)
+        dummy_idx = index_over(dummy_var(), self.indexed_by)
         return ("add",
-            ("log_gamma", ("sum", dummy_idx, ("index", self.alphas, dummy_idx.name))),
-            ("multiply", -1, ("sum", dummy_idx, ("log_gamma", ("index", self.alphas, dummy_idx.name)))),
+            ("log_gamma", ("sum", dummy_idx, ("index", self.alphas, dummy_idx.var_name))),
+            ("multiply", -1, ("sum", dummy_idx, ("log_gamma", ("index", self.alphas, dummy_idx.var_name)))),
             ("sum", dummy_idx, ("multiply",
-                ("add", ("index", self.alphas, dummy_idx.name), -1),
-                ("log", ("index", value, dummy_idx.name)))))
+                ("add", ("index", self.alphas, dummy_idx.var_name), -1),
+                ("log", ("index", value, dummy_idx.var_name)))))
+
+    @property
+    def indexed_by(self):
+        return self.alphas.distribution.indexed_by

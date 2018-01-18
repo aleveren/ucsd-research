@@ -29,10 +29,10 @@ node_selected = m.add_random_variable("node_selected", subscript = (d, n),
 t = m.add_random_variable("t", subscript = (d, n),
     distribution = bn.CategoricalDistrib(theta[node_selected[d, n]]))
 
-print(m.log_joint_probability())
-#print(m.log_joint_probability(
+bn.pretty_print(m.log_joint_probability())
+#bn.pretty_print(m.log_joint_probability(
 #    ignore_constants_relative_to = [phi[d]]))
-#print(m.log_joint_probability(
+#bn.pretty_print(m.log_joint_probability(
 #    ignore_constants_relative_to = [z[d, n]]))
 
 # Q: is it OK to reuse indices (d, n) like this?  seems like it could yield a naming clash...
