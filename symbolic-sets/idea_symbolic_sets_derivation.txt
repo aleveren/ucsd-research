@@ -1,0 +1,69 @@
+symbolic sets:
+- nodes
+- depths
+- leaves
+- docs
+- wordSlots(d) for d in docs
+
+prior params (constant random variables):
+=================
+alpha_phi := some vector indexed by depths
+alpha_lam := some vector indexed by leaves
+alpha_theta := some vector indexed by nodes
+
+random variables:
+=================
+for r in nodes:
+  theta[r] ~ Dirichlet(alpha_theta)
+for d in docs:
+  phi[d] ~ Dirichlet(alpha_phi)
+  lam[d] ~ Dirichlet(alpha_lam)
+  for n in wordSlots(d):
+    z[d,n] ~ Categorical(phi[d])
+    l[d,n] ~ Categorical(lam[d], mapper = (x -> leaves[x]))
+    r[d,n] := l[d,n][0:z[d,n]]   # or, just some symbolic function of l[d,n], z[d,n]?
+    t[d,n] ~ Categorical(theta[r[d,n]])
+
+
+idea for code in python:
+========================
+import bayesnet as bn
+
+m = bn.Model()
+
+alpha_phi = m.add_parameter("alpha_phi", indexed_by = "depths")
+alpha_lam = m.add_parameter("alpha_lam", indexed_by = "leaves")
+alpha_theta = m.add_parameter("alpha_theta", indexed_by = "nodes")
+
+r = bn.index_over("nodes")
+theta = m.add_random_variable("theta", subscript = (r,),
+    distribution = bn.Dirichlet(alpha_theta))
+
+d = bn.index_over("documents")
+phi = m.add_random_variable("phi", subscript = (d,),
+    distribution = bn.Dirichlet(alpha_phi))
+lam = m.add_random_variable("lam", subscript = (d,),
+    distribution = bn.Dirichlet(alpha_lam))
+
+n = bn.index_over("word_slots", subscript = (d,))
+z = m.add_random_variable("z", subscript = (d, n),
+    distribution = bn.Categorical(phi))
+l = m.add_random_variable("l", subscript = (d, n),
+    distribution = bn.Categorical(lam))
+r = m.add_random_variable("r", subscript = (d, n),
+    distribution = bn.Deterministic(
+        function = "node_by_depth_and_leaf",  # purely symbolic functional dependence?
+        args = [z, l],
+        range_indexed_by = "nodes"))
+t = m.add_random_variable("t", subscript = (d, n),
+    distribution = bn.Categorical(theta[r[d, n]]))
+
+print(m.log_joint_probability())
+print(m.log_joint_probability_ignore_constants(
+    variables = [phi[d]]))
+print(m.log_joint_probability_ignore_constants(
+    variables = [z[d, n]]))
+
+# Q: is it OK to reuse indices (d, n) like this?  seems like it could yield a naming clash...
+
+# TODO: for variational inference (conjugate exponential models only?), try searching for 
