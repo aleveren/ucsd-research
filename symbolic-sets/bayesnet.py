@@ -30,6 +30,8 @@ class RandomVariableCollection(object):
     def __init__(self, name, distribution, collection_indexed_by, dereferenced_subscripts):
         if collection_indexed_by is None:
             collection_indexed_by = ()
+        elif isinstance(collection_indexed_by, IndexSet):
+            collection_indexed_by = (collection_indexed_by,)
         if dereferenced_subscripts is None:
             dereferenced_subscripts = ()
         self.name = name
@@ -47,17 +49,25 @@ class RandomVariableCollection(object):
 
         if len(indices) == 0:
             return self
+        elif len(self.collection_indexed_by) == 0:
+            assert len(indices) == 1
+            assert indices[0].range_indexed_by.set_name == self.components_indexed_by.set_name
+            return RandomVariableCollection(
+                name = self.name,
+                distribution = self.distribution,
+                collection_indexed_by = (),
+                dereferenced_subscripts = self.dereferenced_subscripts + (indices[0].range_indexed_by.var_name,))
         else:
             first_ci = self.collection_indexed_by[0]
             first_i = indices[0]
             assert hasattr(first_i, "range_indexed_by")
-            assert first_ci.range_indexed_by == first_i.range_indexed_by, \
-                "Mismatch between {} and {}".format(first_ci.range_indexed_by, first_i.range_indexed_by)
+            assert first_ci.range_indexed_by.set_name == first_i.range_indexed_by.set_name, \
+                "Mismatch between {} and {}".format(first_ci.range_indexed_by.set_name, first_i.range_indexed_by.set_name)
             indirect = RandomVariableCollection(
                 name = self.name,
                 distribution = self.distribution,
                 collection_indexed_by = self.collection_indexed_by[1:],
-                dereferenced_subscripts = self.dereferenced_subscripts + (first_i,))
+                dereferenced_subscripts = self.dereferenced_subscripts + (first_i.range_indexed_by.var_name,))
             return indirect[indices[1:]]
 
     def __repr__(self):
@@ -69,6 +79,10 @@ class RandomVariableCollection(object):
 
     def __str__(self):
         return self.__repr__()
+
+    @property
+    def components_indexed_by(self):
+        return self.distribution.components_indexed_by
 
     @property
     def range_indexed_by(self):
@@ -96,18 +110,20 @@ class Model(object):
         # TODO: add param ignore_constants_relative_to (default: None)
 
         def get_terms(rv):
-            value = ("index", rv, rv.dereferenced_subscripts) if rv.dereferenced_subscripts else rv
-            result = rv.distribution.log_probability(value)
+            orig_collection_indexed_by = rv.collection_indexed_by
+            if len(rv.collection_indexed_by) > 0:
+                rv = rv[rv.collection_indexed_by]
+            result = rv.distribution.log_probability(rv)
             if result == 0:
                 result = []
             elif isinstance(result, tuple) and result[0] == "add":
                 result = list(result[1:])
             else:
                 result = [result]
-            remaining_indices = rv.collection_indexed_by
+            remaining_indices = orig_collection_indexed_by
             while len(remaining_indices) > 0:
-                sub = remaining_indices[-1]
-                result = [("sum", sub, term) for term in result]
+                idx = remaining_indices[-1]
+                result = [("sum", idx, term) for term in result]
                 remaining_indices = remaining_indices[:-1]
             return result
 
@@ -116,19 +132,10 @@ class Model(object):
             terms.extend(get_terms(rv))
         if len(terms) == 0:
             return 0
+        elif len(terms) == 1:
+            return terms[0]
         else:
             return ("add",) + tuple(terms)
-
-class Indicator(object):
-    def __init__(self, a, b):
-        self.a = a
-        self.b = b
-
-    def __repr__(self):
-        return "Indicator[{} == {}]".format(self.a, self.b)
-
-    def __str__(self):
-        return self.__repr__()
 
 _dummy_count = 0
 def dummy_var(prefix = "dummy"):
@@ -171,10 +178,15 @@ class CategoricalDistrib(object):
     def log_probability(self, value):
         components_indexed_by = self.probabilities.distribution.components_indexed_by
         dummy_idx = components_indexed_by.copy_with_fresh_variable()
+        try:
+            foo = self.probabilities[dummy_idx]
+        except:
+            raise Exception("DEBUGGING: self.probabilities = {} ({})".format(self.probabilities, type(self.probabilities)))
         return ("sum", dummy_idx,
             ("multiply",
                 ("indicator", value, dummy_idx.var_name),
-                ("log", ("index", self.probabilities, dummy_idx.var_name))))
+                ("log", self.probabilities[dummy_idx])))
+                #("log", ("index", self.probabilities, dummy_idx.var_name))))
 
 class DeterministicDistrib(object):
     def __init__(self, function, args, range_indexed_by = None):
@@ -186,7 +198,7 @@ class DeterministicDistrib(object):
         # TODO: FIXME - probably shouldn't use self.args directly?
         dummy_idx = self.range_indexed_by.copy_with_fresh_variable()
         return ("sum", dummy_idx,
-            ("indicator", (self.function,) + tuple(self.args), value))
+            ("indicator", (self.function,) + tuple(self.args), dummy_idx.var_name))
 
 class DirichletDistrib(object):
     def __init__(self, alphas):
@@ -195,11 +207,11 @@ class DirichletDistrib(object):
     def log_probability(self, value):
         dummy_idx = self.components_indexed_by.copy_with_fresh_variable()
         return ("add",
-            ("log_gamma", ("sum", dummy_idx, ("index", self.alphas, dummy_idx.var_name))),
-            ("multiply", -1, ("sum", dummy_idx, ("log_gamma", ("index", self.alphas, dummy_idx.var_name)))),
+            ("log_gamma", ("sum", dummy_idx, self.alphas[dummy_idx])),
+            ("multiply", -1, ("sum", dummy_idx, ("log_gamma", self.alphas[dummy_idx]))),
             ("sum", dummy_idx, ("multiply",
-                ("add", ("index", self.alphas, dummy_idx.var_name), -1),
-                ("log", ("index", value, dummy_idx.var_name)))))
+                ("add", self.alphas[dummy_idx], -1),
+                ("log", value[dummy_idx]))))
 
     @property
     def components_indexed_by(self):
