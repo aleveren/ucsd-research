@@ -24,12 +24,13 @@ m = bn.Model()
 nodes = bn.IndexSet("r", "nodes")
 depths = bn.IndexSet("k", "depths")
 leaves = bn.IndexSet("l", "leaves")
+vocab = bn.IndexSet("v", "vocab")
 documents = bn.IndexSet("d", "documents")
 word_slots = bn.IndexSet("n", "word_slots", collection_indexed_by = (documents,))
 
 alpha_phi = m.add_parameter("alpha_phi", components_indexed_by = depths)
 alpha_lam = m.add_parameter("alpha_lam", components_indexed_by = leaves)
-alpha_theta = m.add_parameter("alpha_theta", components_indexed_by = nodes)
+alpha_theta = m.add_parameter("alpha_theta", components_indexed_by = vocab)
 
 theta = m.add_random_variable("theta", collection_indexed_by = (nodes,),
     distribution = bn.DirichletDistrib(alpha_theta))
