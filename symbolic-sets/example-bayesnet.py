@@ -1,5 +1,24 @@
 import bayesnet as bn
 
+print("=" * 20)
+
+m = bn.Model()
+a = bn.IndexSet("a", "a_domain")
+x = m.add_parameter("x", components_indexed_by = a)
+y = m.add_random_variable("y", distribution = bn.CategoricalDistrib(x))
+bn.pretty_print(m.log_joint_probability())
+
+print("=" * 20)
+
+m = bn.Model()
+a = bn.IndexSet("a", "a_domain")
+b = bn.IndexSet("b", "b_domain")
+x = m.add_parameter("x", components_indexed_by = a)
+y = m.add_random_variable("y", distribution = bn.CategoricalDistrib(x), collection_indexed_by = b)
+bn.pretty_print(m.log_joint_probability())
+
+print("=" * 20)
+
 m = bn.Model()
 
 nodes = bn.IndexSet("r", "nodes")
