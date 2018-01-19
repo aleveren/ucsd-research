@@ -2,32 +2,36 @@ import bayesnet as bn
 
 m = bn.Model()
 
-alpha_phi = m.add_parameter("alpha_phi", indexed_by = "depths")
-alpha_lam = m.add_parameter("alpha_lam", indexed_by = "leaves")
-alpha_theta = m.add_parameter("alpha_theta", indexed_by = "nodes")
+nodes = bn.IndexSet("r", "nodes")
+depths = bn.IndexSet("k", "depths")
+leaves = bn.IndexSet("l", "leaves")
+documents = bn.IndexSet("d", "documents")
+word_slots = bn.IndexSet("n", "word_slots", collection_indexed_by = (documents,))
 
-r = bn.index_over("r", "nodes")
-theta = m.add_random_variable("theta", subscript = (r,),
+alpha_phi = m.add_parameter("alpha_phi", components_indexed_by = depths)
+alpha_lam = m.add_parameter("alpha_lam", components_indexed_by = leaves)
+alpha_theta = m.add_parameter("alpha_theta", components_indexed_by = nodes)
+
+theta = m.add_random_variable("theta", collection_indexed_by = (nodes,),
     distribution = bn.DirichletDistrib(alpha_theta))
 
-d = bn.index_over("d", "documents")
-phi = m.add_random_variable("phi", subscript = (d,),
+phi = m.add_random_variable("phi", collection_indexed_by = (documents,),
     distribution = bn.DirichletDistrib(alpha_phi))
-lam = m.add_random_variable("lam", subscript = (d,),
+lam = m.add_random_variable("lam", collection_indexed_by = (documents,),
     distribution = bn.DirichletDistrib(alpha_lam))
 
-n = bn.index_over("n", "word_slots", subscript = (d,))
-z = m.add_random_variable("z", subscript = (d, n),
-    distribution = bn.CategoricalDistrib(phi))
-l = m.add_random_variable("l", subscript = (d, n),
-    distribution = bn.CategoricalDistrib(lam))
-node_selected = m.add_random_variable("node_selected", subscript = (d, n),
+z = m.add_random_variable("z", collection_indexed_by = (documents, word_slots),
+    distribution = bn.CategoricalDistrib(phi[documents]))
+l = m.add_random_variable("l", collection_indexed_by = (documents, word_slots),
+    distribution = bn.CategoricalDistrib(lam[documents]))
+node_selected = m.add_random_variable("node_selected",
+    collection_indexed_by = (documents, word_slots),
     distribution = bn.DeterministicDistrib(
         function = "node_by_depth_and_leaf",  # purely symbolic functional dependence?
-        args = [z, l],
-        range_indexed_by = "nodes"))
-t = m.add_random_variable("t", subscript = (d, n),
-    distribution = bn.CategoricalDistrib(theta[node_selected[d, n]]))
+        args = [z[documents, word_slots], l[documents, word_slots]],
+        range_indexed_by = nodes))
+t = m.add_random_variable("t", collection_indexed_by = (documents, word_slots),
+    distribution = bn.CategoricalDistrib(theta[node_selected[documents, word_slots]]))
 
 bn.pretty_print(m.log_joint_probability())
 #bn.pretty_print(m.log_joint_probability(

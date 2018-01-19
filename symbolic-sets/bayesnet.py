@@ -1,80 +1,74 @@
-def index_over(var_name, set_name, subscript = None):
-    return SymbolicIndex(var_name = var_name, set_name = set_name, subscript = subscript)
-
-class SymbolicIndex(object):
-    def __init__(self, var_name, set_name, subscript):
-        if subscript is None:
-            subscript = ()
+class IndexSet(object):
+    def __init__(self, var_name, set_name, collection_indexed_by = None):
+        if collection_indexed_by is None:
+            collection_indexed_by = ()
         self.var_name = var_name
         self.set_name = set_name
-        self.subscript = subscript
+        self.collection_indexed_by = collection_indexed_by
 
     def __repr__(self):
         set_and_subscript = self.set_name
-        if self.subscript:
-            set_and_subscript += "[{}]".format(self.subscript)
-        result = "index {} over {}".format(self.var_name, set_and_subscript)
+        if self.collection_indexed_by:
+            set_and_subscript += "[{}]".format(", ".join(str(x) for x in self.collection_indexed_by))
+        result = "{} in {}".format(self.var_name, set_and_subscript)
         return result
 
     def __str__(self):
         return self.__repr__()
 
+    def copy_with_fresh_variable(self):
+        return IndexSet(
+            var_name = dummy_var(prefix = self.var_name),
+            set_name = self.set_name,
+            collection_indexed_by = self.collection_indexed_by)
+
     @property
     def range_indexed_by(self):
-        return self.set_name
+        return self
 
-class RandomVariable(object):
-    def __init__(self, name, distribution, subscript):
-        if subscript is None:
-            subscript = ()
+class RandomVariableCollection(object):
+    def __init__(self, name, distribution, collection_indexed_by, dereferenced_subscripts):
+        if collection_indexed_by is None:
+            collection_indexed_by = ()
+        if dereferenced_subscripts is None:
+            dereferenced_subscripts = ()
         self.name = name
         self.distribution = distribution
-        self.subscript = subscript
+        self.collection_indexed_by = collection_indexed_by
+        self.dereferenced_subscripts = dereferenced_subscripts
 
     def __getitem__(self, indices):
-        #print("Got called with indices = {}".format(indices))
         if indices is None:
             indices = ()
-        elif isinstance(indices, SymbolicIndex):
+        elif isinstance(indices, IndexSet):
             indices = (indices,)
         elif not isinstance(indices, tuple):
             indices = (indices,)
-        #print("### subscript = {}".format(self.subscript))
-        #print("### indices = {}".format(indices))
-        for sub, ix in zip(self.subscript, indices):
-            #print("processing {} <--> {}".format(sub, ix))
-            assert hasattr(ix, "range_indexed_by")
-            assert sub.range_indexed_by == ix.range_indexed_by, \
-                "Mismatch between {} and {}".format(sub.range_indexed_by, ix.range_indexed_by)
-        return DereferencedRV(self, indices)
+
+        if len(indices) == 0:
+            return self
+        else:
+            first_ci = self.collection_indexed_by[0]
+            first_i = indices[0]
+            assert hasattr(first_i, "range_indexed_by")
+            assert first_ci.range_indexed_by == first_i.range_indexed_by, \
+                "Mismatch between {} and {}".format(first_ci.range_indexed_by, first_i.range_indexed_by)
+            indirect = RandomVariableCollection(
+                name = self.name,
+                distribution = self.distribution,
+                collection_indexed_by = self.collection_indexed_by[1:],
+                dereferenced_subscripts = self.dereferenced_subscripts + (first_i,))
+            return indirect[indices[1:]]
 
     def __repr__(self):
-        return self.name
+        if len(self.dereferenced_subscripts) == 0:
+            subscript_suffix = ''
+        else:
+            subscript_suffix = "[{}]".format(", ".join(str(x) for x in self.dereferenced_subscripts))
+        return self.name + subscript_suffix
 
     def __str__(self):
         return self.__repr__()
-
-    @property
-    def range_indexed_by(self):
-        return self.distribution.range_indexed_by
-
-class DereferencedRV(object):
-    # TODO: consider making this a subclass of RandomVariable?
-
-    def __init__(self, random_var, indices):
-        self.random_var = random_var
-        self.indices = indices
-
-    def __repr__(self):
-        str_indices = ", ".join(str(x) for x in self.indices)
-        return "{}[{}]".format(self.random_var.name, str_indices)
-
-    def __str__(self):
-        return self.__repr__()
-
-    @property
-    def distribution(self):
-        return self.random_var.distribution
 
     @property
     def range_indexed_by(self):
@@ -85,12 +79,16 @@ class Model(object):
         self.params = dict()
         self.random_vars = []
 
-    def add_parameter(self, name, indexed_by = None, subscript = None):
-        distrib = ConstantDistrib(indexed_by = indexed_by)
-        return self.add_random_variable(name = name, distribution = distrib, subscript = subscript)
+    def add_parameter(self, name, components_indexed_by = None, collection_indexed_by = None):
+        distrib = ConstantDistrib(components_indexed_by = components_indexed_by)
+        return self.add_random_variable(name = name, distribution = distrib, collection_indexed_by = collection_indexed_by)
 
-    def add_random_variable(self, name, distribution, subscript = None):
-        rv = RandomVariable(name = name, distribution = distribution, subscript = subscript)
+    def add_random_variable(self, name, distribution, collection_indexed_by = None):
+        rv = RandomVariableCollection(
+            name = name,
+            distribution = distribution,
+            collection_indexed_by = collection_indexed_by,
+            dereferenced_subscripts = ())
         self.random_vars.append(rv)
         return rv
 
@@ -98,7 +96,7 @@ class Model(object):
         # TODO: add param ignore_constants_relative_to (default: None)
 
         def get_terms(rv):
-            value = ("index", rv, rv.subscript) if rv.subscript else rv
+            value = ("index", rv, rv.dereferenced_subscripts) if rv.dereferenced_subscripts else rv
             result = rv.distribution.log_probability(value)
             if result == 0:
                 result = []
@@ -106,11 +104,11 @@ class Model(object):
                 result = list(result[1:])
             else:
                 result = [result]
-            remaining_subscripts = rv.subscript
-            while len(remaining_subscripts) > 0:
-                sub = remaining_subscripts[-1]
+            remaining_indices = rv.collection_indexed_by
+            while len(remaining_indices) > 0:
+                sub = remaining_indices[-1]
                 result = [("sum", sub, term) for term in result]
-                remaining_subscripts = remaining_subscripts[:-1]
+                remaining_indices = remaining_indices[:-1]
             return result
 
         terms = []
@@ -133,9 +131,9 @@ class Indicator(object):
         return self.__repr__()
 
 _dummy_count = 0
-def dummy_var():
+def dummy_var(prefix = "dummy"):
     global _dummy_count
-    var_name = "dummy{}".format(_dummy_count)
+    var_name = "{}{}".format(prefix, _dummy_count)
     _dummy_count += 1
     return var_name
 
@@ -158,10 +156,10 @@ def pretty_print_str(obj, indent = 0):
 # Distributions
 
 class ConstantDistrib(object):
-    def __init__(self, indexed_by = None):
-        if indexed_by is None:
-            indexed_by = ()
-        self.indexed_by = indexed_by
+    def __init__(self, components_indexed_by = None):
+        if components_indexed_by is None:
+            components_indexed_by = ()
+        self.components_indexed_by = components_indexed_by
 
     def log_probability(self, value):
         return 0  # TODO: should this use an indicator function?
@@ -171,11 +169,8 @@ class CategoricalDistrib(object):
         self.probabilities = probabilities
 
     def log_probability(self, value):
-        try:
-            indexed_by = self.probabilities.distribution.indexed_by
-        except:  # TODO: REMOVE
-            raise Exception("Tried to get indexed_by from {}".format(self.probabilities.distribution))
-        dummy_idx = index_over(dummy_var(), indexed_by)
+        components_indexed_by = self.probabilities.distribution.components_indexed_by
+        dummy_idx = components_indexed_by.copy_with_fresh_variable()
         return ("sum", dummy_idx,
             ("multiply",
                 ("indicator", value, dummy_idx.var_name),
@@ -189,7 +184,7 @@ class DeterministicDistrib(object):
 
     def log_probability(self, value):
         # TODO: FIXME - probably shouldn't use self.args directly?
-        dummy_idx = index_over(dummy_var(), self.range_indexed_by)
+        dummy_idx = self.range_indexed_by.copy_with_fresh_variable()
         return ("sum", dummy_idx,
             ("indicator", (self.function,) + tuple(self.args), value))
 
@@ -198,7 +193,7 @@ class DirichletDistrib(object):
         self.alphas = alphas
 
     def log_probability(self, value):
-        dummy_idx = index_over(dummy_var(), self.indexed_by)
+        dummy_idx = self.components_indexed_by.copy_with_fresh_variable()
         return ("add",
             ("log_gamma", ("sum", dummy_idx, ("index", self.alphas, dummy_idx.var_name))),
             ("multiply", -1, ("sum", dummy_idx, ("log_gamma", ("index", self.alphas, dummy_idx.var_name)))),
@@ -207,5 +202,5 @@ class DirichletDistrib(object):
                 ("log", ("index", value, dummy_idx.var_name)))))
 
     @property
-    def indexed_by(self):
-        return self.alphas.distribution.indexed_by
+    def components_indexed_by(self):
+        return self.alphas.distribution.components_indexed_by
