@@ -53,7 +53,9 @@ node_selected = m.add_random_variable("node_selected",
 t = m.add_random_variable("t", collection_indexed_by = (documents, word_slots),
     distribution = bn.CategoricalDistrib(theta[node_selected[documents, word_slots]]))
 
-bn.pretty_print(m.log_joint_probability())
+log_joint = m.log_joint_probability()
+bn.pretty_print(log_joint)
+print(bn.to_latex(log_joint))
 #bn.pretty_print(m.log_joint_probability(
 #    ignore_constants_relative_to = [phi[d]]))
 #bn.pretty_print(m.log_joint_probability(

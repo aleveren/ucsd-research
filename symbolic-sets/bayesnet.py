@@ -159,6 +159,37 @@ def pretty_print_str(obj, indent = 0):
         return "{}({},\n{}\n{})".format(
             " " * indent, first_line, ",\n".join(remaining_lines), " " * indent)
 
+def to_latex(obj):
+    if isinstance(obj, IndexSet):
+        return "{} \\in {}".format(obj.var_name, to_latex(obj.set_name))
+    elif isinstance(obj, tuple):
+        if obj[0] == "add":
+            elts = [to_latex(x) for x in obj[1:]]
+            return "\\left(" + " + ".join(elts) + "\\right)"
+        elif obj[0] == "multiply":
+            elts = [to_latex(x) for x in obj[1:]]
+            return "\\left(" + " \\times ".join(elts) + "\\right)"
+        elif obj[0] == "log":
+            assert len(obj) == 2
+            return "\\log\left(" + to_latex(obj[1]) + "\\right)"
+        elif obj[0] == "log_gamma":
+            assert len(obj) == 2
+            return "\\log\\Gamma\\left(" + to_latex(obj[1]) + "\\right)"
+        elif obj[0] == "indicator":
+            assert len(obj) == 3
+            return "\\text{{I}}\\left[" + to_latex(obj[1]) + " = " + to_latex(obj[2]) + "\\right]"
+        elif obj[0] == "sum":
+            assert len(obj) == 3
+            idx = to_latex(obj[1])
+            val = to_latex(obj[2])
+            return "\\sum_{{{}}} {}".format(idx, val)
+        else:
+            elts = [to_latex(x) for x in obj]
+            return "\\left(" + ", ".join(elts) + "\\right)"
+    else:
+        val = str(obj).replace("_", "\\_")
+        return "\\text{{{}}}".format(val)
+
 ###################
 # Distributions
 
