@@ -313,60 +313,40 @@ class SimpleHierarchicalTopicModel(object):
         elbo = 0.0
 
         elbo += np.einsum(
-            self.prior_params_DV, [VOCAB_WORD],
+            self.prior_params_DV[np.newaxis, :] - self.var_params_DV, [NODE, VOCAB_WORD],
             expectation_log_DV, [NODE, VOCAB_WORD],
             [])  # output is a scalar
-        elbo -= np.einsum(
-            self.var_params_DV, [NODE, VOCAB_WORD],
-            expectation_log_DV, [NODE, VOCAB_WORD],
-            [])  # output is a scalar
-        elbo -= self.num_nodes * gammaln(self.prior_params_DV).sum()
-        elbo += self.num_nodes * gammaln(self.prior_params_DV.sum(axis = -1))
-        elbo += gammaln(self.var_params_DV).sum()
-        elbo -= gammaln(self.var_params_DV.sum(axis = -1)).sum()
+        elbo += (gammaln(self.prior_params_DV[np.newaxis, :].sum(axis = -1))
+            - gammaln(self.prior_params_DV[np.newaxis, :]).sum(axis = -1)
+            - gammaln(self.var_params_DV.sum(axis = -1))
+            + gammaln(self.var_params_DV).sum(axis = -1)).sum()
 
         elbo += np.einsum(
-            self.prior_params_DL, [LEAF],
+            self.prior_params_DL[np.newaxis, :] - self.var_params_DL, [DOC, LEAF],
             expectation_log_DL, [DOC, LEAF],
             [])  # output is a scalar
-        elbo -= np.einsum(
-            self.var_params_DL, [DOC, LEAF],
-            expectation_log_DL, [DOC, LEAF],
-            [])  # output is a scalar
-        elbo -= self.num_docs * gammaln(self.prior_params_DL).sum()
-        elbo += self.num_docs * gammaln(self.prior_params_DL.sum(axis = -1))
-        elbo += gammaln(self.var_params_DL).sum()
-        elbo -= gammaln(self.var_params_DL.sum(axis = -1)).sum()
+        elbo += (gammaln(self.prior_params_DL[np.newaxis, :].sum(axis = -1))
+            - gammaln(self.prior_params_DL[np.newaxis, :]).sum(axis = -1)
+            - gammaln(self.var_params_DL.sum(axis = -1))
+            + gammaln(self.var_params_DL).sum(axis = -1)).sum()
 
         elbo += np.einsum(
-            self.prior_params_DD, [DEPTH],
+            self.prior_params_DD[np.newaxis, :] - self.var_params_DD, [DOC, DEPTH],
             expectation_log_DD, [DOC, DEPTH],
             [])  # output is a scalar
-        elbo -= np.einsum(
-            self.var_params_DD, [DOC, DEPTH],
-            expectation_log_DD, [DOC, DEPTH],
-            [])  # output is a scalar
-        elbo -= self.num_docs * gammaln(self.prior_params_DD).sum()
-        elbo += self.num_docs * gammaln(self.prior_params_DD.sum(axis = -1))
-        elbo += gammaln(self.var_params_DD).sum()
-        elbo -= gammaln(self.var_params_DD.sum(axis = -1)).sum()
+        elbo += (gammaln(self.prior_params_DD[np.newaxis, :].sum(axis = -1))
+            - gammaln(self.prior_params_DD[np.newaxis, :]).sum(axis = -1)
+            - gammaln(self.var_params_DD.sum(axis = -1))
+            + gammaln(self.var_params_DD).sum(axis = -1)).sum()
 
         elbo += np.einsum(
             self.var_params_L, [WORD_SLOT, LEAF],
-            expectation_log_DL[self.docs_by_word_slot, :], [WORD_SLOT, LEAF],
-            [])  # output is a scalar
-        elbo -= np.einsum(
-            self.var_params_L, [WORD_SLOT, LEAF],
-            np.log(self.var_params_L), [WORD_SLOT, LEAF],
+            expectation_log_DL[self.docs_by_word_slot, :] - np.log(self.var_params_L), [WORD_SLOT, LEAF],
             [])  # output is a scalar
 
         elbo += np.einsum(
             self.var_params_D, [WORD_SLOT, DEPTH],
-            expectation_log_DD[self.docs_by_word_slot, :], [WORD_SLOT, DEPTH],
-            [])  # output is a scalar
-        elbo -= np.einsum(
-            self.var_params_D, [WORD_SLOT, DEPTH],
-            np.log(self.var_params_D), [WORD_SLOT, DEPTH],
+            expectation_log_DD[self.docs_by_word_slot, :] - np.log(self.var_params_D), [WORD_SLOT, DEPTH],
             [])  # output is a scalar
 
         elbo += np.einsum(
