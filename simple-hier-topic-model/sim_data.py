@@ -2,7 +2,7 @@ import numpy as np
 
 class SimData(object):
     '''Generate a simulated dataset'''
-    def __init__(self, num_leaves, num_docs, doc_length, topic_sharpness):
+    def __init__(self, num_leaves, num_docs, doc_length, topic_sharpness, alpha_leaves, alpha_depths):
         self.num_leaves = num_leaves
         self.num_depths = 2
         self.vocab_size = self.num_leaves * 2 + 6
@@ -10,8 +10,8 @@ class SimData(object):
         self.doc_length = doc_length
         self.topic_sharpness = topic_sharpness
         self.vocab = ["w{}".format(i) for i in range(self.vocab_size)]
-        self.alpha_leaves = 100.0 * np.ones((self.num_leaves,))
-        self.alpha_depths = 100.0 * np.ones((self.num_depths,))
+        self.alpha_leaves = np.broadcast_to(alpha_leaves, (self.num_leaves,)).astype('float')
+        self.alpha_depths = np.broadcast_to(alpha_depths, (self.num_depths,)).astype('float')
         self.init_topics()
 
     def init_topics(self):
