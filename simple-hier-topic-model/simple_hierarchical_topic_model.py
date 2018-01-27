@@ -205,9 +205,8 @@ class SimpleHierarchicalTopicModel(object):
                     step_index += 1
                     pbar.update(n = len(mini_batch_doc_indices))
 
-                # TODO: uncomment this code
-                #pbar.set_postfix({"Status": "computing statistics"})
-                #self.update_stats_by_epoch(epoch_index, step_index)
+                pbar.set_postfix({"Status": "computing statistics"})
+                self.update_stats_by_epoch(epoch_index, step_index)
 
         return self
 
@@ -303,8 +302,6 @@ class SimpleHierarchicalTopicModel(object):
 
             else:
                 raise ValueError("Unsupported update type: {}".format(update_name))
-
-            self.update_stats_by_epoch(epoch_index, step_index)  # TODO: remove
 
     def compute_ELBO(self):
         expectation_log_DV = expectation_log_dirichlet(self.var_params_DV, axis = -1)
