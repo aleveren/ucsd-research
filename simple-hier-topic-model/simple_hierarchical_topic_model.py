@@ -43,11 +43,20 @@ NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
 _default_update_order = ["L", "D", "DL", "DD", "DV"]
 _default_step_size_function = lambda step_index: (1 + step_index) ** -0.5
 
+def _explore_branching_factors(factors, prefix):
+    yield prefix
+    if len(factors) > 0:
+        first = factors[0]
+        rest = factors[1:]
+        for i in range(first):
+            new_prefix = prefix + (i,)
+            for path in _explore_branching_factors(rest, new_prefix):
+                yield path
 
 class SimpleHierarchicalTopicModel(object):
-    def __init__(self, branching_factors, num_epochs, batch_size, vocab,
+    def __init__(self, num_epochs, batch_size, vocab, branching_factors = None,
             prior_params_DL = 0.01, prior_params_DD = 1.0, prior_params_DV = 0.1,
-            do_compute_ELBO = True, save_params_history = False,
+            do_compute_ELBO = True, save_params_history = False, paths = None,
             update_order = None, custom_initializer = None, step_size_function = None):
         self.num_epochs = num_epochs
         self.branching_factors = branching_factors
@@ -71,50 +80,48 @@ class SimpleHierarchicalTopicModel(object):
             step_size_function = _default_step_size_function
         self.step_size = step_size_function
 
-        self.num_depths = len(self.branching_factors) + 1
-        self.num_leaves = np.prod(self.branching_factors)
-        self.num_nodes = 1 + np.sum(np.cumprod(self.branching_factors))
+        if self.branching_factors is None:
+            assert paths is not None, "Must specify branching_factors or paths"
+            self.get_paths = lambda: paths
+        else:
+            assert paths is None, "Cannot specify both branching_factors and paths"
+            self.get_paths = lambda: _explore_branching_factors(self.branching_factors, ())
 
         self.init_paths()
 
     def init_paths(self):
-        def explore(remaining_branching_factors, prefix):
-            yield prefix
-            if len(remaining_branching_factors) > 0:
-                first = remaining_branching_factors[0]
-                rest = remaining_branching_factors[1:]
-                for i in range(first):
-                    new_prefix = prefix + (i,)
-                    for path in explore(rest, new_prefix):
-                        yield path
+        self.nodes = copy.copy(list(self.get_paths()))
+        self.num_nodes = len(self.nodes)
 
-        self.nodes = []
+        self.depth_by_node = np.array([len(path) for path in self.nodes], dtype='int')
+        self.max_depth = max(self.depth_by_node)
+        self.unique_depths = np.unique(self.depth_by_node)
+        self.depth_to_unique_index = {j: i for i, j in enumerate(self.unique_depths)}
+        self.depth_index_by_node = np.array([self.depth_to_unique_index[d] for d in self.depth_by_node])
+        self.num_depths = len(self.unique_depths)
+
+        self.leaves = [x for x in self.nodes if len(x) == self.max_depth]
+        self.num_leaves = len(self.leaves)
+
         self.path_to_node_index = dict()
-        self.leaves = []
         self.path_to_leaf_index = dict()
         self.indicator_node_leaf = np.zeros((self.num_nodes, self.num_leaves))
         # indicator_node_leaf[path r, leaf l] = 1 iff r is prefix of l
         self.indicator_node_depth = np.zeros((self.num_nodes, self.num_depths))
         # indicator_node_depth[path r, depth k] = 1 iff len(r) == k
 
-        for path in explore(self.branching_factors, ()):
-            node_index = len(self.nodes)
+        for node_index, path in enumerate(self.nodes):
             self.path_to_node_index[path] = node_index
-            self.nodes.append(path)
+            self.indicator_node_depth[node_index, self.depth_to_unique_index[len(path)]] = 1
 
-            self.indicator_node_depth[node_index, len(path)] = 1
+        for leaf_index, path in enumerate(self.leaves):
+            self.path_to_leaf_index[path] = leaf_index
 
-            if len(path) == len(self.branching_factors):
-                leaf_index = len(self.leaves)
-                self.path_to_leaf_index[path] = leaf_index
-                self.leaves.append(path)
-
-                for subpath_len in range(self.num_depths):
-                    subpath = path[:subpath_len]
-                    subpath_index = self.path_to_node_index[subpath]
+            for subpath_len in self.unique_depths:
+                subpath = path[:subpath_len]
+                subpath_index = self.path_to_node_index.get(subpath, None)
+                if subpath_index is not None:
                     self.indicator_node_leaf[subpath_index, leaf_index] = 1
-
-        self.depth_by_node = np.array([len(path) for path in self.nodes], dtype='int')
 
     def fit(self, data):
         if not isspmatrix_csc(data):
@@ -262,7 +269,7 @@ class SimpleHierarchicalTopicModel(object):
                 log_L = expectation_log_dirichlet(self.var_params_DL[docs_by_word_slot, :], axis = -1) \
                     + np.einsum(
                         self.indicator_node_leaf, [NODE, LEAF],
-                        self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
+                        self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_index_by_node], [WORD_SLOT, NODE],
                         expectation_log_DV[:, vocab_word_by_slot], [NODE, WORD_SLOT],
                         [WORD_SLOT, LEAF])
                 self.var_params_L[word_slot_indices, :] = softmax(log_L, axis = -1)
@@ -292,7 +299,7 @@ class SimpleHierarchicalTopicModel(object):
                 # Update DV
                 local_contrib_DV_by_word_slot = np.einsum(
                     self.indicator_node_leaf, [NODE, LEAF],
-                    self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_by_node], [WORD_SLOT, NODE],
+                    self.var_params_D[np.atleast_2d(word_slot_indices).transpose(), self.depth_index_by_node], [WORD_SLOT, NODE],
                     self.var_params_L[word_slot_indices, :], [WORD_SLOT, LEAF],
                     [NODE, WORD_SLOT])
                 # Sum local contribs by grouping word-slots according to vocab words
@@ -356,7 +363,7 @@ class SimpleHierarchicalTopicModel(object):
 
         elbo += np.einsum(
             self.indicator_node_leaf, [NODE, LEAF],
-            self.var_params_D[:, self.depth_by_node], [WORD_SLOT, NODE],
+            self.var_params_D[:, self.depth_index_by_node], [WORD_SLOT, NODE],
             self.var_params_L, [WORD_SLOT, LEAF],
             expectation_log_DV[:, self.overall_vocab_word_by_slot], [NODE, WORD_SLOT],
             [])  # output is a scalar
