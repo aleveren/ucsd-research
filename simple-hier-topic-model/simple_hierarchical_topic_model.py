@@ -44,11 +44,15 @@ _default_update_order = ["L", "D", "DL", "DD", "DV"]
 
 class SimpleHierarchicalTopicModel(object):
     def __init__(self, branching_factors, num_epochs, batch_size, vocab,
+            prior_params_DL = 0.01, prior_params_DD = 1.0, prior_params_DV = 0.1,
             do_compute_ELBO = True, save_params_history = False,
             update_order = None, custom_initializer = None):
         self.num_epochs = num_epochs
         self.branching_factors = branching_factors
         self.vocab = np.asarray(vocab, dtype='object')
+        self.given_prior_params_DL = prior_params_DL
+        self.given_prior_params_DD = prior_params_DD
+        self.given_prior_params_DV = prior_params_DV
         self.batch_size = batch_size
         self.do_compute_ELBO = do_compute_ELBO
         self.save_params_history = save_params_history
@@ -139,9 +143,9 @@ class SimpleHierarchicalTopicModel(object):
         var_params_D[slot(d,n),k] = mu^z_{d,n,k}
         '''
         _logger.debug("Allocating prior params")
-        self.prior_params_DL = 0.01 * np.ones(self.num_leaves)
-        self.prior_params_DD = 1.0 * np.ones(self.num_depths)
-        self.prior_params_DV = 0.1 * np.ones(self.vocab_size)
+        self.prior_params_DL = np.broadcast_to(self.given_prior_params_DL, self.num_leaves).astype('float').copy()
+        self.prior_params_DD = np.broadcast_to(self.given_prior_params_DD, self.num_depths).astype('float').copy()
+        self.prior_params_DV = np.broadcast_to(self.given_prior_params_DV, self.vocab_size).astype('float').copy()
 
         _logger.debug("Allocating variational params")
         self.var_params_DL = np.random.uniform(0.01, 1.99, (self.num_docs, self.num_leaves))
