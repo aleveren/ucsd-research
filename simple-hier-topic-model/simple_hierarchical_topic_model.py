@@ -82,15 +82,14 @@ class SimpleHierarchicalTopicModel(object):
 
         if self.branching_factors is None:
             assert paths is not None, "Must specify branching_factors or paths"
-            self.get_paths = lambda: paths
+            self.nodes = [] + paths
         else:
             assert paths is None, "Cannot specify both branching_factors and paths"
-            self.get_paths = lambda: _explore_branching_factors(self.branching_factors, ())
+            self.nodes = list(_explore_branching_factors(self.branching_factors, ()))
 
         self.init_paths()
 
     def init_paths(self):
-        self.nodes = copy.copy(list(self.get_paths()))
         self.num_nodes = len(self.nodes)
 
         self.depth_by_node = np.array([len(path) for path in self.nodes], dtype='int')
