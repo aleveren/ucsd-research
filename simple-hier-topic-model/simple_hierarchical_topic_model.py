@@ -274,15 +274,13 @@ class SimpleHierarchicalTopicModel(object):
 
             elif update_name == "DL":
                 # Update DL
-                var_params_DL_by_word_slot = (self.prior_params_DL[np.newaxis, :]
-                    + self.var_params_L[word_slot_indices, :])
-                np.add.at(self.var_params_DL, (docs_by_word_slot, slice(None)), var_params_DL_by_word_slot)
+                self.var_params_DL = np.broadcast_to(self.prior_params_DL, self.var_params_DL.shape).copy()
+                np.add.at(self.var_params_DL, (docs_by_word_slot, slice(None)), self.var_params_L[word_slot_indices, :])
 
             elif update_name == "DD":
                 # Update DD
-                var_params_DD_by_word_slot = (self.prior_params_DD[np.newaxis, :]
-                    + self.var_params_D[word_slot_indices, :])
-                np.add.at(self.var_params_DD, (docs_by_word_slot, slice(None)), var_params_DD_by_word_slot)
+                self.var_params_DD = np.broadcast_to(self.prior_params_DD, self.var_params_DD.shape).copy()
+                np.add.at(self.var_params_DD, (docs_by_word_slot, slice(None)), self.var_params_D[word_slot_indices, :])
 
             elif update_name == "DV":
                 # Update DV
