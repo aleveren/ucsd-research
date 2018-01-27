@@ -41,12 +41,14 @@ def expectation_log_dirichlet(nu, axis):
 NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
 
 _default_update_order = ["L", "D", "DL", "DD", "DV"]
+_default_step_size_function = lambda step_index: (1 + step_index) ** -0.5
+
 
 class SimpleHierarchicalTopicModel(object):
     def __init__(self, branching_factors, num_epochs, batch_size, vocab,
             prior_params_DL = 0.01, prior_params_DD = 1.0, prior_params_DV = 0.1,
             do_compute_ELBO = True, save_params_history = False,
-            update_order = None, custom_initializer = None):
+            update_order = None, custom_initializer = None, step_size_function = None):
         self.num_epochs = num_epochs
         self.branching_factors = branching_factors
         self.vocab = np.asarray(vocab, dtype='object')
@@ -64,6 +66,10 @@ class SimpleHierarchicalTopicModel(object):
         else:
             self.update_order = copy.copy(update_order)
         assert set(self.update_order) == set(_default_update_order)
+
+        if step_size_function is None:
+            step_size_function = _default_step_size_function
+        self.step_size = step_size_function
 
         self.num_depths = len(self.branching_factors) + 1
         self.num_leaves = np.prod(self.branching_factors)
@@ -235,9 +241,6 @@ class SimpleHierarchicalTopicModel(object):
         else:
             stats = (x for x in self.stats_by_epoch if x["epoch_index"] >= 0)
         return np.array([entry[key] for entry in stats], **kwargs)
-
-    def step_size(self, step_index):
-        return (1 + step_index) ** -0.5
 
     def update(self, epoch_index, step_index, doc_indices):
         word_slot_indices = []
