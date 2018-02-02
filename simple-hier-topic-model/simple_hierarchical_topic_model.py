@@ -54,11 +54,13 @@ def _explore_branching_factors(factors, prefix):
                 yield path
 
 class SimpleHierarchicalTopicModel(object):
-    def __init__(self, num_epochs, batch_size, vocab, branching_factors = None,
+    def __init__(self, vocab, batch_size = None, stopping_condition = None, branching_factors = None,
             prior_params_DL = 0.01, prior_params_DD = 1.0, prior_params_DV = 0.1,
             do_compute_ELBO = True, save_params_history = False, paths = None,
             update_order = None, custom_initializer = None, step_size_function = None):
-        self.num_epochs = num_epochs
+        if stopping_condition is None or stopping_condition == "default":
+            stopping_condition = self._default_stopping_condition()
+        self.stopping_condition = stopping_condition
         self.branching_factors = branching_factors
         self.vocab = np.asarray(vocab, dtype='object')
         self.given_prior_params_DL = prior_params_DL
@@ -88,6 +90,10 @@ class SimpleHierarchicalTopicModel(object):
             self.nodes = list(_explore_branching_factors(self.branching_factors, ()))
 
         self.init_paths()
+
+    @classmethod
+    def _default_stopping_condition(cls):
+        return StoppingCondition(delay_epochs = 5, minimum_increase = 1.0, max_epochs = 500)
 
     def init_paths(self):
         self.num_nodes = len(self.nodes)
@@ -207,9 +213,10 @@ class SimpleHierarchicalTopicModel(object):
         _logger.debug("Training model")
         self.stats_by_epoch = []
         self.update_stats_by_epoch(epoch_index = -1, step_index = 0)
-        with progress_bar(total = self.num_epochs * self.num_docs, mininterval=1.0) as pbar:
+        with progress_bar(total = self.stopping_condition.max_epochs) as pbar:
             step_index = 0
-            for epoch_index in range(self.num_epochs):
+            epoch_index = 0
+            while not self.stopping_condition.should_stop(self):
                 pbar.set_postfix({"Status": "updating params"})
 
                 # Pick a random permutation and iterate through dataset in that order
@@ -219,10 +226,11 @@ class SimpleHierarchicalTopicModel(object):
                     doc_order = doc_order[_batch_size:]
                     self.update(epoch_index, step_index, mini_batch_doc_indices)
                     step_index += 1
-                    pbar.update(n = len(mini_batch_doc_indices))
 
+                pbar.update(n = 1)
                 pbar.set_postfix({"Status": "computing statistics"})
                 self.update_stats_by_epoch(epoch_index, step_index)
+                epoch_index += 1
 
         return self
 
@@ -397,3 +405,40 @@ class SimpleHierarchicalTopicModel(object):
         for path in node_order:
             print(format_str.format(str(path), ", ".join(list(top_words[path]))), file=file)
         return top_words
+
+
+class StoppingCondition(object):
+    def __init__(self, delay_epochs = None, minimum_increase = None, max_epochs = None):
+        self.delay_epochs = delay_epochs
+        self.minimum_increase = minimum_increase
+        self.max_epochs = max_epochs
+        if minimum_increase is not None or delay_epochs is not None:
+            assert delay_epochs is not None
+            assert minimum_increase is not None
+        if max_epochs is None:
+            assert delay_epochs is not None
+            assert minimum_increase is not None
+        self.elbo_at_prev_continuation = None
+        self.epoch_index_at_prev_continuation = None
+
+    def should_stop(self, model):
+        if len(model.stats_by_epoch) == 0:
+            return False
+        epoch_index = model.stats_by_epoch[-1]["epoch_index"]
+        elbo = model.stats_by_epoch[-1]["ELBO"]
+        if self.max_epochs is not None and epoch_index > self.max_epochs:
+            # print("STOPPING 1: self.max_epochs = {}, epoch_index = {}".format(self.max_epochs, epoch_index))
+            return True
+        if self.minimum_increase is None:
+            # print("NOT STOPPING 2")
+            return False
+        if self.elbo_at_prev_continuation is None or np.isnan(self.elbo_at_prev_continuation) or elbo - self.elbo_at_prev_continuation > self.minimum_increase:
+            self.elbo_at_prev_continuation = elbo
+            self.epoch_index_at_prev_continuation = epoch_index
+        stop = epoch_index - self.epoch_index_at_prev_continuation > self.delay_epochs
+        # print("STOP = {}, epoch_index = {}, elbo = {}, self.epoch_index_at_prev_continuation = {}, self.elbo_at_prev_continuation = {}".format(
+        #     stop, epoch_index, elbo, self.epoch_index_at_prev_continuation, self.elbo_at_prev_continuation))
+        return stop
+
+    def __repr__(self):
+        return repr(dict(delay_epochs = self.delay_epochs))
