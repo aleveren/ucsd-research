@@ -57,7 +57,7 @@ class SimpleHierarchicalTopicModel(object):
     def __init__(self, vocab, batch_size = None, stopping_condition = None, branching_factors = None,
             prior_params_DL = 0.01, prior_params_DD = 1.0, prior_params_DV = 0.1,
             do_compute_ELBO = True, save_params_history = False, paths = None,
-            update_order = None, custom_initializer = None, step_size_function = None):
+            update_order = None, initializer = None, step_size_function = None):
         if stopping_condition is None or stopping_condition == "default":
             stopping_condition = self._default_stopping_condition()
         self.stopping_condition = stopping_condition
@@ -69,9 +69,9 @@ class SimpleHierarchicalTopicModel(object):
         self.batch_size = batch_size
         self.do_compute_ELBO = do_compute_ELBO
         self.save_params_history = save_params_history
-        self.custom_initializer = custom_initializer
-        if custom_initializer is not None:
-            assert set(custom_initializer.keys()) == set(_default_update_order)
+        if initializer is None:
+            initializer = self._default_initializer()
+        self.initializer = initializer
         if update_order is None:
             self.update_order = copy.copy(_default_update_order)
         else:
@@ -94,6 +94,10 @@ class SimpleHierarchicalTopicModel(object):
     @classmethod
     def _default_stopping_condition(cls):
         return StoppingCondition(delay_epochs = 5, min_rel_increase = 1e-4, max_epochs = 500)
+
+    @classmethod
+    def _default_initializer(cls):
+        return UniformInitializer(low = 0.01, high = 1.99)
 
     def init_paths(self):
         self.num_nodes = len(self.nodes)
@@ -165,22 +169,20 @@ class SimpleHierarchicalTopicModel(object):
         self.prior_params_DD = np.broadcast_to(self.given_prior_params_DD, self.num_depths).astype('float').copy()
         self.prior_params_DV = np.broadcast_to(self.given_prior_params_DV, self.vocab_size).astype('float').copy()
 
-        _logger.debug("Allocating variational params")
-        self.var_params_DL = np.random.uniform(0.01, 1.99, (self.num_docs, self.num_leaves))
-        self.var_params_DD = np.random.uniform(0.01, 1.99, (self.num_docs, self.num_depths))
-        self.var_params_DV = np.random.uniform(0.01, 1.99, (self.num_nodes, self.vocab_size))
-        self.var_params_L = softmax(np.random.uniform(0.01, 1.99, (self.total_corpus_length, self.num_leaves)), axis = -1)
-        self.var_params_D = softmax(np.random.uniform(0.01, 1.99, (self.total_corpus_length, self.num_depths)), axis = -1)
+        shapes = {
+            "DL": (self.num_docs, self.num_leaves),
+            "DD": (self.num_docs, self.num_depths),
+            "DV": (self.num_nodes, self.vocab_size),
+            "L": (self.total_corpus_length, self.num_leaves),
+            "D": (self.total_corpus_length, self.num_depths),
+        }
 
-        if self.custom_initializer is not None:
-            for k, initializer in self.custom_initializer.items():
-                setattr(self, "var_params_{}".format(k), initializer.copy())
-
-        assert self.var_params_DL.shape == (self.num_docs, self.num_leaves)
-        assert self.var_params_DD.shape == (self.num_docs, self.num_depths)
-        assert self.var_params_L.shape == (self.total_corpus_length, self.num_leaves)
-        assert self.var_params_D.shape == (self.total_corpus_length, self.num_depths)
-        assert self.var_params_DV.shape == (self.num_nodes, self.vocab_size)
+        _logger.debug("Initializing variational params")
+        for var in self.update_order:
+            init_value = self.initializer.init_var_params(var, shapes[var])
+            assert init_value.shape == shapes[var], \
+                "Expected {} to be initialized to shape {}, found shape {} instead".format(var, shapes[var], init_value.shape)
+            setattr(self, "var_params_{}".format(var), init_value.copy())
 
         _logger.debug("Generating per-document word-slot arrays")
         self.docs_expanded = []
@@ -405,6 +407,19 @@ class SimpleHierarchicalTopicModel(object):
         for path in node_order:
             print(format_str.format(str(path), ", ".join(list(top_words[path]))), file=file)
         return top_words
+
+
+class UniformInitializer(object):
+    def __init__(self, low, high):
+        self.low = low
+        self.high = high
+
+    def init_var_params(self, var, shape):
+        if var == "DL": return np.random.uniform(self.low, self.high, shape)
+        if var == "DD": return np.random.uniform(self.low, self.high, shape)
+        if var == "DV": return np.random.uniform(self.low, self.high, shape)
+        if var == "L": return softmax(np.random.uniform(self.low, self.high, shape), axis = -1)
+        if var == "D": return softmax(np.random.uniform(self.low, self.high, shape), axis = -1)
 
 
 class StoppingCondition(object):
