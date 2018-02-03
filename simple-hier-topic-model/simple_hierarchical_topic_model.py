@@ -41,14 +41,17 @@ NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
 _default_update_order = ["L", "D", "DL", "DD", "DV"]
 _default_step_size_function = lambda step_index: (1 + step_index) ** -0.5
 
-def _explore_branching_factors(factors, prefix):
+def explore_branching_factors(factors):
+    return list(_generator_explore_branching_factors(factors, prefix = ()))
+
+def _generator_explore_branching_factors(factors, prefix):
     yield prefix
     if len(factors) > 0:
         first = factors[0]
         rest = factors[1:]
         for i in range(first):
             new_prefix = prefix + (i,)
-            for path in _explore_branching_factors(rest, new_prefix):
+            for path in _generator_explore_branching_factors(rest, new_prefix):
                 yield path
 
 class SimpleHierarchicalTopicModel(object):
@@ -86,7 +89,7 @@ class SimpleHierarchicalTopicModel(object):
             self.nodes = [] + paths
         else:
             assert paths is None, "Cannot specify both branching_factors and paths"
-            self.nodes = list(_explore_branching_factors(self.branching_factors, ()))
+            self.nodes = explore_branching_factors(self.branching_factors)
 
         self.init_paths()
 
