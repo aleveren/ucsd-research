@@ -93,7 +93,7 @@ class SimpleHierarchicalTopicModel(object):
 
     @classmethod
     def _default_stopping_condition(cls):
-        return StoppingCondition(delay_epochs = 5, minimum_increase = 1.0, max_epochs = 500)
+        return StoppingCondition(delay_epochs = 5, min_rel_increase = 1e-4, max_epochs = 500)
 
     def init_paths(self):
         self.num_nodes = len(self.nodes)
@@ -408,16 +408,16 @@ class SimpleHierarchicalTopicModel(object):
 
 
 class StoppingCondition(object):
-    def __init__(self, delay_epochs = None, minimum_increase = None, max_epochs = None):
+    def __init__(self, delay_epochs = None, min_rel_increase = None, max_epochs = None):
         self.delay_epochs = delay_epochs
-        self.minimum_increase = minimum_increase
+        self.min_rel_increase = min_rel_increase
         self.max_epochs = max_epochs
-        if minimum_increase is not None or delay_epochs is not None:
+        if min_rel_increase is not None or delay_epochs is not None:
             assert delay_epochs is not None
-            assert minimum_increase is not None
+            assert min_rel_increase is not None
         if max_epochs is None:
             assert delay_epochs is not None
-            assert minimum_increase is not None
+            assert min_rel_increase is not None
         self.elbo_at_prev_continuation = None
         self.epoch_index_at_prev_continuation = None
 
@@ -426,19 +426,12 @@ class StoppingCondition(object):
             return False
         epoch_index = model.stats_by_epoch[-1]["epoch_index"]
         elbo = model.stats_by_epoch[-1]["ELBO"]
-        if self.max_epochs is not None and epoch_index > self.max_epochs:
-            # print("STOPPING 1: self.max_epochs = {}, epoch_index = {}".format(self.max_epochs, epoch_index))
+        if self.max_epochs is not None and epoch_index >= self.max_epochs:
             return True
-        if self.minimum_increase is None:
-            # print("NOT STOPPING 2")
+        if self.min_rel_increase is None:
             return False
-        if self.elbo_at_prev_continuation is None or np.isnan(self.elbo_at_prev_continuation) or elbo - self.elbo_at_prev_continuation > self.minimum_increase:
+        if self.elbo_at_prev_continuation is None or np.isnan(self.elbo_at_prev_continuation) or elbo - self.elbo_at_prev_continuation > np.abs(elbo) * self.min_rel_increase:
             self.elbo_at_prev_continuation = elbo
             self.epoch_index_at_prev_continuation = epoch_index
         stop = epoch_index - self.epoch_index_at_prev_continuation > self.delay_epochs
-        # print("STOP = {}, epoch_index = {}, elbo = {}, self.epoch_index_at_prev_continuation = {}, self.elbo_at_prev_continuation = {}".format(
-        #     stop, epoch_index, elbo, self.epoch_index_at_prev_continuation, self.elbo_at_prev_continuation))
         return stop
-
-    def __repr__(self):
-        return repr(dict(delay_epochs = self.delay_epochs))
