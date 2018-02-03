@@ -430,8 +430,16 @@ class StatsSaver(object):
         if stats_dict["epoch_index"] == -1:
             return
         with open(self.filename, 'a') as f:
-            line = ",".join(str(stats_dict[x]) for x in self.stats)
-            print(line, file = f)
+            for i, name in enumerate(self.stats):
+                if i > 0:
+                    print(',', end='', file=f)
+                val = stats_dict[name]
+                if isinstance(val, np.ndarray):
+                    val = str(val.tolist()).replace(',', ';')
+                else:
+                    val = str(val)
+                print(val, end='', file=f)
+            print('', file=f)
 
 
 class UniformInitializer(object):
