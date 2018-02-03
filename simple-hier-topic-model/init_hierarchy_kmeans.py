@@ -6,11 +6,18 @@ from simple_hierarchical_topic_model import softmax
 
 
 class KMeansInitializer(object):
-    def __init__(self, data, paths, low, high, subset_size = None):
+    '''
+    An initializer based on the KMeans initialization procedure described in
+    Paisley et al, "Nested Hierarchical Dirichlet Processes", Section 5.1
+    '''
+
+    def __init__(self, data, paths, low, high, kappa = 0.5, noise_factor = 100.0, subset_size = None):
         self.data = data
         self.subset_size = subset_size
         self.paths = paths
         self.path_to_index = {p: i for i, p in enumerate(paths)}
+        self.kappa = kappa
+        self.noise_factor = noise_factor
         self.low = low
         self.high = high
 
@@ -35,14 +42,17 @@ class KMeansInitializer(object):
             return init_DV
 
     def _helper(self, init_DV, data_subset, prefix):
-        vocab_size = data_subset.shape[0]
+        vocab_size = self.data.shape[0]
+        num_docs = self.data.shape[1]
         prefix_index = self.path_to_index[prefix]
         mean = data_subset.mean(axis = -1)
-        init_DV[prefix_index, :] = mean
+        noise = np.random.dirichlet(self.noise_factor * np.ones(vocab_size) / vocab_size)
+        current_DV_param = num_docs * (self.kappa * mean + (1 - self.kappa) * (1.0 / vocab_size + noise))
+        init_DV[prefix_index, :] = current_DV_param
         child_paths = [x for x in self.paths if x[:len(prefix)] == prefix and len(x) == len(prefix) + 1]
         if len(child_paths) > 0:
             data_subset -= mean[:, np.newaxis]
-            data_subset = np.maximum(0.01 / vocab_size, data_subset)
+            data_subset = np.maximum(0, data_subset)
             data_subset /= data_subset.sum(axis=0, keepdims=True)
             kmeans = KMeans(n_clusters = len(child_paths))
             clustering = kmeans.fit_predict(data_subset.transpose())
