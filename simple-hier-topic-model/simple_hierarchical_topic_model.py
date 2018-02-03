@@ -428,8 +428,6 @@ class StatsSaver(object):
             print(",".join(self.stats), file=f)
 
     def update(self, stats_dict):
-        if stats_dict["epoch_index"] == -1:
-            return
         with open(self.filename, 'a') as f:
             for i, name in enumerate(self.stats):
                 if i > 0:
