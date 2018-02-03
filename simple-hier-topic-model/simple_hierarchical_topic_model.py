@@ -1,13 +1,11 @@
 from __future__ import print_function, division
 
 import numpy as np
-from scipy.io import loadmat
 from scipy.special import gammaln, digamma
 from scipy.sparse import csc_matrix, isspmatrix_csc
 import sys
 import io
 import logging
-import pickle
 import copy
 
 
