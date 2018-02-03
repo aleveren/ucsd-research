@@ -9,3 +9,4 @@ logs/
 .cache
 .coverage
 .ipynb_checkpoints
+latest_stats.txt

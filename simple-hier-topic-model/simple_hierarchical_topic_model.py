@@ -56,7 +56,7 @@ def _explore_branching_factors(factors, prefix):
 class SimpleHierarchicalTopicModel(object):
     def __init__(self, vocab, batch_size = None, stopping_condition = None, branching_factors = None,
             prior_params_DL = 0.01, prior_params_DD = 1.0, prior_params_DV = 0.1,
-            do_compute_ELBO = True, save_params_history = False, paths = None,
+            do_compute_ELBO = True, save_params_history = False, paths = None, stats_saver = None,
             update_order = None, initializer = None, step_size_function = None):
         if stopping_condition is None or stopping_condition == "default":
             stopping_condition = self._default_stopping_condition()
@@ -69,6 +69,7 @@ class SimpleHierarchicalTopicModel(object):
         self.batch_size = batch_size
         self.do_compute_ELBO = do_compute_ELBO
         self.save_params_history = save_params_history
+        self.stats_saver = stats_saver
         if initializer is None:
             initializer = self._default_initializer()
         self.initializer = initializer
@@ -212,6 +213,9 @@ class SimpleHierarchicalTopicModel(object):
         else:
             _batch_size = self.batch_size
 
+        if self.stats_saver is not None:
+            self.stats_saver.reset()
+
         _logger.debug("Training model")
         self.stats_by_epoch = []
         self.update_stats_by_epoch(epoch_index = -1, step_index = 0)
@@ -249,6 +253,8 @@ class SimpleHierarchicalTopicModel(object):
             stats["var_params_DL"] = self.var_params_DL.copy()
             stats["var_params_DD"] = self.var_params_DD.copy()
             stats["var_params_DV"] = self.var_params_DV.copy()
+        if self.stats_saver is not None:
+            self.stats_saver.update(stats_dict = stats)
         self.stats_by_epoch.append(stats)
 
     def get_stats_by_epoch(self, key, include_init = True, **kwargs):
@@ -407,6 +413,25 @@ class SimpleHierarchicalTopicModel(object):
         for path in node_order:
             print(format_str.format(str(path), ", ".join(list(top_words[path]))), file=file)
         return top_words
+
+
+class StatsSaver(object):
+    def __init__(self, filename, stats = None):
+        self.filename = filename
+        if stats is None:
+            stats = ["epoch_index", "ELBO"]
+        self.stats = stats
+
+    def reset(self):
+        with open(self.filename, 'w') as f:
+            print(",".join(self.stats), file=f)
+
+    def update(self, stats_dict):
+        if stats_dict["epoch_index"] == -1:
+            return
+        with open(self.filename, 'a') as f:
+            line = ",".join(str(stats_dict[x]) for x in self.stats)
+            print(line, file = f)
 
 
 class UniformInitializer(object):
