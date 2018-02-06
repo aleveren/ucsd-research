@@ -29,3 +29,23 @@ def variance_discrete(p, axis = -1):
     zzz = np.sum((values ** 2) * p, axis = axis)
     mean_sq = mean_discrete(p, axis = axis) ** 2
     return zzz - mean_sq
+
+def topic_difference(true_topics, est_topics):
+    num_topics = true_topics.shape[0]
+    assert est_topics.shape[0] == true_topics.shape[0]
+
+    # Greedy algorithm to reorder nodes such that order of true_topics corresponds to order of est_topics
+    orig_leaf_indices = list(range(1, num_topics))
+    est_leaf_topics = est_topics[1:, :]
+    reorder_nodes = [0]
+    for i in range(1, num_topics):
+        leaf_topic = true_topics[np.newaxis, i, :]
+        matching_index = np.argmin(np.sum(np.abs(est_leaf_topics - leaf_topic), axis=-1))
+        reorder_nodes.append(orig_leaf_indices[matching_index])
+        orig_leaf_indices = orig_leaf_indices[:matching_index] + orig_leaf_indices[matching_index+1:]
+        est_leaf_topics = np.concatenate((est_leaf_topics[:matching_index, :], est_leaf_topics[matching_index+1:, :]))
+
+    # Reorder the nodes in est_topics and compare to true topics
+    est_topics = est_topics[reorder_nodes, :]
+    scores = 0.5 * np.abs(true_topics - est_topics).sum(axis=-1)
+    return np.mean(scores)
