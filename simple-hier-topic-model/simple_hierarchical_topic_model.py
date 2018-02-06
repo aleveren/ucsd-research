@@ -392,20 +392,21 @@ class SimpleHierarchicalTopicModel(object):
     def get_expected_topic_vectors(self):
         return self.var_params_DV / self.var_params_DV.sum(axis = -1, keepdims = True)
 
-    def get_top_words_by_node(self, num_words):
-        topic_vectors = self.get_expected_topic_vectors()
+    def get_top_words_by_node(self, num_words, topic_vectors = None):
+        if topic_vectors is None:
+            topic_vectors = self.get_expected_topic_vectors()
         top_vocab_indices = np.argsort(-topic_vectors, axis=-1)[:, :num_words]
         result = dict()
         for node_index, path in enumerate(self.nodes):
             result[path] = self.vocab[top_vocab_indices[node_index]]
         return result
 
-    def print_top_words_by_node(self, num_words, depth_first=False, file=None):
+    def print_top_words_by_node(self, num_words, topic_vectors=None, depth_first=False, file=None):
         if file is None:
             file = sys.stdout
         max_str_len_path = max([len(str(path)) for path in self.nodes])
         format_str = "{:" + str(max_str_len_path) + "}: {}"
-        top_words = self.get_top_words_by_node(num_words = num_words)
+        top_words = self.get_top_words_by_node(num_words = num_words, topic_vectors = topic_vectors)
         if depth_first:
             node_order = self.nodes
         else:
