@@ -473,7 +473,7 @@ class StoppingCondition(object):
             return False
         epoch_index = model.stats_by_epoch[-1]["epoch_index"]
         elbo = model.stats_by_epoch[-1]["ELBO"]
-        if self.max_epochs is not None and epoch_index >= self.max_epochs:
+        if self.max_epochs is not None and epoch_index >= self.max_epochs - 1:
             return True
         if self.min_rel_increase is None:
             return False
