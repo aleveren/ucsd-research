@@ -11,13 +11,17 @@ class KMeansInitializer(object):
     Paisley et al, "Nested Hierarchical Dirichlet Processes", Section 5.1
     '''
 
-    def __init__(self, data, paths, low, high, kappa = 0.5, noise_factor = 100.0, subset_size = None):
+    def __init__(self, data, paths, low, high,
+            kappa = 0.5, noise_factor = 100.0, subset_size = None,
+            noise_proportion = 0.5, const_proportion = 0.5):
         self.data = data
         self.subset_size = subset_size
         self.paths = paths
         self.path_to_index = {p: i for i, p in enumerate(paths)}
         self.kappa = kappa
         self.noise_factor = noise_factor
+        self.noise_proportion = noise_proportion
+        self.const_proportion = const_proportion
         self.low = low
         self.high = high
 
@@ -47,7 +51,7 @@ class KMeansInitializer(object):
         prefix_index = self.path_to_index[prefix]
         mean = data_subset.mean(axis = -1)
         noise = np.random.dirichlet(self.noise_factor * np.ones(vocab_size) / vocab_size)
-        current_DV_param = num_docs * (self.kappa * mean + (1 - self.kappa) * (1.0 / vocab_size + noise))
+        current_DV_param = num_docs * (self.kappa * mean + (1 - self.kappa) * (self.const_proportion / vocab_size + self.noise_proportion * noise))
         init_DV[prefix_index, :] = current_DV_param
         child_paths = [x for x in self.paths if x[:len(prefix)] == prefix and len(x) == len(prefix) + 1]
         if len(child_paths) > 0:
