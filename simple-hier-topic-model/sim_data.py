@@ -1,11 +1,17 @@
 import numpy as np
 
+from simple_hierarchical_topic_model import explore_branching_factors
+
 class SimData(object):
     '''Generate a simulated dataset'''
-    def __init__(self, num_leaves, num_docs, doc_length, topic_sharpness, alpha_leaves, alpha_depths):
-        self.num_leaves = num_leaves
-        self.num_depths = 2
-        self.vocab_size = self.num_leaves * 2 + 6
+    def __init__(self, branching_factors, num_docs, doc_length, topic_sharpness, alpha_leaves, alpha_depths):
+        self.branching_factors = branching_factors
+        self.nodes = explore_branching_factors(self.branching_factors)
+        self.num_nodes = len(self.nodes)
+        self.max_depth = max([len(x) for x in self.nodes])
+        self.num_leaves = len([x for x in self.nodes if len(x) == self.max_depth])
+        self.num_depths = len(np.unique([len(x) for x in self.nodes]))
+        self.vocab_size = self.num_nodes * 2 + 4
         self.num_docs = num_docs
         self.doc_length = doc_length
         self.topic_sharpness = topic_sharpness
@@ -15,7 +21,6 @@ class SimData(object):
         self.init_topics()
 
     def init_topics(self):
-        self.nodes = [()] + [(i,) for i in range(self.num_leaves)]
         self.topics_by_path = dict()
         self.topics_by_index = []
         for node_index, path in enumerate(self.nodes):
@@ -34,7 +39,7 @@ class SimData(object):
         for i in range(self.num_docs):
             leaf_distrib = np.random.dirichlet(self.alpha_leaves)
             depth_distrib = np.random.dirichlet(self.alpha_depths)
-            node_distrib = np.concatenate([[depth_distrib[0]], depth_distrib[1] * leaf_distrib])
+            node_distrib = self.get_node_distrib(leaf_distrib = leaf_distrib, depth_distrib = depth_distrib)
             current_node_indices = np.random.choice(len(self.nodes), size = self.doc_length, p = node_distrib)
             current_doc = []
             for j in range(self.doc_length):
@@ -52,3 +57,7 @@ class SimData(object):
             })
 
         return self.docs
+
+    def get_node_distrib(self, leaf_distrib, depth_distrib):
+        # TODO: generalize this
+        return np.concatenate([[depth_distrib[0]], depth_distrib[1] * leaf_distrib])
