@@ -31,6 +31,8 @@ def variance_discrete(p, axis = -1):
     return zzz - mean_sq
 
 def topic_difference(true_topics, est_topics):
+    # TODO: need to adjust this to the case where there's more than 2 depths
+
     num_topics = true_topics.shape[0]
     assert est_topics.shape[0] == true_topics.shape[0]
 
