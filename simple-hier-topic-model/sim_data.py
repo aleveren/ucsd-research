@@ -23,6 +23,7 @@ class SimData(object):
     def init_topics(self):
         self.topics_by_path = dict()
         self.topics_by_index = []
+        self.leaves = []
         for node_index, path in enumerate(self.nodes):
             current_topic = np.ones(self.vocab_size)
             heavy_vocab_indices = slice(node_index * 2, (node_index + 1) * 2)
@@ -30,6 +31,8 @@ class SimData(object):
             current_topic /= current_topic.sum()
             self.topics_by_path[path] = current_topic
             self.topics_by_index.append(current_topic)
+            if len(path) == self.max_depth:
+                self.leaves.append(path)
         self.topics_by_index = np.stack(self.topics_by_index)
 
     def generate(self):
@@ -59,5 +62,12 @@ class SimData(object):
         return self.docs
 
     def get_node_distrib(self, leaf_distrib, depth_distrib):
-        # TODO: generalize this
-        return np.concatenate([[depth_distrib[0]], depth_distrib[1] * leaf_distrib])
+        result = np.zeros(self.num_nodes)
+        for node_index, path in enumerate(self.nodes):
+            prob_depth = depth_distrib[len(path)]
+            prob_descendants = 0.0
+            for leaf_index, leaf in enumerate(self.leaves):
+                if leaf[:len(path)] == path:
+                    prob_descendants += leaf_distrib[leaf_index]
+            result[node_index] = prob_depth * prob_descendants
+        return result
