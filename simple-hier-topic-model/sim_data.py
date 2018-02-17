@@ -12,41 +12,77 @@ class SimData(object):
             topic_sharpness,
             alpha_leaves,
             alpha_depths,
-            vocab_size = None):
+            vocab_size = None,
+            overlap = None,
+            heavy_words_per_topic = 2):
         self.branching_factors = branching_factors
         self.nodes = explore_branching_factors(self.branching_factors)
         self.num_nodes = len(self.nodes)
         self.max_depth = max([len(x) for x in self.nodes])
         self.num_leaves = len([x for x in self.nodes if len(x) == self.max_depth])
         self.num_depths = len(np.unique([len(x) for x in self.nodes]))
-        min_vocab_size = self.num_nodes * 2 + 4
-        if vocab_size is None:
-            vocab_size = min_vocab_size
-        assert vocab_size >= min_vocab_size, \
-            "Vocab size must be at least {}".format(min_vocab_size)
         self.vocab_size = vocab_size
+        self.overlap = "none" if overlap is None else overlap.lower()
+        self.heavy_words_per_topic = heavy_words_per_topic
         self.num_docs = num_docs
         self.doc_length = doc_length
         self.topic_sharpness = topic_sharpness
-        self.vocab = ["w{}".format(i) for i in range(self.vocab_size)]
         self.alpha_leaves = np.broadcast_to(alpha_leaves, (self.num_leaves,)).astype('float')
         self.alpha_depths = np.broadcast_to(alpha_depths, (self.num_depths,)).astype('float')
-        self.init_topics()
+        self.init_topics_and_vocab()
 
-    def init_topics(self):
+    def init_topics_and_vocab(self):
+        heavy_indices = list(self.get_heavy_indices(overlap = self.overlap))
+
+        min_vocab_size = 2
+        for h in heavy_indices:
+            min_vocab_size = max(min_vocab_size, 1 + np.max(h))
+
+        if self.vocab_size is None:
+            self.vocab_size = min_vocab_size + 4
+        assert self.vocab_size >= min_vocab_size, \
+            "Vocab size must be at least {}".format(min_vocab_size)
+        self.vocab = ["w{}".format(i) for i in range(self.vocab_size)]
+
+        self.heavy_indicator = np.zeros((self.num_nodes, self.vocab_size))
+        for node_index in range(self.num_nodes):
+            self.heavy_indicator[node_index, heavy_indices[node_index]] = 1
+
+        self.topics_by_index = self.heavy_indicator * (self.topic_sharpness - 1.0) + 1.0
+        self.topics_by_index /= self.topics_by_index.sum(axis = -1, keepdims = True)
+
         self.topics_by_path = dict()
-        self.topics_by_index = []
         self.leaves = []
         for node_index, path in enumerate(self.nodes):
-            current_topic = np.ones(self.vocab_size)
-            heavy_vocab_indices = slice(node_index * 2, (node_index + 1) * 2)
-            current_topic[heavy_vocab_indices] *= self.topic_sharpness
-            current_topic /= current_topic.sum()
-            self.topics_by_path[path] = current_topic
-            self.topics_by_index.append(current_topic)
+            self.topics_by_path[path] = self.topics_by_index[node_index, :]
             if len(path) == self.max_depth:
                 self.leaves.append(path)
-        self.topics_by_index = np.stack(self.topics_by_index)
+
+    def get_heavy_indices(self, overlap):
+        if overlap == "none":
+            for node_index in range(self.num_nodes):
+                lo = node_index * self.heavy_words_per_topic
+                hi = lo + self.heavy_words_per_topic
+                yield np.arange(lo, hi)
+        elif overlap == "full":
+            prev = np.arange(self.heavy_words_per_topic)
+            yield prev
+            for node_index in range(1, self.num_nodes):
+                current = prev.copy()
+                # Find the first "moveable" position
+                i = 0
+                while i < len(current) - 1 and current[i] + 1 >= current[i + 1]:
+                    i += 1
+                if i > 0:
+                    # Reset leftmost indices to far left
+                    current[:i] = np.arange(i)
+                # Advance the index at the first "moveable" position
+                current[i] += 1
+                yield current
+                prev = current
+        else:
+            # TODO: support "siblings" mode (only sibling topics can have major overlap)
+            raise ValueError("Overlap '{}' not supported".format(overlap))
 
     def generate(self):
         self.docs = []
