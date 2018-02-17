@@ -4,7 +4,6 @@ based on vectors of parameters
 '''
 
 import numpy as np
-import matplotlib.pyplot as plt  # TODO: remove
 
 def mean_dirichlet(X, axis = -1):
     return X / X.sum(axis = axis, keepdims = True)
@@ -52,7 +51,7 @@ def topic_difference(true_topics, est_topics, paths):
     scores = 0.5 * np.abs(true_topics - est_topics).sum(axis=-1)
     return np.mean(scores)
 
-def find_structural_permutation(true_topics, est_topics, paths, recurse = 0, verbose = False):
+def find_structural_permutation(true_topics, est_topics, paths):
     '''
     Greedy heuristic for attempting to find a structure-preserving permutation of the nodes
     in a tree of topics that makes est_topics look as similar as possible to true_topics.
@@ -60,27 +59,13 @@ def find_structural_permutation(true_topics, est_topics, paths, recurse = 0, ver
     Note: this algorithm may not find the optimal answer.
     '''
 
-    indent = "  " * recurse
-
-    def verbose_print(*args, **kwargs):
-        if verbose:
-            print(*args, **kwargs)
-
-    verbose_print(indent + "input shapes: (true_topics: {}, est_topics: {}); paths = {}".format(true_topics.shape, est_topics.shape, paths))
-
     num_topics = true_topics.shape[0]
     assert est_topics.shape == true_topics.shape
     assert len(paths) == num_topics
 
     # Base case: single topic
     if num_topics == 1:
-        verbose_print(indent + "returning base case")
         return np.arange(num_topics)
-
-    if verbose:
-        fig, ax = plt.subplots(1, 2)
-        ax[0].imshow(true_topics)
-        ax[1].imshow(est_topics)
 
     permute_nodes = np.arange(num_topics)
 
@@ -100,32 +85,23 @@ def find_structural_permutation(true_topics, est_topics, paths, recurse = 0, ver
             nodes_counted += 1
     assert nodes_counted == num_topics
 
-    verbose_print(indent + "child_indices_by_path = {}".format(child_indices_by_path))
-    verbose_print(indent + "descendants_by_child_index = {}".format(descendants_by_child_index))
-
     child_indices = np.asarray(sorted(child_indices_by_path.values()))
-    verbose_print(indent + "child_indices = {}".format(child_indices))
     permute_children = find_flat_permutation(true_topics[child_indices, :], est_topics[child_indices, :])
-    verbose_print(indent + "flat permutation for children was: {}".format(permute_children))
 
     for orig_child_index in descendants_by_child_index.keys():
         orig_descendants = np.concatenate([[orig_child_index], descendants_by_child_index[orig_child_index]]).astype('int')
         indirect_child_index = list(child_indices).index(orig_child_index)
         new_child_index = child_indices[permute_children[indirect_child_index]]
         new_descendants = np.concatenate([[new_child_index], descendants_by_child_index[new_child_index]]).astype('int')
-        verbose_print(indent + "orig_descendants: {}, new_descendants: {}".format(orig_descendants, new_descendants))
         new_paths = [paths[n][1:] for n in new_descendants]
         assert len(new_descendants) == len(orig_descendants), \
             "Length mismatch in descendants: {} (new) vs {} (old)".format(new_descendants, orig_descendants)
         permute_descendants = find_structural_permutation(
             true_topics = true_topics[orig_descendants, :],
             est_topics = est_topics[new_descendants, :],
-            paths = new_paths,
-            recurse = recurse + 1,
-            verbose = verbose)
+            paths = new_paths)
         permute_nodes[orig_descendants] = new_descendants[permute_descendants]
 
-    verbose_print(indent + "returning {}".format(permute_nodes))
     return permute_nodes
 
 def find_flat_permutation(true_topics, est_topics):
