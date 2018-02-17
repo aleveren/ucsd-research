@@ -211,8 +211,10 @@ class SimpleHierarchicalTopicModel(object):
 
         if self.batch_size is None or self.batch_size <= 0:
             _batch_size = self.num_docs
+            use_stochastic_vi = False
         else:
             _batch_size = self.batch_size
+            use_stochastic_vi = True
 
         if self.stats_saver is not None:
             self.stats_saver.reset()
@@ -231,7 +233,7 @@ class SimpleHierarchicalTopicModel(object):
                 while len(doc_order) > 0:
                     mini_batch_doc_indices = doc_order[:_batch_size]
                     doc_order = doc_order[_batch_size:]
-                    self.update(epoch_index, step_index, mini_batch_doc_indices)
+                    self.update(epoch_index, step_index, mini_batch_doc_indices, use_stochastic_vi)
                     step_index += 1
 
                 pbar.update(n = 1)
@@ -265,7 +267,7 @@ class SimpleHierarchicalTopicModel(object):
             stats = (x for x in self.stats_by_epoch if x["epoch_index"] >= 0)
         return np.array([entry[key] for entry in stats], **kwargs)
 
-    def update(self, epoch_index, step_index, doc_indices):
+    def update(self, epoch_index, step_index, doc_indices, use_stochastic_vi):
         word_slot_indices = []
         vocab_word_by_slot = []
         docs_by_word_slot = []
@@ -322,7 +324,7 @@ class SimpleHierarchicalTopicModel(object):
                 local_contrib_DV = np.zeros((self.num_nodes, self.vocab_size))
                 np.add.at(local_contrib_DV, (slice(None), vocab_word_by_slot), local_contrib_DV_by_word_slot)
 
-                if len(doc_indices) == self.num_docs:
+                if not use_stochastic_vi:
                     # Use coordinate-ascent update rule
                     self.var_params_DV = self.prior_params_DV[np.newaxis, :] + local_contrib_DV
                 else:
