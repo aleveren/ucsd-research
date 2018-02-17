@@ -4,6 +4,7 @@ based on vectors of parameters
 '''
 
 import numpy as np
+import matplotlib.pyplot as plt  # TODO: remove
 
 def mean_dirichlet(X, axis = -1):
     return X / X.sum(axis = axis, keepdims = True)
@@ -30,24 +31,112 @@ def variance_discrete(p, axis = -1):
     mean_sq = mean_discrete(p, axis = axis) ** 2
     return zzz - mean_sq
 
-def topic_difference(true_topics, est_topics):
-    # TODO: need to adjust this to the case where there's more than 2 depths
+def topic_difference(true_topics, est_topics, paths):
+    '''
+    Measures the difference between trees of topics
+    while attempting to ignore structure-preserving permutations.
 
-    num_topics = true_topics.shape[0]
-    assert est_topics.shape[0] == true_topics.shape[0]
+    Answer should be correct if all topics in true_topics are distinct
+    and est_topics is a structure-preserving permutation of true_topics.
+    It should be approximately correct if there is a small amount of noise added.
+    Larger amounts of noise may lead to an overestimation of the "true" difference.
+    '''
 
-    # Greedy algorithm to reorder nodes such that order of true_topics corresponds to order of est_topics
-    orig_leaf_indices = list(range(1, num_topics))
-    est_leaf_topics = est_topics[1:, :]
-    reorder_nodes = [0]
-    for i in range(1, num_topics):
-        leaf_topic = true_topics[np.newaxis, i, :]
-        matching_index = np.argmin(np.sum(np.abs(est_leaf_topics - leaf_topic), axis=-1))
-        reorder_nodes.append(orig_leaf_indices[matching_index])
-        orig_leaf_indices = orig_leaf_indices[:matching_index] + orig_leaf_indices[matching_index+1:]
-        est_leaf_topics = np.concatenate((est_leaf_topics[:matching_index, :], est_leaf_topics[matching_index+1:, :]))
+    permute_nodes = find_structural_permutation(
+        true_topics = true_topics,
+        est_topics = est_topics,
+        paths = paths)
 
-    # Reorder the nodes in est_topics and compare to true topics
-    est_topics = est_topics[reorder_nodes, :]
+    # Apply permutation to est_topics and compare to true topics
+    est_topics = est_topics[permute_nodes, :]
     scores = 0.5 * np.abs(true_topics - est_topics).sum(axis=-1)
     return np.mean(scores)
+
+def find_structural_permutation(true_topics, est_topics, paths, recurse = 0, verbose = False):
+    '''
+    Greedy heuristic for attempting to find a structure-preserving permutation of the nodes
+    in a tree of topics that makes est_topics look as similar as possible to true_topics.
+
+    Note: this algorithm may not find the optimal answer.
+    '''
+
+    indent = "  " * recurse
+
+    def verbose_print(*args, **kwargs):
+        if verbose:
+            print(*args, **kwargs)
+
+    verbose_print(indent + "input shapes: (true_topics: {}, est_topics: {}); paths = {}".format(true_topics.shape, est_topics.shape, paths))
+
+    num_topics = true_topics.shape[0]
+    assert est_topics.shape == true_topics.shape
+    assert len(paths) == num_topics
+
+    # Base case: single topic
+    if num_topics == 1:
+        verbose_print(indent + "returning base case")
+        return np.arange(num_topics)
+
+    if verbose:
+        fig, ax = plt.subplots(1, 2)
+        ax[0].imshow(true_topics)
+        ax[1].imshow(est_topics)
+
+    permute_nodes = np.arange(num_topics)
+
+    child_indices_by_path = dict()
+    descendants_by_child_index = dict()
+    nodes_counted = 1  # start with 1 for root
+    for i, p in enumerate(paths):
+        if len(p) == 1:
+            child_indices_by_path[p] = i
+            descendants_by_child_index[i] = []
+            nodes_counted += 1
+    for i, p in enumerate(paths):
+        if len(p) > 1:
+            parent = p[:-1]
+            parent_index = child_indices_by_path[parent]
+            descendants_by_child_index[parent_index].append(i)
+            nodes_counted += 1
+    assert nodes_counted == num_topics
+
+    verbose_print(indent + "child_indices_by_path = {}".format(child_indices_by_path))
+    verbose_print(indent + "descendants_by_child_index = {}".format(descendants_by_child_index))
+
+    child_indices = np.asarray(sorted(child_indices_by_path.values()))
+    verbose_print(indent + "child_indices = {}".format(child_indices))
+    permute_children = find_flat_permutation(true_topics[child_indices, :], est_topics[child_indices, :])
+    verbose_print(indent + "flat permutation for children was: {}".format(permute_children))
+
+    for orig_child_index in descendants_by_child_index.keys():
+        orig_descendants = np.concatenate([[orig_child_index], descendants_by_child_index[orig_child_index]]).astype('int')
+        indirect_child_index = list(child_indices).index(orig_child_index)
+        new_child_index = child_indices[permute_children[indirect_child_index]]
+        new_descendants = np.concatenate([[new_child_index], descendants_by_child_index[new_child_index]]).astype('int')
+        verbose_print(indent + "orig_descendants: {}, new_descendants: {}".format(orig_descendants, new_descendants))
+        new_paths = [paths[n][1:] for n in new_descendants]
+        assert len(new_descendants) == len(orig_descendants), \
+            "Length mismatch in descendants: {} (new) vs {} (old)".format(new_descendants, orig_descendants)
+        permute_descendants = find_structural_permutation(
+            true_topics = true_topics[orig_descendants, :],
+            est_topics = est_topics[new_descendants, :],
+            paths = new_paths,
+            recurse = recurse + 1,
+            verbose = verbose)
+        permute_nodes[orig_descendants] = new_descendants[permute_descendants]
+
+    verbose_print(indent + "returning {}".format(permute_nodes))
+    return permute_nodes
+
+def find_flat_permutation(true_topics, est_topics):
+    num_topics = true_topics.shape[0]
+    orig_indices = list(range(num_topics))
+    est_topics = est_topics.copy()
+    permute_nodes = []
+    for i in range(num_topics):
+        topic = true_topics[np.newaxis, i, :]
+        matching_index = np.argmin(np.sum(np.abs(est_topics - topic), axis=-1))
+        permute_nodes.append(orig_indices[matching_index])
+        orig_indices = orig_indices[:matching_index] + orig_indices[matching_index+1:]
+        est_topics = np.concatenate((est_topics[:matching_index, :], est_topics[matching_index+1:, :]))
+    return np.asarray(permute_nodes, dtype='int')
