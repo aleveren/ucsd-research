@@ -14,7 +14,8 @@ class SimData(object):
             alpha_depths,
             vocab_size = None,
             overlap = None,
-            heavy_words_per_topic = 2):
+            heavy_words_per_topic = 2,
+            heavy_indices = None):
         self.branching_factors = branching_factors
         self.nodes = explore_branching_factors(self.branching_factors)
         self.num_nodes = len(self.nodes)
@@ -24,6 +25,7 @@ class SimData(object):
         self.vocab_size = vocab_size
         self.overlap = "none" if overlap is None else overlap.lower()
         self.heavy_words_per_topic = heavy_words_per_topic
+        self.heavy_indices = heavy_indices
         self.num_docs = num_docs
         self.doc_length = doc_length
         self.topic_sharpness = topic_sharpness
@@ -32,10 +34,11 @@ class SimData(object):
         self.init_topics_and_vocab()
 
     def init_topics_and_vocab(self):
-        heavy_indices = list(self.get_heavy_indices(overlap = self.overlap))
+        if self.heavy_indices is None:
+            self.heavy_indices = list(self.get_heavy_indices(overlap = self.overlap))
 
         min_vocab_size = 2
-        for h in heavy_indices:
+        for h in self.heavy_indices:
             min_vocab_size = max(min_vocab_size, 1 + np.max(h))
 
         if self.vocab_size is None:
@@ -46,7 +49,7 @@ class SimData(object):
 
         self.heavy_indicator = np.zeros((self.num_nodes, self.vocab_size))
         for node_index in range(self.num_nodes):
-            self.heavy_indicator[node_index, heavy_indices[node_index]] = 1
+            self.heavy_indicator[node_index, self.heavy_indices[node_index]] = 1
 
         self.topics_by_index = self.heavy_indicator * (self.topic_sharpness - 1.0) + 1.0
         self.topics_by_index /= self.topics_by_index.sum(axis = -1, keepdims = True)
