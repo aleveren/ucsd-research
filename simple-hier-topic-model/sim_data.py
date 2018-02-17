@@ -4,14 +4,27 @@ from simple_hierarchical_topic_model import explore_branching_factors
 
 class SimData(object):
     '''Generate a simulated dataset'''
-    def __init__(self, branching_factors, num_docs, doc_length, topic_sharpness, alpha_leaves, alpha_depths):
+    def __init__(
+            self,
+            branching_factors,
+            num_docs,
+            doc_length,
+            topic_sharpness,
+            alpha_leaves,
+            alpha_depths,
+            vocab_size = None):
         self.branching_factors = branching_factors
         self.nodes = explore_branching_factors(self.branching_factors)
         self.num_nodes = len(self.nodes)
         self.max_depth = max([len(x) for x in self.nodes])
         self.num_leaves = len([x for x in self.nodes if len(x) == self.max_depth])
         self.num_depths = len(np.unique([len(x) for x in self.nodes]))
-        self.vocab_size = self.num_nodes * 2 + 4
+        min_vocab_size = self.num_nodes * 2 + 4
+        if vocab_size is None:
+            vocab_size = min_vocab_size
+        assert vocab_size >= min_vocab_size, \
+            "Vocab size must be at least {}".format(min_vocab_size)
+        self.vocab_size = vocab_size
         self.num_docs = num_docs
         self.doc_length = doc_length
         self.topic_sharpness = topic_sharpness
