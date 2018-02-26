@@ -222,6 +222,7 @@ class SimpleHierarchicalTopicModel(object):
         _logger.debug("Training model")
         self.stats_by_epoch = []
         self.update_stats_by_epoch(epoch_index = -1, step_index = 0)
+        self.stopping_condition.reset()
         with progress_bar(total = self.stopping_condition.max_epochs) as pbar:
             step_index = 0
             epoch_index = 0
@@ -468,6 +469,9 @@ class StoppingCondition(object):
         if max_epochs is None:
             assert delay_epochs is not None
             assert min_rel_increase is not None
+        self.reset()
+
+    def reset(self):
         self.elbo_at_prev_continuation = None
         self.epoch_index_at_prev_continuation = None
 
