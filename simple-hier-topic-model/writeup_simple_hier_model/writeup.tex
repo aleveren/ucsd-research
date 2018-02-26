@@ -328,6 +328,29 @@ Note that the update rule for $\theta_r$ is particularly slow, since the computa
 
 % TODO: can we derive a Collapsed Gibbs sampler?
 
+\section{Potential Research Questions}
+
+\begin{outline}
+\1 Assuming the data have been generated using the generative process corresponding to this model, under what circumstances are we likely to recover the true parameters via inference?
+  \2 Can we quantify how likely the model is to recover the true parameters, or how close it will get to the true parameters?
+  \2 Note: For simulation, it might make sense to modify the generative process to set the topics $\theta_r$ to fixed vectors, rather than drawing them randomly from a Dirichlet.
+  \2 This analysis might involve both theoretical proofs and empirical tests.  A systematic exploration of the parameter space might lead to conjectures that we could then attempt to prove rigorously.
+\1 What initialization scheme yields the best empirical results?  $K$-means initialization (as used in the nHDP paper)?  Uniform random initialization?  Or something else?
+\1 Preliminary results suggest that the ``true'' parameters can be recovered by variational inference if the topics are initialized to values that are sufficiently close to the true parameters.  How much noise can we add to the initialization before the results noticeably degrade?
+\1 For this model, does Gibbs sampling work better than variational inference?
+  \2 It might make sense to try to derive a collapsed Gibbs sampler, since a full Gibbs sampler would likely be extremely slow to converge.
+\1 For this model, under what circumstances does stochastic variational inference perform well relative to coordinate-ascent variational inference?  (We may want to consider both runtime and ability to recover a ``planted'' tree of topics.)
+\1 What can we say about how the nHDP model would behave on simulated datasets?
+  \2 Related: would it make sense to try to implement nHDP in Python so that we can compare results side-by-side?
+\1 An alternate training routine, inspired by some early empirical results, is to train a flat topic model using LDA or anchor words, and then apply some kind of aggregation to build a tree of topics.
+  \2 Idea: To generate a simple tree with one layer of nodes beneath the root, the root node should contain the ``intersection'' of all leaves' topics, and then the leaves should be the difference between the root topic and the corresponding flat topic.  We could implement intersection using an elementwise minimum (followed by normalization), and the leaf-node differences could be computed by subtracting the elementwise minimum (again followed by normalization).
+  \2 Idea: Apply hierarchical clustering to a collection of flat topics.
+    \3 What distance metric should be used?  Symmetrized KL divergence?  $L_1$ or $L_2$ distance?
+    \3 What type of linkage should be used?  Average?  Ward?  Which one yields the best empirical results?
+    \3 How should individual topics be merged at each internal node?  Weighted average?  The intersection/difference scheme mentioned above?
+  \2 It's not clear whether these routines would work on trees with more than one layer beneath the root.  If that's not feasible, is there a way to train such a model recursively, adding subtopics until some stopping criterion is met?
+\end{outline}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %\clearpage
 %\nocite{*}
