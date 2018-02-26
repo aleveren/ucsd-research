@@ -445,19 +445,6 @@ class StatsSaver(object):
             print('', file=f)
 
 
-class UniformInitializer(object):
-    def __init__(self, low, high):
-        self.low = low
-        self.high = high
-
-    def init_var_params(self, var, shape):
-        if var == "DL": return np.random.uniform(self.low, self.high, shape)
-        if var == "DD": return np.random.uniform(self.low, self.high, shape)
-        if var == "DV": return np.random.uniform(self.low, self.high, shape)
-        if var == "L": return softmax(np.random.uniform(self.low, self.high, shape), axis = -1)
-        if var == "D": return softmax(np.random.uniform(self.low, self.high, shape), axis = -1)
-
-
 class StoppingCondition(object):
     def __init__(self, delay_epochs = None, min_rel_increase = None, max_epochs = None):
         self.delay_epochs = delay_epochs
