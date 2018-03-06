@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 from sim_data import SimData
+from collections import Counter
 
 #import os
 #import sys
@@ -31,4 +32,17 @@ print("Exporting to {}...".format(filename))
 with open(filename, 'w') as f:
     for d in docs:
         print(d, file=f)
+print("Done.")
+
+filename = "simulated_data_concise.txt"
+
+print("Exporting to {}...".format(filename))
+with open(filename, 'w') as f:
+    for d in docs:
+        c = Counter(d.split(' '))
+        for i, v in enumerate(sim.vocab):
+            if i > 0:
+                print(" ", end="", file=f)
+            print("{}:{}".format(v, c[v]), end="", file=f)
+        print("", file=f)
 print("Done.")
