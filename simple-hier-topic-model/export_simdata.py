@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import numpy as np
 from sim_data import SimData
 
 #import os
@@ -7,6 +8,8 @@ from sim_data import SimData
 #
 #sys.path.append(os.path.abspath(".."))
 #import text_utils
+
+np.random.seed(1)
 
 sim = SimData(
     branching_factors = [3],
