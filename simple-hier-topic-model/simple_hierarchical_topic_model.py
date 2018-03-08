@@ -7,6 +7,8 @@ import sys
 import io
 import logging
 import copy
+from initializers import UniformInitializer
+from utils import softmax, expectation_log_dirichlet, explore_branching_factors
 
 
 try:
@@ -20,39 +22,11 @@ except:
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())
 
-def load_vocab(filename):
-    vocab = []
-    with io.open(filename, mode='r', encoding='utf8') as f:
-        for line in f:
-            vocab.append(line.rstrip())
-    return vocab
-
-def softmax(X, axis):
-    X = np.asarray(X)
-    eX = np.exp(X)
-    return eX / eX.sum(axis = axis, keepdims = True)
-
-def expectation_log_dirichlet(nu, axis):
-    return digamma(nu) - digamma(nu.sum(axis = axis, keepdims = True))
-
 # Convention for Einstein-summation (np.einsum) indices:
 NODE, LEAF, WORD_SLOT, VOCAB_WORD, DEPTH, DOC = list(range(6))
 
 _default_update_order = ["L", "D", "DL", "DD", "DV"]
 _default_step_size_function = lambda step_index: (1 + step_index) ** -0.5
-
-def explore_branching_factors(factors):
-    return list(_generator_explore_branching_factors(factors, prefix = ()))
-
-def _generator_explore_branching_factors(factors, prefix):
-    yield prefix
-    if len(factors) > 0:
-        first = factors[0]
-        rest = factors[1:]
-        for i in range(first):
-            new_prefix = prefix + (i,)
-            for path in _generator_explore_branching_factors(rest, new_prefix):
-                yield path
 
 class SimpleHierarchicalTopicModel(object):
     def __init__(self, vocab, batch_size = None, stopping_condition = None, branching_factors = None,

@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from scipy.sparse import issparse
 
-from simple_hierarchical_topic_model import softmax
+from utils import softmax
 
 
 class UniformInitializer(object):
