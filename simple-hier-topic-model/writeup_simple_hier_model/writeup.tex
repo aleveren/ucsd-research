@@ -328,6 +328,44 @@ Note that the update rule for $\theta_r$ is particularly slow, since the computa
 
 % TODO: can we derive a Collapsed Gibbs sampler?
 
+\section{Simulated Data}
+
+What happens if we run inference on a simulated dataset that has been generated using the above generative model, or slight variants of it?
+In particular, suppose we select a fixed tree structure $\mathcal T$, along with Dirichlet parameters $\alpha^{(\phi)}$ and $\alpha^{(\lambda)}$.
+For each path $r \in \mathcal T$, we also select a fixed probability vector $\theta_r$.
+Then, we sample a collection of documents by using the generative process described above; the only difference is that we can specify arbitrary topic vectors $\theta_r$.
+
+Next, we discuss some useful probability calculations relating to this simulated data.
+The probability of selecting a particular topic is
+\begin{align}
+p(r_{d,n} = \tilde r)
+&= p(z_{d,n} = \len(\tilde r)) \sum_{j \in \text{desc}(\tilde r)} p(\ell_{d,n} = j) \\
+&= \frac{\alpha^{(\phi)}_{\len(\tilde r)}}{\sum_k \alpha^{(\phi)}_k} \sum_{j \in \text{desc}(\tilde r)} \frac{\alpha^{(\lambda)}_j}{\sum_i \alpha^{(\lambda)}_i} \label{eqn:topicProbability}
+\end{align}
+
+The joint probability of selecting two topics $\tilde r_1$ and $\tilde r_2$ within a single document is
+\begin{align}
+\MoveEqLeft
+p(r_{d,1} = \tilde r_1, \, r_{d,2} = \tilde r_2) \nonumber \\
+&= f(\alpha^{(\phi)}, \len(\tilde r_1), \len(\tilde r_2))
+  \sum_{j_1 \in \text{desc}(\tilde r_1)}
+  \sum_{j_2 \in \text{desc}(\tilde r_2)}
+    f(\alpha^{(\lambda)}, j_1, j_2) \label{eqn:topicPairProbability} \\
+\intertext{where}
+f(x, i_1, i_2)
+&=
+\begin{cases}
+  \frac{(x_{i_1} + 1) x_{i_1}}{\left(1 + \sum_i x_i\right) \left(\sum_i x_i\right)}, &\text{ if } i_1 = i_2 \\
+  \frac{x_{i_1} x_{i_2}}{\left(1 + \sum_i x_i\right) \left(\sum_i x_i\right)}, &\text{ if } i_1 \neq i_2
+\end{cases}
+\end{align}
+
+We can compute conditional probabilities between pairs of topics by combining \eqref{eqn:topicProbability} and \eqref{eqn:topicPairProbability}:
+\begin{align}
+p(r_{d,1} = \tilde r_1 \mid r_{d,2} = \tilde r_2)
+&= \frac{ p(r_{d,1} = \tilde r_1, r_{d,2} = \tilde r_2) }{ p(r_{d,2} = \tilde r_2) }
+\end{align}
+
 \section{Potential Research Questions}
 
 \begin{outline}
