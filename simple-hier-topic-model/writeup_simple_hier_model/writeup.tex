@@ -352,13 +352,24 @@ p(r_{d,1} = \tilde r_1, \, r_{d,2} = \tilde r_2) \nonumber \\
   \sum_{j_2 \in \text{desc}(\tilde r_2)}
     f(\alpha^{(\lambda)}, j_1, j_2) \label{eqn:topicPairProbability} \\
 \intertext{where}
-f(x, i_1, i_2)
+f(\mathbf x, i, j)
 &=
-\begin{cases}
-  \frac{(x_{i_1} + 1) x_{i_1}}{\left(1 + \sum_i x_i\right) \left(\sum_i x_i\right)}, &\text{ if } i_1 = i_2 \\
-  \frac{x_{i_1} x_{i_2}}{\left(1 + \sum_i x_i\right) \left(\sum_i x_i\right)}, &\text{ if } i_1 \neq i_2
-\end{cases}
+\frac{B(\mathbf x + \mathbf e_i + \mathbf e_j)}{B(\mathbf x)}
+\\
+% &=
+% \begin{dcases}
+%   \frac{(x_{i} + 1) x_{i}}{\left(1 + \sum_k x_k\right) \left(\sum_k x_k\right)}, & i = j, \\
+%   \frac{x_{i} x_{j}}{\left(1 + \sum_k x_k\right) \left(\sum_k x_k\right)}, & i \neq j.
+% \end{dcases} \\[1em]
+&=
+\frac{x_i \left( x_j + \indicator[i = j] \right)}{\left(1 + \sum_k x_k\right) \left(\sum_k x_k\right)}
 \end{align}
+Here, $\mathbf e_i$ denotes the $i\nth$ standard basis vector, and $B(\mathbf x)$ is the multivariate beta function
+\begin{align}
+B(\mathbf x)
+&= \frac{\prod_k \Gamma(x_k)}{\Gamma\left(\sum_k x_k\right)},
+\end{align}
+which serves as the normalization factor for Dirichlet distributions.
 
 We can compute conditional probabilities between pairs of topics by combining \eqref{eqn:topicProbability} and \eqref{eqn:topicPairProbability}:
 \begin{align}
