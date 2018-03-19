@@ -339,17 +339,18 @@ Next, we discuss some useful probability calculations relating to this simulated
 The probability of selecting a particular topic is
 \begin{align}
 p(r_{d,n} = \tilde r)
-&= p(z_{d,n} = \len(\tilde r)) \sum_{j \in \text{desc}(\tilde r)} p(\ell_{d,n} = j) \\
-&= \frac{\alpha^{(\phi)}_{\len(\tilde r)}}{\sum_k \alpha^{(\phi)}_k} \sum_{j \in \text{desc}(\tilde r)} \frac{\alpha^{(\lambda)}_j}{\sum_i \alpha^{(\lambda)}_i} \label{eqn:topicProbability}
+&= p(z_{d,n} = \len(\tilde r)) \sum_{j \in \text{LD}(\tilde r)} p(\ell_{d,n} = j) \\
+&= \frac{\alpha^{(\phi)}_{\len(\tilde r)}}{\sum_k \alpha^{(\phi)}_k} \sum_{j \in \text{LD}(\tilde r)} \frac{\alpha^{(\lambda)}_j}{\sum_i \alpha^{(\lambda)}_i} \label{eqn:topicProbability}
 \end{align}
+Here, $\text{LD}(\tilde r)$ is the set of leaf nodes in $\mathcal T$ which are descendants of (or equal to) the node $\tilde r$.
 
 The joint probability of selecting two topics $\tilde r_1$ and $\tilde r_2$ within a single document is
 \begin{align}
 \MoveEqLeft
 p(r_{d,1} = \tilde r_1, \, r_{d,2} = \tilde r_2) \nonumber \\
 &= f(\alpha^{(\phi)}, \len(\tilde r_1), \len(\tilde r_2))
-  \sum_{j_1 \in \text{desc}(\tilde r_1)}
-  \sum_{j_2 \in \text{desc}(\tilde r_2)}
+  \sum_{j_1 \in \text{LD}(\tilde r_1)}
+  \sum_{j_2 \in \text{LD}(\tilde r_2)}
     f(\alpha^{(\lambda)}, j_1, j_2) \label{eqn:topicPairProbability} \\
 \intertext{where}
 f(\mathbf x, i, j)
@@ -362,7 +363,7 @@ f(\mathbf x, i, j)
 %   \frac{x_{i} x_{j}}{\left(1 + \sum_k x_k\right) \left(\sum_k x_k\right)}, & i \neq j.
 % \end{dcases} \\[1em]
 &=
-\frac{x_i \left( x_j + \indicator[i = j] \right)}{\left(1 + \sum_k x_k\right) \left(\sum_k x_k\right)}
+\frac{x_i \left( x_j + \indicator[i = j] \right)}{\left(\sum_k x_k\right) \left(1 + \sum_k x_k\right)}
 \end{align}
 Here, $\mathbf e_i$ denotes the $i\nth$ standard basis vector, and $B(\mathbf x)$ is the multivariate beta function
 \begin{align}
