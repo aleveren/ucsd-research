@@ -23,6 +23,7 @@
 \usepackage{empheq}
 \usepackage{xfrac}
 \usepackage{enumitem}
+\usepackage{amsthm}
 %\usepackage{geometry}
 %\geometry{margin=1.5in}
 
@@ -33,6 +34,8 @@
 \newcommand{\indicator}{\mathds{1}}
 \newcommand{\hackystatei}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{#1\strut}}
 \newcommand{\hackystateii}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent-\algorithmicindent}{#1\strut}}
+\newcommand{\argmax}{\mathop{\mathrm{argmax}}}
+\newcommand{\argmin}{\mathop{\mathrm{argmin}}}
 
 %\allowdisplaybreaks
 
@@ -377,6 +380,81 @@ We can compute conditional probabilities between pairs of topics by combining \e
 p(r_{d,1} = \tilde r_1 \mid r_{d,2} = \tilde r_2)
 &= \frac{ p(r_{d,1} = \tilde r_1, r_{d,2} = \tilde r_2) }{ p(r_{d,2} = \tilde r_2) }
 \end{align}
+
+Now, suppose that (1) the branching structure of $\mathcal T$ is known,
+(2) we have a collection of $|\mathcal T|$ topic vectors $\theta_1, \ldots, \theta_{|\mathcal T|}$ which have been inferred by applying some topic-model inference algorithm to the simulated data (for example, using variational inference for Latent Dirichlet Allocation, or using the Arora et al anchor words algorithm), and
+(3) we wish to recover the true mapping of topic vectors $\theta_i$ to nodes in $\mathcal T$.
+
+Under these circumstances, we seek an algorithm that allows us to recover the true mapping of topics to nodes.
+One approach would be:
+\begin{outline}
+\1 Determine which topic corresponds to the root node.
+\1 Determine which topics correspond to the children of the root node.
+\1 Partition all remaining topics based on which child node they are descended from.
+\1 Repeat the previous two steps recursively, with each child node playing the role of the ``root'' at subsequent stages.
+\end{outline}
+
+We will operate under the assumption that the above generative model was used to simulate this data.
+For simplicity, we further assume that the Dirichlet distributions for $\phi_d$ and $\lambda_d$ are symmetric.
+Thus, we can effectively treat the Dirichlet parameters $\alpha^{(\phi)}$ and $\alpha^{(\lambda)}$ as scalars instead of vectors.
+
+Let $R_{i,j}$ denote the joint probability of selecting the topic at index $i$ and the topic at index $j$ in the same document.
+Suppose that we are given the topic co-occurrence matrix $R$ as a by-product of the inference algorithm that gave us the topic vectors $\theta_i$.
+(This is true, for example, of the Arora et al anchor words algorithm.)
+
+We will construct the mapping $g$ from paths $r \in \mathcal T$ to indices $i \in \{1, \ldots, |\mathcal T|\}$ as follows.
+To determine which topic corresponds to the root node, we set
+\begin{align}
+g(()) &= \argmax_{i \in \{1, \ldots, |\mathcal T|\}} \sum_j R_{i,j}.
+\end{align}
+If the root node is known to have $k$ children, we set $g((\ell))$ for $\ell \in \{1, \ldots, k\}$ to the indices other than $g(())$ that maximize $\sum_j R_{i,j}$ with respect to $i$.
+Let $C$ denote the set of $k$ children identified by this process.
+Next, we need to partition the remaining nodes $S = \{1, \ldots, |\mathcal T|\} - C - \{g(())\}$ among the $k$ children.
+We do this by assigning each remaining node $j \in S$ as follows:
+\begin{align}
+j &\mapsto \argmax_{i \in C} R_{i, j}.
+\label{eqn:partitionRule}
+\end{align}
+Finally, we apply the above steps recursively to the subtrees associated with each of the $k$ children.
+
+\paragraph{Claim} If the topic vectors $\theta_1, \ldots, \theta_{|\mathcal T|}$ are an arbitrary ordering of the true topics with which a dataset was generated, then the above algorithm will recover the true mapping between nodes and topics.
+
+\begin{proof}
+First, note that the topic corresponding to the root node will have the highest value of $\sum_j R_{i,j}$,
+and if there is a branching factor of $k$ at the top level, then the $k$ topics with the next highest values of $\sum_j R_{i,j}$ will correspond to the first layer of descendants below the root node.
+This is because, under the above assumptions, the probability of selecting a topic at path $\tilde r$ simplifies to
+\begin{align}
+p(r_{d,n} = \tilde r)
+&=
+\frac{|\text{LD}(\tilde r)|}{(1 + \text{depth}(\mathcal T)) \cdot |\mathcal L(\mathcal T)|}.
+\end{align}
+Therefore,
+\begin{align}
+|\text{LD}(\tilde r_1)| > |\text{LD}(\tilde r_2)|
+&\iff
+p(r_{d,n} = \tilde r_1) > p(r_{d,n} = \tilde r_2).
+\end{align}
+This occurs if and only if $\tilde r_1$ is a strict ancestor of $\tilde r_2$.
+
+Next, we prove that the remaining nodes will be correctly partitioned based on which child of the root node they are descended from.
+To see why, let $a \in C$ be a node in the first layer below the root, and let $b$ be any descendant of $a$.
+For any $a' \in C - \{a\}$, we then have
+\begin{align}
+p(r_{d,1} = a, \, r_{d,2} = b)
+&\propto
+  \left( \alpha^{(\phi)} \alpha^{(\lambda)} \right)^2 \cdot |\text{LD}(a)| \cdot |\text{LD}(b)|
+  + \left( \alpha^{(\phi)} \right)^2 \alpha^{(\lambda)} \cdot |\text{LD}(b)|
+,\text{ and} \\
+p(r_{d,1} = a', \, r_{d,2} = b)
+&\propto
+  \left( \alpha^{(\phi)} \alpha^{(\lambda)} \right)^2 \cdot |\text{LD}(a')| \cdot |\text{LD}(b)|,
+\end{align}
+where both of these quantities share the same normalization constant.
+This implies $R_{a,b} > R_{a',b}$ for all $a' \in C - \{a\}$.
+Thus, if we partition nodes according to \eqref{eqn:partitionRule}, we will correctly assign each descendant below the first layer to the correct member of $C$.
+
+Using induction, we conclude that the true structure of the full tree will be recovered.
+\end{proof}
 
 \section{Potential Research Questions}
 
