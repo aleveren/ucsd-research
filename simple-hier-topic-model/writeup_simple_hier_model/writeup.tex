@@ -434,11 +434,11 @@ Therefore,
 &\iff
 p(r_{d,n} = \tilde r_1) > p(r_{d,n} = \tilde r_2).
 \end{align}
-This occurs if and only if $\tilde r_1$ is a strict ancestor of $\tilde r_2$.
+If the tree $\mathcal T$ has a completely symmetric branching structure (that is, if nodes at the same depth always have identical numbers of children), then $|\text{LD}(\tilde r_1)| > |\text{LD}(\tilde r_2)|$ occurs if and only if $\tilde r_1$ is strictly closer to the root than $\tilde r_2$.
 
 Next, we prove that the remaining nodes will be correctly partitioned based on which child of the root node they are descended from.
 To see why, let $a \in C$ be a node in the first layer below the root, and let $b$ be any descendant of $a$.
-For any $a' \in C - \{a\}$, we then have
+For any sibling $a'$ of $a$ (that is, for any $a' \in C - \{a\}$), we then have
 \begin{align}
 p(r_{d,1} = a, \, r_{d,2} = b)
 &\propto
