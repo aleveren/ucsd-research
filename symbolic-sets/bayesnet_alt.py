@@ -40,10 +40,6 @@ class Model(object):
             new_expanded_rvs[var] = expand_placeholders(var, distrib, placeholders)
         expanded_rvs = new_expanded_rvs
 
-        print("DEBUGGING: expanded_rvs:")
-        for k, v in expanded_rvs.items():
-            print("{}: {}".format(k,v))
-
         g = nx.DiGraph()
         for var, distrib in expanded_rvs.items():
             g.add_node(var)
@@ -55,11 +51,8 @@ class Model(object):
         data = dict()
         for var in nx.topological_sort(g):
             if var in expanded_rvs:
-                print("DEBUGGING: before preparing to sample {}: {}".format(var, expanded_rvs[var]))
                 distrib = prepare_to_sample(var, expanded_rvs[var], mappings, sets, data)
-                print("DEBUGGING:  after preparing to sample {}: {}".format(var, distrib))
                 data[var] = sample(distrib)
-                print("DEBUGGING:         sampled result for {}: {}".format(var, data[var]))
             else:
                 data[var] = UnspecifiedRandomVariable()
         return data
@@ -179,19 +172,20 @@ def expand_rv_index_sets(var, sets):
     return expanded
 
 def expand_rv_index_sets_dict(var, sets):
-    last_expansion_slot = None
-    for i in range(len(var)-1, -1, -1):
+    expansion_slot = None
+    for i in range(len(var)):
         if isinstance(var[i], IndexSet):
-            last_expansion_slot = i
+            expansion_slot = i
             break
 
-    if last_expansion_slot is None:
+    if expansion_slot is None:
         return var
 
     expanded = dict()
-    for val in sets[var[last_expansion_slot].name]:
-        new_var = var[:last_expansion_slot] + (val,) + var[last_expansion_slot+1:]
-        expanded[val] = new_var
+    idx_set_name = var[expansion_slot].name
+    for val in sets[idx_set_name]:
+        new_var = var[:expansion_slot] + (val,) + var[expansion_slot+1:]
+        expanded[val] = expand_rv_index_sets_dict(new_var, sets)
 
     return expanded
 
