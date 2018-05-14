@@ -69,12 +69,7 @@ def sample(distrib):
     elif isinstance(distrib, Dirichlet):
         return np.random.dirichlet(distrib.alpha)
     elif isinstance(distrib, Categorical):
-        try:
-            result = np.random.choice(len(distrib.probs), p=distrib.probs)
-        except:
-            print("ERROR distrib = {}".format(distrib))
-            raise
-        return result
+        return np.random.choice(len(distrib.probs), p=distrib.probs)
     elif isinstance(distrib, Deterministic):
         return distrib.func(*distrib.args)
     elif isinstance(distrib, ConstantPlaceholder):
