@@ -7,12 +7,21 @@ import networkx as nx
 
 class Model(object):
     def __init__(self):
-        self.vars_and_distribs = []
+        self.distribs = dict()
+        self.signatures = dict()
         self.active_for_loop_variables = []
 
     def add_random_variable(self, var, distrib):
         assert isinstance(var, tuple)
-        self.vars_and_distribs.append((var, distrib))
+        var_name = var[0]
+        signature = len(var) - 1  # For now, signature is just # of indices following the var name
+        if var_name in self.signatures:
+            expected = self.signatures[var_name]
+            assert signature == expected, \
+                "Inconsistent signature for {}: {} vs {}".format(var_name, signature, expected)
+        else:
+            self.signatures[var_name] = signature
+        self.distribs[var_name] = distrib
 
         indices_in_rv = set([w for i, w in enumerate(var) if i > 0 and isinstance(w, ForLoopVariable)])
         active_indices = set(self.active_for_loop_variables)
@@ -29,33 +38,43 @@ class Model(object):
     def loop_over(self, iter_name, set_name):
         return for_loop_variable_context(self, iter_name, set_name)
 
-    def generate_data(self, placeholders = None, sets = None, mappings = None):
-        expanded_rvs = dict()
-        for var, distrib in self.vars_and_distribs:
-            rv = expand_rv(var, distrib, sets)
-            expanded_rvs.update(rv)
+    def generate_data(self, output_vars, placeholders = None, sets = None, mappings = None):
+        sampler = Sampler(model = self, placeholders = placeholders, sets = sets, mappings = mappings)
+        return sampler.sample(output_vars = output_vars, return_cache = return_cache)
 
-        new_expanded_rvs = dict()
-        for var, distrib in expanded_rvs.items():
-            new_expanded_rvs[var] = expand_placeholders(var, distrib, placeholders)
-        expanded_rvs = new_expanded_rvs
+class Sampler(object):
+    def __init__(self, model, placeholders, sets, mappings):
+        self.model = model
+        self.placeholders = placeholders
+        self.sets = sets
+        self.mappings = mappings
+        self.cache = dict()
 
-        g = nx.DiGraph()
-        for var, distrib in expanded_rvs.items():
-            g.add_node(var)
-        for var, distrib in expanded_rvs.items():
-            deps = get_dependencies(distrib, sets)
-            for var_dep in deps:
-                g.add_edge(var_dep, var)
+    def reset(self):
+        self.cache.clear()
 
+    def sample(self, output_vars):
+        assert isinstance(output_vars, list)
+        output_vars_expanded = set()
+        for var in output_vars:
+            output_vars_expanded |= expand_rv_index_sets(var, self.sets)
+
+        cache = dict()
         data = dict()
-        for var in nx.topological_sort(g):
-            if var in expanded_rvs:
-                distrib = prepare_to_sample(var, expanded_rvs[var], mappings, sets, data)
-                data[var] = sample(distrib)
-            else:
-                data[var] = UnspecifiedRandomVariable()
+        for var in output_vars_expanded:
+            self.recursive_sample(var)
+            data[var] = self.cache[var]
         return data
+
+    def recursive_sample(self, var):
+        '''Sample `var`.  If necessary, first sample from its dependencies.'''
+        if var not in cache:
+            distrib = self.get_sampleable_distrib(var)
+            self.cache[var] = sample(distrib)
+
+    def get_sampleable_distrib(self, var):
+
+        pass  # TODO
 
 def prepare_to_sample(var, distrib, mappings, sets, data):
     if isinstance(distrib, Deterministic) and isinstance(distrib.func, SymbolicMapping):
