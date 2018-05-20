@@ -5,6 +5,9 @@ import copy
 import numpy as np
 import networkx as nx
 
+#import warnings
+#warnings.filterwarnings('error')
+
 class Model(object):
     def __init__(self):
         self.distribs = dict()
@@ -15,13 +18,15 @@ class Model(object):
         assert isinstance(var, tuple)
         var_name = var[0]
         signature = len(var) - 1  # For now, signature is just # of indices following the var name
+
         if var_name in self.signatures:
             expected = self.signatures[var_name]
             assert signature == expected, \
                 "Inconsistent signature for {}: {} vs {}".format(var_name, signature, expected)
         else:
             self.signatures[var_name] = signature
-        self.distribs[var_name] = distrib
+
+        self.distribs[var] = distrib
 
         indices_in_rv = set([w for i, w in enumerate(var) if i > 0 and isinstance(w, ForLoopVariable)])
         active_indices = set(self.active_for_loop_variables)
@@ -32,15 +37,49 @@ class Model(object):
         assert active_indices <= indices_in_rv, \
             "Unused indices in definition of '{}{}': {}".format(var[0], rv_index_suffix, active_indices - indices_in_rv)
 
+    def lookup_distrib(self, var):
+        # TODO: Use different data structure for self.distribs to perform faster (O(1)) lookups
+        for compare_var, distrib in self.distribs.items():
+            substitutions = self.matches_with_substitution(var, compare_var)
+            if substitutions is not None:
+                result = distrib
+                for sub in substitutions:
+                    result = substitute(result, sub[0], sub[1])
+                #print("DEBUGGING: lookup_distrib(var = {}), compare_var = {}, distrib = {}, substitutions = {}, result = {}".format(
+                #    var, compare_var, distrib, substitutions, result))
+                return result
+        raise ValueError("lookup_distrib failed: {}".format(var))
+
+    def matches_with_substitution(self, var, compare_var):
+        if len(var) != len(compare_var):
+            return None
+        substitutions = []
+        for i in range(len(var)):
+            v = var[i]
+            cv = compare_var[i]
+            if (is_numpy_type(v) or is_numpy_type(cv)) and np.array_equal(v, cv):
+                continue
+            elif not is_numpy_type(v) and not is_numpy_type(cv) and v == cv:
+                continue
+            elif isinstance(cv, ForLoopVariable) and not isinstance(v, ForLoopVariable):
+                substitutions.append((cv, v))
+            else:
+                return None
+        return substitutions
+
     def active_iter_names(self):
         return set([x.iter_name for x in self.active_for_loop_variables])
 
     def loop_over(self, iter_name, set_name):
         return for_loop_variable_context(self, iter_name, set_name)
 
-    def generate_data(self, output_vars, placeholders = None, sets = None, mappings = None):
+    def generate_data(self, output_vars, return_sampler = False, placeholders = None, sets = None, mappings = None):
         sampler = Sampler(model = self, placeholders = placeholders, sets = sets, mappings = mappings)
-        return sampler.sample(output_vars = output_vars, return_cache = return_cache)
+        result = sampler.sample(output_vars = output_vars)
+        if return_sampler:
+            return result, sampler
+        else:
+            return result
 
 class Sampler(object):
     def __init__(self, model, placeholders, sets, mappings):
@@ -62,42 +101,72 @@ class Sampler(object):
         cache = dict()
         data = dict()
         for var in output_vars_expanded:
-            self.recursive_sample(var)
-            data[var] = self.cache[var]
+            data[var] = self.recursive_sample(var)
         return data
 
     def recursive_sample(self, var):
         '''Sample `var`.  If necessary, first sample from its dependencies.'''
-        if var not in cache:
-            distrib = self.get_sampleable_distrib(var)
-            self.cache[var] = sample(distrib)
+        if var in self.cache:
+            return self.cache[var]
 
-    def get_sampleable_distrib(self, var):
+        try:
+            distrib = self.model.lookup_distrib(var)
+        except:
+            print("recursive_sample({}), error while looking up distrib".format(var))
+            raise
+        try:
+            if isinstance(distrib, Constant):
+                if is_simple_tuple(distrib.value):
+                    value = self.recursive_sample(distrib.value)
+                else:
+                    value = distrib.value
+                result = copy.deepcopy(value)
+            elif isinstance(distrib, ConstantPlaceholder):
+                result = self.placeholders[var]
+            elif isinstance(distrib, Dirichlet):
+                if is_simple_tuple(distrib.alpha):
+                    alpha = self.recursive_sample(distrib.alpha)
+                else:
+                    alpha = distrib.alpha
+                result = np.random.dirichlet(alpha)
+            elif isinstance(distrib, Categorical):
+                if is_simple_tuple(distrib.probs):
+                    probs = self.recursive_sample(distrib.probs)
+                else:
+                    probs = distrib.probs
+                result = np.random.choice(len(probs), p=probs)
+            elif isinstance(distrib, Deterministic):
+                if isinstance(distrib.func, SymbolicMapping):
+                    func = self.mappings[distrib.func.name]
+                else:
+                    func = distrib.func
+                args = []
+                for arg in distrib.args:
+                    if is_simple_tuple(arg):
+                        arg = self.recursive_sample(arg)
+                    args.append(arg)
+                result = func(*args)
+            elif isinstance(distrib, DeterministicLookup):
+                indices = []
+                for idx in distrib.indices:
+                    if is_simple_tuple(idx):
+                        idx = self.recursive_sample(idx)
+                    indices.append(idx)
+                indirect_var = (distrib.var,) + tuple(indices)
+                self.recursive_sample(indirect_var)
+                result = self.cache[indirect_var]
+            else:
+                raise ValueError("Unrecognized distribution: {}".format(distrib))
+        except:
+            print("recursive_sample({}), distrib = {}".format(var, distrib))
+            raise
+        self.cache[var] = result
+        return result
 
-        pass  # TODO
 
-def prepare_to_sample(var, distrib, mappings, sets, data):
-    if isinstance(distrib, Deterministic) and isinstance(distrib.func, SymbolicMapping):
-        distrib = distrib._replace(func = mappings[distrib.func.name])
-    distrib = substitute_rvs(distrib, data, sets)
-    return distrib
-
-def sample(distrib):
-    if isinstance(distrib, Constant):
-        return copy.deepcopy(distrib.value)
-    elif isinstance(distrib, Dirichlet):
-        return np.random.dirichlet(distrib.alpha)
-    elif isinstance(distrib, Categorical):
-        return np.random.choice(len(distrib.probs), p=distrib.probs)
-    elif isinstance(distrib, Deterministic):
-        return distrib.func(*distrib.args)
-    elif isinstance(distrib, ConstantPlaceholder):
-        raise ValueError("Internal error: found ConstantPlaceholder: {}".format(distrib))
-    else:
-        raise ValueError("Unrecognized distribution: {}".format(distrib))
-
-class UnspecifiedRandomVariable(object):
-    pass
+def is_simple_tuple(X):
+    '''Return whether X is a tuple but not a namedtuple'''
+    return isinstance(X, tuple) and not hasattr(X, "_make")
 
 def expand_rv(var, distrib, sets):
     result = {var: distrib}
@@ -203,6 +272,9 @@ def expand_rv_index_sets_dict(var, sets):
 
     return expanded
 
+def is_numpy_type(X):
+    return isinstance(X, (np.ndarray, np.generic))
+
 @contextmanager
 def for_loop_variable_context(model, iter_name, set_name):
     spec = ForLoopVariable(iter_name, set_name)
@@ -226,12 +298,4 @@ Categorical = namedtuple("Categorical", ["probs"])
 Deterministic = namedtuple("Deterministic", ["func", "args"])
 ConstantPlaceholder = namedtuple("ConstantPlaceholder", ["shape"])
 SymbolicMapping = namedtuple("SymbolicMapping", ["domain", "codomain", "name"])
-
-def lookup(var_collection, indices):
-    result = var_collection
-    for idx in indices:
-        result = result[idx]
-    return result
-
-def DeterministicLookup(var, indices):
-    return Deterministic(lookup, args = [var, indices])
+DeterministicLookup = namedtuple("DeterministicLookup", ["var", "indices"])
