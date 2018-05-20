@@ -88,6 +88,7 @@ class Signature(namedtuple("Signature", ["for_loop_variables"])):
             if v is None:
                 key.append(s)
             else:
+                key.append(v)  # NOTE: key uses fixed value v from for_loop_variables instead of s
                 substitutions.append((v, s))
         return tuple(key), substitutions
 
