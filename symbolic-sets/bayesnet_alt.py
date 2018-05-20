@@ -26,7 +26,7 @@ class Model(object):
         else:
             self.signatures[var_name] = signature
 
-        key, _ = signature.get_concrete_key_and_substitutions(var)
+        key, _ = signature.get_key_and_substitutions(var)
         self.distribs[key] = distrib
 
         indices_in_rv = set([w for i, w in enumerate(var) if i > 0 and isinstance(w, ForLoopVariable)])
@@ -41,7 +41,7 @@ class Model(object):
     def lookup_distrib(self, var):
         var_name = var[0]
         signature = self.signatures[var_name]
-        key, substitutions = signature.get_concrete_key_and_substitutions(var)
+        key, substitutions = signature.get_key_and_substitutions(var)
         result = self.distribs[key]
         for sub in substitutions:
             result = substitute(result, sub[0], sub[1])
@@ -79,7 +79,7 @@ class Model(object):
             return result
 
 class Signature(namedtuple("Signature", ["for_loop_variables"])):
-    def get_concrete_key_and_substitutions(self, subscripts):
+    def get_key_and_substitutions(self, subscripts):
         assert len(subscripts) == len(self.for_loop_variables)
         key = []
         substitutions = []
@@ -110,9 +110,9 @@ class Sampler(object):
 
     def sample(self, output_vars):
         assert isinstance(output_vars, list)
-        output_vars_expanded = set()
+        output_vars_expanded = []
         for var in output_vars:
-            output_vars_expanded |= expand_rv_index_sets(var, self.sets)
+            output_vars_expanded.extend(expand_rv_index_sets(var, self.sets))
 
         cache = dict()
         data = dict()
@@ -184,26 +184,8 @@ def is_simple_tuple(X):
     '''Return whether X is a tuple but not a namedtuple'''
     return isinstance(X, tuple) and not hasattr(X, "_make")
 
-def expand_rv(var, distrib, sets):
-    result = {var: distrib}
-    for i, idx in enumerate(var):
-        if isinstance(idx, ForLoopVariable):
-            set_to_expand = sets[idx.set_name]
-            expanded_result = dict()
-            for cur_var, cur_distrib in result.items():
-                for val in set_to_expand:
-                    # Replace idx -> val in cur_var and distrib
-                    mod_cur_var = substitute(cur_var, idx, val)
-                    mod_distrib = substitute(distrib, idx, val)
-                    expanded_result[mod_cur_var] = mod_distrib
-            result = expanded_result
-    return result
-
-def expand_placeholders(var, distrib, placeholders):
-    if isinstance(distrib, ConstantPlaceholder):
-        return Constant(placeholders[var])
-    else:
-        return distrib
+def is_numpy_type(X):
+    return isinstance(X, (np.ndarray, np.generic))
 
 def substitute(X, src, dest):
     if X == src:
@@ -219,40 +201,6 @@ def substitute(X, src, dest):
     else:
         return X
 
-def get_dependencies(X, sets):
-    if isinstance(X, tuple) and not hasattr(X, "_make"):
-        # Plain tuple (not namedtuple)
-        return expand_rv_index_sets(X, sets)
-    elif isinstance(X, tuple) or isinstance(X, list):
-        result = set()
-        for x in X:
-            result |= get_dependencies(x, sets)
-        return result
-    else:
-        return set()
-
-def substitute_rvs(X, data, sets):
-    if isinstance(X, tuple) and not hasattr(X, "_make") and X in data:
-       # Plain tuple (not namedtuple) appearing in the data
-       return data[X]
-    elif isinstance(X, tuple):
-        if hasattr(X, "_make"):
-            newval = tuple(substitute_rvs(x, data, sets) for x in X)
-            return X._make(newval)
-        else:
-            index_set_positions = [i for i, idx in enumerate(X) if isinstance(idx, IndexSet)]
-            if len(index_set_positions) == 0:
-                return tuple(substitute_rvs(x, data, sets) for x in X)
-            else:
-                intermed = expand_rv_index_sets_dict(X, sets)
-                return substitute_rvs(intermed, data, sets)
-    elif isinstance(X, list):
-        return [substitute_rvs(x, data, sets) for x in X]
-    elif isinstance(X, dict):
-        return {k: substitute_rvs(v, data, sets) for k, v in X.items()}
-    else:
-        return X
-
 def expand_rv_index_sets(var, sets):
     first_expansion_slot = None
     for i, v in enumerate(var):
@@ -261,35 +209,14 @@ def expand_rv_index_sets(var, sets):
             break
 
     if first_expansion_slot is None:
-        return set([var])
+        return [var]
 
-    expanded = set()
+    expanded = []
     for val in sets[var[first_expansion_slot].name]:
         new_var = var[:first_expansion_slot] + (val,) + var[first_expansion_slot+1:]
-        expanded |= expand_rv_index_sets(new_var, sets)
+        expanded.extend(expand_rv_index_sets(new_var, sets))
 
     return expanded
-
-def expand_rv_index_sets_dict(var, sets):
-    expansion_slot = None
-    for i in range(len(var)):
-        if isinstance(var[i], IndexSet):
-            expansion_slot = i
-            break
-
-    if expansion_slot is None:
-        return var
-
-    expanded = dict()
-    idx_set_name = var[expansion_slot].name
-    for val in sets[idx_set_name]:
-        new_var = var[:expansion_slot] + (val,) + var[expansion_slot+1:]
-        expanded[val] = expand_rv_index_sets_dict(new_var, sets)
-
-    return expanded
-
-def is_numpy_type(X):
-    return isinstance(X, (np.ndarray, np.generic))
 
 @contextmanager
 def for_loop_variable_context(model, iter_name, set_name):
