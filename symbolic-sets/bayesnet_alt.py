@@ -17,7 +17,7 @@ class Model(object):
     def add_random_variable(self, var, distrib):
         assert isinstance(var, tuple)
         var_name = var[0]
-        signature = len(var) - 1  # For now, signature is just # of indices following the var name
+        signature = Signature.from_spec(var)
 
         if var_name in self.signatures:
             expected = self.signatures[var_name]
@@ -26,7 +26,8 @@ class Model(object):
         else:
             self.signatures[var_name] = signature
 
-        self.distribs[var] = distrib
+        key, _ = signature.get_concrete_key_and_substitutions(var)
+        self.distribs[key] = distrib
 
         indices_in_rv = set([w for i, w in enumerate(var) if i > 0 and isinstance(w, ForLoopVariable)])
         active_indices = set(self.active_for_loop_variables)
@@ -38,17 +39,13 @@ class Model(object):
             "Unused indices in definition of '{}{}': {}".format(var[0], rv_index_suffix, active_indices - indices_in_rv)
 
     def lookup_distrib(self, var):
-        # TODO: Use different data structure for self.distribs to perform faster (O(1)) lookups
-        for compare_var, distrib in self.distribs.items():
-            substitutions = self.matches_with_substitution(var, compare_var)
-            if substitutions is not None:
-                result = distrib
-                for sub in substitutions:
-                    result = substitute(result, sub[0], sub[1])
-                #print("DEBUGGING: lookup_distrib(var = {}), compare_var = {}, distrib = {}, substitutions = {}, result = {}".format(
-                #    var, compare_var, distrib, substitutions, result))
-                return result
-        raise ValueError("lookup_distrib failed: {}".format(var))
+        var_name = var[0]
+        signature = self.signatures[var_name]
+        key, substitutions = signature.get_concrete_key_and_substitutions(var)
+        result = self.distribs[key]
+        for sub in substitutions:
+            result = substitute(result, sub[0], sub[1])
+        return result
 
     def matches_with_substitution(self, var, compare_var):
         if len(var) != len(compare_var):
@@ -80,6 +77,24 @@ class Model(object):
             return result, sampler
         else:
             return result
+
+class Signature(namedtuple("Signature", ["for_loop_variables"])):
+    def get_concrete_key_and_substitutions(self, subscripts):
+        assert len(subscripts) == len(self.for_loop_variables)
+        key = []
+        substitutions = []
+        for i, v in enumerate(self.for_loop_variables):
+            s = subscripts[i]
+            if v is None:
+                key.append(s)
+            else:
+                substitutions.append((v, s))
+        return tuple(key), substitutions
+
+    @classmethod
+    def from_spec(cls, spec):
+        for_loop_variables = tuple(s if isinstance(s, ForLoopVariable) else None for s in spec)
+        return cls(for_loop_variables = for_loop_variables)
 
 class Sampler(object):
     def __init__(self, model, placeholders, sets, mappings):
