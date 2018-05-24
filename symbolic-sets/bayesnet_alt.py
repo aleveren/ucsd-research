@@ -47,23 +47,6 @@ class Model(object):
             result = substitute(result, sub[0], sub[1])
         return result
 
-    def matches_with_substitution(self, var, compare_var):
-        if len(var) != len(compare_var):
-            return None
-        substitutions = []
-        for i in range(len(var)):
-            v = var[i]
-            cv = compare_var[i]
-            if (is_numpy_type(v) or is_numpy_type(cv)) and np.array_equal(v, cv):
-                continue
-            elif not is_numpy_type(v) and not is_numpy_type(cv) and v == cv:
-                continue
-            elif isinstance(cv, ForLoopVariable) and not isinstance(v, ForLoopVariable):
-                substitutions.append((cv, v))
-            else:
-                return None
-        return substitutions
-
     def active_iter_names(self):
         return set([x.iter_name for x in self.active_for_loop_variables])
 
