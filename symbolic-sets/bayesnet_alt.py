@@ -125,57 +125,51 @@ class Sampler(object):
         if var in self.cache:
             return self.cache[var]
 
-        try:
-            distrib = self.model.lookup_distrib(var)
-        except:
-            print("recursive_sample({}), error while looking up distrib".format(var))
-            raise
-        try:
-            if isinstance(distrib, Constant):
-                if is_simple_tuple(distrib.value):
-                    value = self.recursive_sample(distrib.value)
-                else:
-                    value = distrib.value
-                result = copy.deepcopy(value)
-            elif isinstance(distrib, ConstantPlaceholder):
-                result = self.placeholders[var]
-            elif isinstance(distrib, Dirichlet):
-                if is_simple_tuple(distrib.alpha):
-                    alpha = self.recursive_sample(distrib.alpha)
-                else:
-                    alpha = distrib.alpha
-                result = np.random.dirichlet(alpha)
-            elif isinstance(distrib, Categorical):
-                if is_simple_tuple(distrib.probs):
-                    probs = self.recursive_sample(distrib.probs)
-                else:
-                    probs = distrib.probs
-                result = np.random.choice(len(probs), p=probs)
-            elif isinstance(distrib, Deterministic):
-                if isinstance(distrib.func, SymbolicMapping):
-                    func = self.mappings[distrib.func.name]
-                else:
-                    func = distrib.func
-                args = []
-                for arg in distrib.args:
-                    if is_simple_tuple(arg):
-                        arg = self.recursive_sample(arg)
-                    args.append(arg)
-                result = func(*args)
-            elif isinstance(distrib, DeterministicLookup):
-                indices = []
-                for idx in distrib.indices:
-                    if is_simple_tuple(idx):
-                        idx = self.recursive_sample(idx)
-                    indices.append(idx)
-                indirect_var = (distrib.var,) + tuple(indices)
-                self.recursive_sample(indirect_var)
-                result = self.cache[indirect_var]
+        distrib = self.model.lookup_distrib(var)
+
+        if isinstance(distrib, Constant):
+            if is_simple_tuple(distrib.value):
+                value = self.recursive_sample(distrib.value)
             else:
-                raise ValueError("Unrecognized distribution: {}".format(distrib))
-        except:
-            print("recursive_sample({}), distrib = {}".format(var, distrib))
-            raise
+                value = distrib.value
+            result = copy.deepcopy(value)
+        elif isinstance(distrib, ConstantPlaceholder):
+            result = self.placeholders[var]
+        elif isinstance(distrib, Dirichlet):
+            if is_simple_tuple(distrib.alpha):
+                alpha = self.recursive_sample(distrib.alpha)
+            else:
+                alpha = distrib.alpha
+            result = np.random.dirichlet(alpha)
+        elif isinstance(distrib, Categorical):
+            if is_simple_tuple(distrib.probs):
+                probs = self.recursive_sample(distrib.probs)
+            else:
+                probs = distrib.probs
+            result = np.random.choice(len(probs), p=probs)
+        elif isinstance(distrib, Deterministic):
+            if isinstance(distrib.func, SymbolicMapping):
+                func = self.mappings[distrib.func.name]
+            else:
+                func = distrib.func
+            args = []
+            for arg in distrib.args:
+                if is_simple_tuple(arg):
+                    arg = self.recursive_sample(arg)
+                args.append(arg)
+            result = func(*args)
+        elif isinstance(distrib, DeterministicLookup):
+            indices = []
+            for idx in distrib.indices:
+                if is_simple_tuple(idx):
+                    idx = self.recursive_sample(idx)
+                indices.append(idx)
+            indirect_var = (distrib.var,) + tuple(indices)
+            self.recursive_sample(indirect_var)
+            result = self.cache[indirect_var]
+        else:
+            raise ValueError("Unrecognized distribution: {}".format(distrib))
+
         self.cache[var] = result
         return result
 
