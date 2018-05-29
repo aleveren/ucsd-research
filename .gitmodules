@@ -1,0 +1,3 @@
+[submodule "anchor-word-recovery"]
+	path = anchor-word-recovery
+	url = https://aleverentz@bitbucket.org/aleverentz/anchor-word-recovery.git
