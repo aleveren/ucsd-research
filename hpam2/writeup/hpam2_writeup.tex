@@ -1,0 +1,202 @@
+\documentclass{article}
+
+\usepackage{fullpage}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{mathtools}
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{outlines}
+\usepackage{tikz}
+\usepackage{dsfont}
+\usepackage{empheq}
+\usepackage{xfrac}
+\usepackage{enumitem}
+\usepackage{amsthm}
+%\usepackage{geometry}
+%\geometry{margin=1.5in}
+
+\newcommand{\nth}{^{\text{th}}}
+\newcommand{\len}{\text{len}}
+\newcommand{\indicator}{\mathds{1}}
+\newcommand{\hackystatei}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{#1\strut}}
+\newcommand{\hackystateii}[1]{\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent-\algorithmicindent}{#1\strut}}
+\newcommand{\argmax}{\mathop{\mathrm{argmax}}}
+\newcommand{\argmin}{\mathop{\mathrm{argmin}}}
+
+\newcommand{\Dirichlet}{\text{Dirichlet}}
+\newcommand{\Categorical}{\text{Categorical}}
+\newcommand{\Exit}{\textsc{Exit}}
+
+%\allowdisplaybreaks
+
+\title{Analysis of HPAM2 Model}
+
+\author{
+  Andrew Leverentz \\
+  \texttt{aleveren@eng.ucsd.edu} \\
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Defining the HPAM2 Model}
+
+In the hierarchical topic model HPAM2 (Hierarchical Pachinko Allocation Modeling, variant 2), we are given a rooted, directed acyclic graph $G$ and a collection of Dirichlet parameters.
+Specifically, we have a vector $\alpha_\nu$ for each non-terminal node $\nu$, where the dimension of $\alpha_\nu$ is $1 + |\text{children}(\alpha_\nu)|$.
+Note that $\alpha_\nu$ is not defined for terminal nodes (i.e., nodes with no outgoing edges).
+We consider $\alpha_\nu$ to be indexed by the set $\{0\} \cup \text{children}(\alpha_\nu)$.
+We also have a vector $\eta$ which is the parameter for a $V$-dimensional Dirichlet, where $V$ is the size of our vocabulary.
+
+The generative model for sampling a corpus of documents is as follows:
+For each node $\nu \in G$ (including terminal nodes), sample $\beta_\nu$ according to $\text{Dirichlet}(\eta)$.
+For each document $d$ and for each non-terminal node $\nu$, sample $\theta_{d,\nu}$ according to $\text{Dirichlet}(\alpha_\nu)$.
+Next, for each word-slot $n$ in document $d$ and for each non-terminal node $\nu$, sample $z_{d,\nu,n}$ according to $\text{Categorical}(\theta_{d,\nu})$; here, we are choosing whether to exit the DAG early (by selecting $0$), or to continue further down the DAG by selecting a child of $\nu$.
+Next, we can define, for each document $d$ and each word-slot $n$, a path $\pi_{d,n}$ through $G$ beginning at the root node.
+Specifically, the first element of $\pi_{d,n}$ is always the root node of $G$, and we repeatedly extend $\pi_{d,n}$ according to the sampled value of $z_{d,\nu,n}$, where $\nu$ represents the previously-selected node.
+If we ever encounter a selection $z_{d,\nu,n} = 0$, we terminate the path early.
+Finally, we sample a word from the vocabulary $t_{d,n}$ according to $\text{Dirichlet}(\beta_{\Exit(\pi_{d,n})})$.
+Here, $\Exit(\pi_{d,n})$ is the node in $G$ at which the path $\pi_{d,n}$ terminates, which may or may not be a terminal node.
+
+\section{Analysis of Topic Co-occurrence Probabilities in HPAM2}
+
+Next, we compute topic co-occurrence probabilities for the HPAM2 model.
+Specifically, we wish to know the probability that a single document contains some pair of topics $\nu_1$ and $\nu_2$:
+\begin{align}
+p(\Exit(\pi_{d,1}) = \nu_1,
+  \Exit(\pi_{d,2}) = \nu_2)
+&=
+\sum_{
+  \substack{
+    \tilde\pi_1 : \Exit(\tilde\pi_1) = \nu_1
+    \\
+    \tilde\pi_2 : \Exit(\tilde\pi_2) = \nu_2
+  }
+}
+p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+\end{align}
+Next, let $\nu \to \nu' \in \tilde\pi_1$ denote the set of transitions $(\nu, \nu')$ appearing in $\tilde\pi_1$.
+Furthermore, let $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$ denote the set of nodes $\nu$ for which there exists some transition $\nu \to \nu'$ appearing in either $\tilde\pi_1$ or $\tilde\pi_2$.
+Let $\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}$ denote an iterated integral over $\tilde\theta_\nu$ for each $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$.
+With this notation, we can write the co-occurrence probability of two paths as follows:
+\begin{align}
+p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+&=
+\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
+  \left(
+    \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+    p(\theta_{d,\nu} = \tilde\theta_\nu)
+  \right)
+  \\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_1}
+    p(z_{d,\nu,1} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
+  \right)
+  \\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_2}
+    p(z_{d,\nu,2} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
+  \right)
+\\
+&=
+\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
+  \left(
+    \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+    \Dirichlet(\tilde\theta_\nu | \alpha_\nu)
+  \right)
+  %\\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_1}
+    \tilde\theta_{\nu,\nu'}
+  \right)
+  %\\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_2}
+    \tilde\theta_{\nu,\nu'}
+  \right)
+\end{align}
+Then, if we define
+\begin{align}
+S(\nu) &= \{0\} \cup \text{children}(\nu), \\
+N(\nu,\nu',\tilde\pi_1,\tilde\pi_2) &= \text{number of times $\nu \to \nu'$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$}, \\
+M(\nu,\tilde\pi_1,\tilde\pi_2) &= \text{number of times $\nu \to *$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$},
+\end{align}
+we have
+\begin{align}
+p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+&=
+\prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+\left[
+\frac
+  {
+    \prod_{\nu' \in S(\nu)}
+    \prod_{k=0}^{N(\nu,\nu',\tilde\pi_1,\tilde\pi_2) - 1}
+    (k + \alpha_{\nu,\nu'})
+  }
+  {
+    \prod_{k=0}^{M(\nu,\tilde\pi_1,\tilde\pi_2) - 1}
+    \left(
+      k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
+    \right)
+  }
+\right]
+\end{align}
+
+Note that this formula easily generalizes beyond pairwise co-occurrences.
+For example, we can compute three-way path co-occurrence probabilities as follows:
+\begin{align}
+p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2, \pi_{d,3} = \tilde\pi_3)
+&=
+\prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2 \cup \tilde\pi_3}
+\left[
+\frac
+  {
+    \prod_{\nu' \in S(\nu)}
+    \prod_{k=0}^{N(\nu,\nu',\tilde\pi_1,\tilde\pi_2,\tilde\pi_3) - 1}
+    (k + \alpha_{\nu,\nu'})
+  }
+  {
+    \prod_{k=0}^{M(\nu,\tilde\pi_1,\tilde\pi_2,\tilde\pi_3) - 1}
+    \left(
+      k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
+    \right)
+  }
+\right]
+\end{align}
+Furthermore, we can view the formula for single-path probabilities as a special case of the $n$-way co-occurrence formula:
+\begin{align}
+p(\pi_{d,1} = \tilde\pi_1)
+&=
+\prod_{\nu \to \nu' \in \tilde\pi_1}
+\left[
+\frac
+  {
+    \alpha_{\nu,\nu'}
+  }
+  {
+    \sum_{\nu'' \in S(\nu)}\alpha_{\nu,\nu''}
+  }
+\right]
+=
+\prod_{\nu \to \nu' \in \tilde\pi_1}
+E[\theta_{d,\nu}]_{\nu'}
+\end{align}
+
+TODO
+\end{document}
