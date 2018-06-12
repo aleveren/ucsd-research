@@ -134,8 +134,8 @@ p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
 Then, if we define
 \begin{align}
 S(\nu) &= \{0\} \cup \text{children}(\nu), \\
-N(\nu,\nu',\tilde\pi_1,\tilde\pi_2) &= \text{number of times $\nu \to \nu'$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$}, \\
-M(\nu,\tilde\pi_1,\tilde\pi_2) &= \text{number of times $\nu \to *$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$},
+N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to \nu'$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$}, \\
+M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to *$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$},
 \end{align}
 we have
 \begin{align}
@@ -146,11 +146,11 @@ p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
 \frac
   {
     \prod_{\nu' \in S(\nu)}
-    \prod_{k=0}^{N(\nu,\nu',\tilde\pi_1,\tilde\pi_2) - 1}
+    \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) - 1}
     (k + \alpha_{\nu,\nu'})
   }
   {
-    \prod_{k=0}^{M(\nu,\tilde\pi_1,\tilde\pi_2) - 1}
+    \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) - 1}
     \left(
       k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
     \right)
@@ -159,20 +159,20 @@ p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
 \end{align}
 
 Note that this formula easily generalizes beyond pairwise co-occurrences.
-For example, we can compute three-way path co-occurrence probabilities as follows:
+For example, we can compute $n$-way path co-occurrence probabilities as follows:
 \begin{align}
-p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2, \pi_{d,3} = \tilde\pi_3)
+p(\pi_{d,1} = \tilde\pi_1, \ldots, \pi_{d,n} = \tilde\pi_n)
 &=
-\prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2 \cup \tilde\pi_3}
+\prod_{\nu \to * \in \tilde\pi_1 \cup \ldots \cup \tilde\pi_n}
 \left[
 \frac
   {
     \prod_{\nu' \in S(\nu)}
-    \prod_{k=0}^{N(\nu,\nu',\tilde\pi_1,\tilde\pi_2,\tilde\pi_3) - 1}
+    \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
     (k + \alpha_{\nu,\nu'})
   }
   {
-    \prod_{k=0}^{M(\nu,\tilde\pi_1,\tilde\pi_2,\tilde\pi_3) - 1}
+    \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
     \left(
       k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
     \right)
@@ -181,9 +181,9 @@ p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2, \pi_{d,3} = \tilde\pi_3)
 \end{align}
 Furthermore, we can view the formula for single-path probabilities as a special case of the $n$-way co-occurrence formula:
 \begin{align}
-p(\pi_{d,1} = \tilde\pi_1)
+p(\pi_{d,1} = \tilde\pi)
 &=
-\prod_{\nu \to \nu' \in \tilde\pi_1}
+\prod_{\nu \to \nu' \in \tilde\pi}
 \left[
 \frac
   {
@@ -194,7 +194,7 @@ p(\pi_{d,1} = \tilde\pi_1)
   }
 \right]
 =
-\prod_{\nu \to \nu' \in \tilde\pi_1}
+\prod_{\nu \to \nu' \in \tilde\pi}
 E[\theta_{d,\nu}]_{\nu'}
 \end{align}
 
