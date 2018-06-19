@@ -20,6 +20,13 @@ def expectation_log_dirichlet(nu, axis):
 def explore_branching_factors(factors):
     return list(_generator_explore_branching_factors(factors, prefix = ()))
 
+def without_diag(X):
+    result = X.copy()
+    for i in range(min(X.shape)):
+        coord = tuple(i for j in range(np.ndim(X)))
+        result[coord] = 0
+    return result
+
 def _generator_explore_branching_factors(factors, prefix):
     yield prefix
     if len(factors) > 0:
