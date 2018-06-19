@@ -3,34 +3,35 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-def extract(m, diagnostics = None, depth_penalty = None):
+def extract(m, diagnostics = None, depth_penalty = None, apply_cond = True):
     remaining_indices = set(range(m.shape[0]))
     used_indices = set()
-    #cond = m.copy()
-    cond = m / m.sum(axis=0, keepdims=True)
-    root = np.argmax(np.mean(cond, axis=1))
+    m = m.copy()
+    if apply_cond:
+        m /= m.sum(axis=0, keepdims=True)
+    root = np.argmax(np.mean(m, axis=1))
     depths = {root: 0}
     remaining_indices.remove(root)
     used_indices.add(root)
     if diagnostics is not None:
-        diagnostics.append({"matrix": cond, "raw_matrix": m.copy(), "root": root})
+        diagnostics.append({"matrix": m, "raw_matrix": m.copy(), "root": root})
     g = nx.Graph()
     g.add_node(root)
     while len(remaining_indices) > 0:
         rem_ind_arr = np.array(sorted(list(remaining_indices)))
         used_ind_arr = np.array(sorted(list(used_indices)))
         depths_arr = np.array([depths[i] for i in used_ind_arr])
-        cond_submatrix = cond[rem_ind_arr.reshape(-1,1), used_ind_arr.reshape(1,-1)]
+        submatrix = m[rem_ind_arr.reshape(-1,1), used_ind_arr.reshape(1,-1)]
         if depth_penalty is not None:
-            cond_submatrix = cond_submatrix.copy() * (depth_penalty ** depths_arr[np.newaxis, :])
-        argmax = np.argmax(cond_submatrix)
-        ii, jj = np.unravel_index(argmax, cond_submatrix.shape)
+            submatrix = submatrix.copy() * (depth_penalty ** depths_arr[np.newaxis, :])
+        argmax = np.argmax(submatrix)
+        ii, jj = np.unravel_index(argmax, submatrix.shape)
         i = rem_ind_arr[ii]
         j = used_ind_arr[jj]
         depths[i] = depths[j] + 1
         g.add_edge(i, j)
         if diagnostics is not None:
-            diagnostics.append({"matrix": cond_submatrix, "selection": (ii, jj), "edge": (i, j),
+            diagnostics.append({"matrix": submatrix, "selection": (ii, jj), "edge": (i, j),
                 "rem_ind_arr": rem_ind_arr, "used_ind_arr": used_ind_arr, "depths_arr": depths_arr})
         remaining_indices.remove(i)
         used_indices.add(i)
