@@ -2,7 +2,7 @@ import numpy as np
 import networkx as nx
 
 def extract_tree_helper(X, root_index, branching_factors, indices):
-    g = nx.Graph()
+    g = nx.DiGraph()
     root = indices[root_index]
     g.add_node(root)
     if len(branching_factors) == 0:

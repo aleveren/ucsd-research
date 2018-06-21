@@ -15,7 +15,7 @@ def extract(m, diagnostics = None, depth_penalty = None, apply_cond = True):
     used_indices.add(root)
     if diagnostics is not None:
         diagnostics.append({"matrix": m, "raw_matrix": m.copy(), "root": root})
-    g = nx.Graph()
+    g = nx.DiGraph()
     g.add_node(root)
     while len(remaining_indices) > 0:
         rem_ind_arr = np.array(sorted(list(remaining_indices)))
@@ -29,7 +29,7 @@ def extract(m, diagnostics = None, depth_penalty = None, apply_cond = True):
         i = rem_ind_arr[ii]
         j = used_ind_arr[jj]
         depths[i] = depths[j] + 1
-        g.add_edge(i, j)
+        g.add_edge(j, i)
         if diagnostics is not None:
             diagnostics.append({"matrix": submatrix, "selection": (ii, jj), "edge": (i, j),
                 "rem_ind_arr": rem_ind_arr, "used_ind_arr": used_ind_arr, "depths_arr": depths_arr})
