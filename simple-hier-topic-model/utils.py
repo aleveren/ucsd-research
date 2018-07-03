@@ -40,7 +40,7 @@ def _generator_explore_branching_factors(factors, prefix):
 def niceprint_str(X, precision = 4):
     fmt = "{{:.{}f}}".format(precision)
     formatter = dict(float = lambda x: fmt.format(x))
-    result = np.array2string(X, max_line_width=1000, formatter=formatter)
+    result = np.array2string(X, max_line_width=10000, threshold=10000, formatter=formatter)
     return result
 
 def niceprint(*args, **kwargs):
