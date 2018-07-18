@@ -54,7 +54,11 @@ def nicesubplots(rows, cols, scale=4, **kwargs):
 def _bfs_layout_helper(tree, source, spacing, center):
     pos = dict()
     results_by_child = []
-    for n in sorted(tree.neighbors(source)):
+    try:
+        nbr_list = sorted(tree.neighbors(source))
+    except TypeError:
+        nbr_list = tree.neighbors(source)
+    for n in nbr_list:
         results_by_child.append(_bfs_layout_helper(tree, n, spacing, center))
     pos[source] = center
     width = 0.0
