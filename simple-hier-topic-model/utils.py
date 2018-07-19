@@ -49,7 +49,7 @@ def niceprint(*args, **kwargs):
 def nicesubplots(rows, cols, scale=4, **kwargs):
     import matplotlib.pyplot as plt
     dims = np.array([rows, cols])
-    return plt.subplots(*dims, figsize = dims[::-1] * scale, **kwargs)
+    return plt.subplots(*dims, figsize = dims[::-1] * np.atleast_1d(scale), **kwargs)
 
 def _bfs_layout_helper(tree, source, spacing, center):
     pos = dict()
