@@ -304,7 +304,7 @@ In other words, the sparsity of the Dirichlet distribution associated with each 
 \begin{claim}
 For any HPAM2 model based on a tree in which the Dirichlet parameters satisfy the limited-sparsity property, we have the following:
 \begin{itemize}
-  \item[(a)] If $i$ is a leaf node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to either a sibling or parent of $i$.
+  \item[(a)] If $i$ is a leaf node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to either the parent of $i$, a sibling of $i$, or a descendant of a sibling of $i$.
   \item[(b)] If $i$ is an internal node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to any descendant of $i$.
 \end{itemize}
 \label{claim:CMatrixProperty}
@@ -313,42 +313,31 @@ For any HPAM2 model based on a tree in which the Dirichlet parameters satisfy th
 We prove this claim using the following lemmas.
 
 \begin{lemma}
-Suppose we have three distinct nodes $a$, $b$, and $c$, where $b$ and $c$ share $a$ as their parent.
-Then $C_{a,b} = C_{a,c} = C_{b,c}$.
-\label{lemma:equalSharedParent}
-\end{lemma}
-
-\begin{proof}
-First, note that the least common ancestor of each pair of distinct nodes in $\{a, b, c\}$ is equal to $a$.
-That is, $\text{LCA}(a,b) = \text{LCA}(a,c) = \text{LCA}(b,c) = a$.
-Then, this lemma follows from the fact that the expression for $C_{i,j}$ derived in equation~\eqref{eqn:closedFormC} does not depend on any nodes except for those on the path from the root to $\text{LCA}(i,j)$.
-\end{proof}
-
-\begin{lemma}
-Suppose we have three distinct nodes $a$, $b$, and $c$, where $b$ and $c$ are descendants of $a$.
+Suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b) = \text{LCA}(a,c)$.
 Then $C_{a,b} = C_{a,c}$.
-\label{lemma:equalDescendant}
+\label{lemma:equalLCA}
 \end{lemma}
 
 \begin{proof}
-Similar to the proof of the previous lemma, it suffices to note that $\text{LCA}(a,b) = \text{LCA}(a,c) = a$.
+This lemma follows from the fact that, as long as $i \neq j$, the expression for $C_{i,j}$ derived in equation~\eqref{eqn:closedFormC} does not depend on any nodes except for those on the path from the root to $\text{LCA}(i,j)$.
 \end{proof}
 
 \begin{lemma}
-Suppose the premises of Claim~\ref{claim:CMatrixProperty} hold, and suppose we have three distinct nodes $a$, $b$, and $c$, where $b$ is a descendant of $a$, and $c$ is \emph{not} a descendant of $a$.
+Suppose the premises of Claim~\ref{claim:CMatrixProperty} hold, and suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b)$ is a strict descendant of $\text{LCA}(a,c)$.
 Then $C_{a,b} > C_{a,c}$.
-\label{lemma:greaterNonDescendant}
+\label{lemma:greaterLCA}
 \end{lemma}
 
 \begin{proof}
-Since $b$ is a descendant of $a$, we know $\text{LCA}(a,b) = a$.
-Moreover, since $c$ is a distinct non-descendant of $a$, if we define $\lambda = \text{LCA}(a, c)$, then $\lambda \neq a$.
-Let the path from the root node to $b$ be denoted by
+Let $\lambda = \text{LCA}(a,b)$ and let $\mu = \text{LCA}(a,c)$ such that $\lambda$ is a strict descendant of $\mu$.
+Thus, the path from the root to $\lambda$ includes $\mu$.
+Let the path from the root to $\lambda$ be denoted by
 \begin{align}
-\nu_0 \to \nu_1 \to \cdots \to \nu_L,
+\nu_0 \to \nu_1 \to \cdots \to \nu_{s_1} \to \cdots \to \nu_{s_2},
 \end{align}
-where $\nu_{s_1} = \lambda$, $\nu_{s_2} = a$, and $\nu_L = b$ for $s_1 < s_2 < L$.
-Using equation~\eqref{eqn:closedFormC}, we can compute
+where $\nu_{s_1} = \mu$ and $\nu_{s_2} = \lambda$ for $s_1 < s_2$.
+
+Using equation~\eqref{eqn:closedFormC} and the fact that $a \neq b$ and $a \neq c$, we can compute
 \begin{align}
 \frac{C_{a,b}}{C_{a,c}}
 &=
@@ -365,28 +354,32 @@ Using equation~\eqref{eqn:closedFormC}, we can compute
 \end{align}
 %
 Since we assumed that our model satisfies the limited-sparsity property, we know that $\sum \alpha_{\nu_k} > \alpha_{\nu_{k-1} \nu_k}$ for all $k$ such that $s_1 < k \leq s_2$; therefore, each factor in the above product is greater than $1$.
+Furthermore, since $s_1 < s_2$, we know that the above product contains at least one factor.
 Thus, we can conclude $C_{a,b} > C_{a,c}$.
 \end{proof}
 
 \begin{proof}[Proof of Claim~\ref{claim:CMatrixProperty}]
-[TODO: CHECK THE PROOF OF PART (a)... it's incomplete and I think the claim might be false.]
-First, suppose $i$ is a leaf node, and let $S$ be the set containing the parent of $i$ and all siblings of $i$.
-For any $j_1, j_2 \in S$ with $j_1 \neq j_2$, we know that one of the following must hold: $i$, $j_1$, and $j_2$ are all siblings (with a shared parent), $j_1$ is the parent of $i$ and $j_2$, or $j_2$ is the parent of $i$ and $j_1$.
-In any case, we have $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalSharedParent}.
+First, suppose $i$ is a leaf node, and let $S$ be the set containing the parent of $i$, the siblings of $i$, and the descendants of all siblings of $i$.
+If $i$ is a leaf with no parent, then $i$ must be the only node in the tree, and Claim~\ref{claim:CMatrixProperty}(a) is vacuously true.
+Thus, assume $i$ has a parent.
+For any $j_1, j_2 \in S$, we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = \text{parent}(i)$.
+Therefore, we have $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
 Next, suppose $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$.
-We know that $k$ is a not a descendant of $i$, because $i$ has no descendants.
-For $j$, there are two cases to consider:
-\begin{itemize}
- \item $j$ is the parent of $i$: in this case, $i$ is a descendant of ***
-\end{itemize}
-In either case, $C_{i,j} > C_{i,k}$ using Lemma~\ref{lemma:greaterNonDescendant}.
+Then, we know that $\text{LCA}(i,j) = \text{parent}(i)$, which must be a strict descendant of $\text{LCA}(i,k)$.
+This is because $k \neq i$, $k \notin S$, and $i$ has no descendants of its own.
+Therefore, $C_{i,j} > C_{i,k}$ using Lemma~\ref{lemma:greaterLCA}.
 This proves Claim~\ref{claim:CMatrixProperty}(a).
 
 Second, suppose $i$ is an internal node, and let $S$ be the set of all descendants of $i$ (excluding $i$ itself).
 Since $i$ is an internal node, $S$ must be nonempty.
-If $j_1, j_2 \in S$, then by Lemma~\ref{lemma:equalDescendant} we know that $C_{i,j_1} = C_{i,j_2}$.
-Next, if $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$ (that is, $j$ is a descendant of $i$ and $k$ is a non-descendant of $i$), then we can apply Lemma~\ref{lemma:greaterNonDescendant} to obtain $C_{i,j} > C_{i,k}$.
+If $j_1, j_2 \in S$, then we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = i$ and therefore $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
+Next, if $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$, then we know $\text{LCA}(i,j) = i$ whereas $\text{LCA}(i,k)$ is a strict ancestor of $i$.
+That is, $\text{LCA}(i,j)$ is a strict descendant of $\text{LCA}(i,k)$.
+Then we can apply Lemma~\ref{lemma:greaterLCA} to obtain $C_{i,j} > C_{i,k}$.
 This proves Claim~\ref{claim:CMatrixProperty}(b).
 \end{proof}
+
+TODO: Derive an algorithm that can provably extract the correct tree structure given the matrix $C$.
+(Try using Aho's algorithm for tree construction based on triplet constraints?)
 
 \end{document}
