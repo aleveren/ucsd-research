@@ -37,10 +37,12 @@ def _generator_explore_branching_factors(factors, prefix):
             for path in _generator_explore_branching_factors(rest, new_prefix):
                 yield path
 
-def niceprint_str(X, precision = 4):
+def niceprint_str(X, precision = 4, **kwargs):
     fmt = "{{:.{}f}}".format(precision)
     formatter = dict(float = lambda x: fmt.format(x))
-    result = np.array2string(X, max_line_width=10000, threshold=10000, formatter=formatter)
+    a2s_kwargs = dict(max_line_width=10000, threshold=10000, formatter=formatter)
+    a2s_kwargs.update(kwargs)
+    result = np.array2string(X, **a2s_kwargs)
     return result
 
 def niceprint(*args, **kwargs):
