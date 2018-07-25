@@ -106,3 +106,13 @@ def bfs_layout(G, sources=None, spacing=(1.0, 1.0), center=(0.0, 0.0)):
         pos.update(current_pos)
         cumulative_width += width + spacing[0]
     return pos
+
+def niceprint_str_graph(g):
+    result = "nodes: {}".format(list(g.nodes()))
+    if "root" in g.graph:
+        result += ", root: {}".format(g.graph["root"])
+    result += ", edges: [{}]".format(", ".join(["{} <-> {}".format(a, b) for a, b in g.edges()]))
+    return result
+
+def niceprint_graph(g):
+    print(niceprint_str_graph(g))
