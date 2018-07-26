@@ -62,7 +62,7 @@ def compute_combo_probability(g, path_combo, alpha_func = None, alpha_mode = Non
 
     return result
 
-def compute_combo_tensor(g, combo_size, alpha_func = None, alpha_mode = None):
+def compute_combo_tensor(g, combo_size = 2, alpha_func = None, alpha_mode = None):
     num_nodes = len(g.nodes())
     result = np.zeros(tuple(num_nodes for i in range(combo_size)))
     for combo in itertools.product(gen_all_paths(g), repeat = combo_size):
