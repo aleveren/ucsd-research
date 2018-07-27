@@ -85,7 +85,8 @@ def bfs_layout(G, sources=None, spacing=(1.0, 1.0), center=(0.0, 0.0)):
         if "root" in G.graph:
             sources = [G.graph["root"]]
         else:
-            sources = []
+            d = G.in_degree()
+            sources = [n for n in G.nodes() if d[n] == 0]
     if G.is_directed():
         components = nx.algorithms.weakly_connected_component_subgraphs(G)
     else:
