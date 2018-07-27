@@ -3,16 +3,36 @@ import networkx as nx
 from collections import namedtuple
 
 
-def extract(m, threshold = 1e-8, apply_ratio = True):
+def extract(m, threshold = 0, apply_ratio = True):
     if apply_ratio:
-        p_node = m.sum(axis = 0)
-        m = m / np.outer(p_node, p_node)
+        m = get_ratio_matrix(m)
 
-    constraints = get_constraints(m, threshold=threshold)
+    constraints = get_constraints(m, threshold = threshold)
 
     tree = aho_tree_build(
-        nodes = np.arange(m.shape[0]),
+        nodes = list(range(m.shape[0])),
         constraints = constraints)
+
+    if tree is None:
+        # Binary search to find largest set of constraints that
+        # yields a non-null tree
+        lo = 0
+        hi = len(constraints)
+        mid = int((lo + hi) / 2)
+        prev_mid = None
+
+        while mid != prev_mid:
+            mid_tree = aho_tree_build(
+                nodes = list(range(m.shape[0])),
+                constraints = constraints[:mid])
+
+            if mid_tree is None:
+                hi = mid
+            else:
+                lo = mid
+                tree = mid_tree
+            prev_mid = mid
+            mid = int((lo + hi) / 2)
 
     return tree
 
@@ -25,8 +45,10 @@ def aho_tree_build(nodes, constraints):
     # to build a tree via Aho et al's algorithm
     if isinstance(nodes, set):
         nodes = list(nodes)
-    
-    if len(nodes) == 1:
+
+    if len(nodes) == 0:
+        raise ValueError("Empty set of nodes")
+    elif len(nodes) == 1:
         result = nx.DiGraph()
         result.add_node(nodes[0])
         result.graph["root"] = nodes[0]
@@ -72,6 +94,13 @@ def aho_tree_build(nodes, constraints):
         result.add_edge(new_root, mapper[T.graph["root"]])
     return result
 
+def tree_satisfies_constraint(tree, c):
+    root = tree.graph["root"]
+    lca_ij = nx.lowest_common_ancestor(tree, c[0], c[1])
+    lca_ijk = nx.lowest_common_ancestor(tree, lca_ij, c[2])
+    path_lca_ij = nx.algorithms.shortest_path(tree, root, lca_ij)
+    return lca_ijk in path_lca_ij[:-1]
+
 class Internal(namedtuple("Internal", ["name"])):
     def __str__(self):
         return self.__repr__()
@@ -81,10 +110,7 @@ class Internal(namedtuple("Internal", ["name"])):
 class TripletConstraint(namedtuple("TripletConstraint", ["i", "j", "k", "strength"])):
     pass
 
-def get_constraints(C, threshold=0, strength_func=None):
-    if strength_func is None:
-        strength_func = lambda a, b: min(a, b)
-
+def get_constraints(C, threshold=0):
     result = []
     for i in range(C.shape[0]):
         for j in range(i):
@@ -92,7 +118,7 @@ def get_constraints(C, threshold=0, strength_func=None):
                 if k == i or k == j:
                     continue
                 if C[i,j] > C[i,k] + threshold and C[i,j] > C[j,k] + threshold:
-                    s = strength_func(C[i,j] - C[i,k], C[i,j] - C[j,k])
+                    s = min(C[i,j] - C[i,k], C[i,j] - C[j,k])
                     constraint = TripletConstraint(i, j, k, strength = s)
                     result.append(constraint)
 
@@ -108,12 +134,13 @@ def test():
     sys.path.append(os.path.abspath('..'))
     from utils import bfs_layout, niceprint_graph
 
-    g = aho_tree_build(np.arange(11), [(1,2,3),(2,3,4),(4,5,1),(8,9,6),(9,10,6),(0,4,6)])
+    g = aho_tree_build(list(range(11)), [(1,2,3),(2,3,4),(4,5,1),(8,9,6),(9,10,6),(0,4,6)])
     niceprint_graph(g)
 
-    fig, ax = plt.subplots(1, 2)
+    #fig, ax = plt.subplots(1, 2)
+    fig, ax = plt.subplots()
 
-    nx.draw(g, pos=bfs_layout(g), with_labels=True, ax=ax[0])
+    #nx.draw(g, pos=bfs_layout(g), with_labels=True, ax=ax[0])
 
     R = example_R()
     g = extract(R)
@@ -123,7 +150,8 @@ def test():
     else:
         print("Returned null tree")
 
-    nx.draw(g, pos=bfs_layout(g), with_labels=True, ax=ax[1])
+    #nx.draw(g, pos=bfs_layout(g), with_labels=True, ax=ax[1])
+    nx.draw(g, pos=bfs_layout(g), with_labels=True, ax=ax)
 
     plt.show()
 
