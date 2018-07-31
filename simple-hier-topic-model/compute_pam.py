@@ -2,13 +2,16 @@ import numpy as np
 from collections import defaultdict, Counter
 import itertools
 
-def get_alpha(num_children, pexit = None, scale = 1.0):
-    if pexit is None:
-        pexit = 1.0 / (num_children + 1)
-    pother = (1 - pexit) / float(num_children)
-    result = pother * np.ones(num_children + 1)
-    result[0] = pexit
-    result *= scale * (num_children + 1)
+def get_alpha(num_children, pexit = None, scale = 1.0, add_exit_edge = True):
+    if add_exit_edge:
+        if pexit is None:
+            pexit = 1.0 / (num_children + 1)
+        pother = (1 - pexit) / float(num_children)
+        result = pother * np.ones(num_children + 1)
+        result[0] = pexit
+        result *= scale * (num_children + 1)
+    else:
+        result = scale * np.ones(num_children)
     return result
 
 def gen_all_paths(g, prefix=None):

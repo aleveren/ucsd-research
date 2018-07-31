@@ -1,7 +1,9 @@
 import numpy as np
 from tqdm import tqdm
+from functools import partial
 
 from simple_hierarchical_topic_model import explore_branching_factors
+from compute_pam import get_alpha
 
 class SHTMSampler(object):
     '''Generate a simulated dataset'''
@@ -126,30 +128,34 @@ class SHTMSampler(object):
         return result
 
 class PAMSampler(object):
-    def __init__(self, g, num_docs, words_per_doc, vocab_size):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size, alpha_func = None):
         self.g = g
         self.num_docs = num_docs
         self.words_per_doc = words_per_doc
         self.vocab_size = vocab_size
+        if alpha_func is None:
+            alpha_func = partial(get_alpha, add_exit_edge = False)
+        self.alpha_func = alpha_func
 
     def sample(self):
         self.thetas_by_doc = []
         self.docs = []
         self.doc_nodes = []
+        self.alphas = dict()
+        outdegree = self.g.out_degree()
         # Sample topics
         self.topics = dict()
         for node in self.g.nodes():
-            nc = len(list(self.g.successors(node)))
-            if nc == 0:
+            if outdegree[node] == 0:
                 self.topics[node] = np.random.dirichlet(np.ones(self.vocab_size))
+            else:
+                self.alphas[node] = self.alpha_func(outdegree[node])
         # Sample documents
         for i in tqdm(range(self.num_docs)):
             thetas = dict()
             for node in self.g.nodes():
-                nc = len(list(self.g.successors(node)))
-                if nc > 0:
-                    alpha = np.ones(nc)
-                    thetas[node] = np.random.dirichlet(alpha)
+                if outdegree[node] > 0:
+                    thetas[node] = np.random.dirichlet(self.alphas[node])
             self.thetas_by_doc.append(thetas)
             current_doc = []
             current_doc_nodes = []
@@ -171,29 +177,34 @@ class PAMSampler(object):
         return current
 
 class HPAM1Sampler(object):
-    def __init__(self, g, num_docs, words_per_doc, vocab_size):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size, alpha_func = None):
         self.g = g
         self.num_docs = num_docs
         self.words_per_doc = words_per_doc
         self.vocab_size = vocab_size
+        if alpha_func is None:
+            alpha_func = partial(get_alpha, add_exit_edge = False)
+        self.alpha_func = alpha_func
 
     def sample(self):
         self.thetas_by_doc = []
         self.docs = []
         self.doc_paths = []
         self.doc_nodes = []
+        self.alphas = dict()
+        outdegree = self.g.out_degree()
         # Sample topics
         self.topics = dict()
         for node in self.g.nodes():
             self.topics[node] = np.random.dirichlet(np.ones(self.vocab_size))
+            if outdegree[node] > 0:
+                self.alphas[node] = self.alpha_func(outdegree[node])
         # Sample documents
         for i in tqdm(range(self.num_docs)):
             thetas = dict()
             for node in self.g.nodes():
-                nc = len(list(self.g.successors(node)))
-                if nc > 0:
-                    alpha = np.ones(nc)
-                    thetas[node] = np.random.dirichlet(alpha)
+                if outdegree[node] > 0:
+                    thetas[node] = np.random.dirichlet(self.alphas[node])
             self.thetas_by_doc.append(thetas)
             current_doc = []
             current_doc_paths = []
@@ -224,28 +235,33 @@ class HPAM1Sampler(object):
         return path
 
 class HPAM2Sampler(object):
-    def __init__(self, g, num_docs, words_per_doc, vocab_size):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size, alpha_func = None):
         self.g = g
         self.num_docs = num_docs
         self.words_per_doc = words_per_doc
         self.vocab_size = vocab_size
+        if alpha_func is None:
+            alpha_func = partial(get_alpha, add_exit_edge = True)
+        self.alpha_func = alpha_func
 
     def sample(self):
         self.thetas_by_doc = []
         self.docs = []
         self.doc_nodes = []
+        self.alphas = dict()
+        outdegree = self.g.out_degree()
         # Sample topics
         self.topics = dict()
         for node in self.g.nodes():
             self.topics[node] = np.random.dirichlet(np.ones(self.vocab_size))
+            if outdegree[node] > 0:
+                self.alphas[node] = self.alpha_func(outdegree[node])
         # Sample documents
         for i in tqdm(range(self.num_docs)):
             thetas = dict()
             for node in self.g.nodes():
-                nc = len(list(self.g.successors(node)))
-                if nc > 0:
-                    alpha = np.ones(nc + 1)
-                    thetas[node] = np.random.dirichlet(alpha)
+                if outdegree[node] > 0:
+                    thetas[node] = np.random.dirichlet(self.alphas[node])
             self.thetas_by_doc.append(thetas)
             current_doc = []
             current_doc_nodes = []
