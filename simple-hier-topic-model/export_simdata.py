@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import numpy as np
-from sim_data import SimData
+from sim_data import SHTMSampler
 from collections import Counter
 
 #import os
@@ -14,7 +14,7 @@ np.random.seed(1)
 
 suffix = "_branch_3_3"
 
-sim = SimData(
+sim = SHTMSampler(
     branching_factors = [3, 3],
     num_docs = 1000,
     doc_length = 200,

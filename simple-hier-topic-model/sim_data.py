@@ -2,7 +2,7 @@ import numpy as np
 
 from simple_hierarchical_topic_model import explore_branching_factors
 
-class SimData(object):
+class SHTMSampler(object):
     '''Generate a simulated dataset'''
     def __init__(
             self,
