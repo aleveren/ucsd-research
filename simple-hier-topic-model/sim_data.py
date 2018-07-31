@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 
 from simple_hierarchical_topic_model import explore_branching_factors
 
@@ -123,3 +124,148 @@ class SHTMSampler(object):
                     prob_descendants += leaf_distrib[leaf_index]
             result[node_index] = prob_depth * prob_descendants
         return result
+
+class PAMSampler(object):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size):
+        self.g = g
+        self.num_docs = num_docs
+        self.words_per_doc = words_per_doc
+        self.vocab_size = vocab_size
+
+    def sample(self):
+        self.thetas_by_doc = []
+        self.docs = []
+        self.doc_nodes = []
+        # Sample topics
+        self.topics = dict()
+        for node in self.g.nodes():
+            nc = len(list(self.g.successors(node)))
+            if nc == 0:
+                self.topics[node] = np.random.dirichlet(np.ones(self.vocab_size))
+        # Sample documents
+        for i in tqdm(range(self.num_docs)):
+            thetas = dict()
+            for node in self.g.nodes():
+                nc = len(list(self.g.successors(node)))
+                if nc > 0:
+                    alpha = np.ones(nc)
+                    thetas[node] = np.random.dirichlet(alpha)
+            self.thetas_by_doc.append(thetas)
+            current_doc = []
+            current_doc_nodes = []
+            for j in range(self.words_per_doc):
+                node = self.sample_leaf(thetas)
+                current_doc_nodes.append(node)
+                word_index = np.random.choice(self.vocab_size, p=self.topics[node])
+                current_doc.append(word_index)
+            self.docs.append(current_doc)
+            self.doc_nodes.append(current_doc_nodes)
+        return self
+
+    def sample_leaf(self, thetas):
+        current = self.g.graph["root"]
+        options = list(self.g.successors(current))
+        while len(options) > 0:
+            current = options[np.random.choice(len(options), p=thetas[current])]
+            options = list(self.g.successors(current))
+        return current
+
+class HPAM1Sampler(object):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size):
+        self.g = g
+        self.num_docs = num_docs
+        self.words_per_doc = words_per_doc
+        self.vocab_size = vocab_size
+
+    def sample(self):
+        self.thetas_by_doc = []
+        self.docs = []
+        self.doc_paths = []
+        self.doc_nodes = []
+        # Sample topics
+        self.topics = dict()
+        for node in self.g.nodes():
+            self.topics[node] = np.random.dirichlet(np.ones(self.vocab_size))
+        # Sample documents
+        for i in tqdm(range(self.num_docs)):
+            thetas = dict()
+            for node in self.g.nodes():
+                nc = len(list(self.g.successors(node)))
+                if nc > 0:
+                    alpha = np.ones(nc)
+                    thetas[node] = np.random.dirichlet(alpha)
+            self.thetas_by_doc.append(thetas)
+            current_doc = []
+            current_doc_paths = []
+            current_doc_nodes = []
+            for j in range(self.words_per_doc):
+                path = self.sample_leaf_path(thetas)
+                current_doc_paths.append(path)
+                # NOTE: assuming zeta_{path} is the same for all paths
+                depth_distrib = np.ones(len(path)) / float(len(path))
+                node = np.random.choice(path, p=depth_distrib)
+                current_doc_nodes.append(node)
+                word_index = np.random.choice(self.vocab_size, p=self.topics[node])
+                current_doc.append(word_index)
+            self.docs.append(current_doc)
+            self.doc_paths.append(current_doc_paths)
+            self.doc_nodes.append(current_doc_nodes)
+        return self
+
+    def sample_leaf_path(self, thetas):
+        path = []
+        current = self.g.graph["root"]
+        options = list(self.g.successors(current))
+        path.append(current)
+        while len(options) > 0:
+            current = options[np.random.choice(len(options), p=thetas[current])]
+            options = list(self.g.successors(current))
+            path.append(current)
+        return path
+
+class HPAM2Sampler(object):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size):
+        self.g = g
+        self.num_docs = num_docs
+        self.words_per_doc = words_per_doc
+        self.vocab_size = vocab_size
+
+    def sample(self):
+        self.thetas_by_doc = []
+        self.docs = []
+        self.doc_nodes = []
+        # Sample topics
+        self.topics = dict()
+        for node in self.g.nodes():
+            self.topics[node] = np.random.dirichlet(np.ones(self.vocab_size))
+        # Sample documents
+        for i in tqdm(range(self.num_docs)):
+            thetas = dict()
+            for node in self.g.nodes():
+                nc = len(list(self.g.successors(node)))
+                if nc > 0:
+                    alpha = np.ones(nc + 1)
+                    thetas[node] = np.random.dirichlet(alpha)
+            self.thetas_by_doc.append(thetas)
+            current_doc = []
+            current_doc_nodes = []
+            for j in range(self.words_per_doc):
+                node = self.sample_node(thetas)
+                current_doc_nodes.append(node)
+                word_index = np.random.choice(self.vocab_size, p=self.topics[node])
+                current_doc.append(word_index)
+            self.docs.append(current_doc)
+            self.doc_nodes.append(current_doc_nodes)
+        return self
+
+    def sample_node(self, thetas):
+        current = self.g.graph["root"]
+        options = list(self.g.successors(current))
+        while len(options) > 0:
+            assert len(thetas[current] == len(options) + 1)
+            choice = np.random.choice(len(thetas[current]), p=thetas[current])
+            if choice == 0:
+                return current
+            current = options[choice - 1]
+            options = list(self.g.successors(current))
+        return current
