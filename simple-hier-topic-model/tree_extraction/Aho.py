@@ -9,7 +9,7 @@ def extract(m, threshold = 0, apply_ratio = True):
 
     constraints = get_constraints(m, threshold = threshold)
 
-    tree = aho_tree_build(
+    tree = build_tree(
         nodes = list(range(m.shape[0])),
         constraints = constraints)
 
@@ -22,7 +22,7 @@ def extract(m, threshold = 0, apply_ratio = True):
         prev_mid = None
 
         while mid != prev_mid:
-            mid_tree = aho_tree_build(
+            mid_tree = build_tree(
                 nodes = list(range(m.shape[0])),
                 constraints = constraints[:mid])
 
@@ -40,7 +40,7 @@ def get_ratio_matrix(R):
     p_node = R.sum(axis = 0)
     return R / np.outer(p_node, p_node)
 
-def aho_tree_build(nodes, constraints):
+def build_tree(nodes, constraints):
     # Use list of triplet constraints of the form ({a,b},c); ie, LCA(a,b) < LCA(a,c)
     # to build a tree via Aho et al's algorithm
     if isinstance(nodes, set):
@@ -68,7 +68,7 @@ def aho_tree_build(nodes, constraints):
     cumulative_internal = 0
     for S in components:
         C = [c for c in constraints if c[0] in S and c[1] in S and c[2] in S]
-        T = aho_tree_build(S, C)
+        T = build_tree(S, C)
         if T is None:
             return None
         subtrees.append((T, cumulative_internal))
@@ -134,7 +134,7 @@ def test():
     sys.path.append(os.path.abspath('..'))
     from utils import bfs_layout, niceprint_graph
 
-    g = aho_tree_build(list(range(11)), [(1,2,3),(2,3,4),(4,5,1),(8,9,6),(9,10,6),(0,4,6)])
+    g = build_tree(list(range(11)), [(1,2,3),(2,3,4),(4,5,1),(8,9,6),(9,10,6),(0,4,6)])
     niceprint_graph(g)
 
     #fig, ax = plt.subplots(1, 2)
