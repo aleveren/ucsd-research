@@ -128,12 +128,16 @@ class SHTMSampler(object):
         return result
 
 class PAMSampler(object):
-    def __init__(self, g, num_docs, words_per_doc, vocab_size, topic_dirichlet = 1.0, alpha_func = None):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size,
+            topic_dirichlet = 1.0,
+            topic_func = None,
+            alpha_func = None):
         self.g = g
         self.num_docs = num_docs
         self.words_per_doc = words_per_doc
         self.vocab_size = vocab_size
         self.topic_dirichlet = np.broadcast_to(topic_dirichlet, (self.vocab_size,)).astype('float')
+        self.topic_func = topic_func
         if alpha_func is None:
             alpha_func = partial(get_alpha, add_exit_edge = False)
         self.alpha_func = alpha_func
@@ -148,7 +152,10 @@ class PAMSampler(object):
         self.topics = dict()
         for node in self.g.nodes():
             if outdegree[node] == 0:
-                self.topics[node] = np.random.dirichlet(self.topic_dirichlet)
+                if self.topic_func is not None:
+                    self.topics[node] = self.topic_func(node)
+                else:
+                    self.topics[node] = np.random.dirichlet(self.topic_dirichlet)
             else:
                 self.alphas[node] = self.alpha_func(outdegree[node])
         # Sample documents
@@ -178,12 +185,16 @@ class PAMSampler(object):
         return current
 
 class HPAM1Sampler(object):
-    def __init__(self, g, num_docs, words_per_doc, vocab_size, topic_dirichlet = 1.0, alpha_func = None):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size,
+            topic_dirichlet = 1.0,
+            topic_func = None,
+            alpha_func = None):
         self.g = g
         self.num_docs = num_docs
         self.words_per_doc = words_per_doc
         self.vocab_size = vocab_size
         self.topic_dirichlet = np.broadcast_to(topic_dirichlet, (self.vocab_size,)).astype('float')
+        self.topic_func = topic_func
         if alpha_func is None:
             alpha_func = partial(get_alpha, add_exit_edge = False)
         self.alpha_func = alpha_func
@@ -198,7 +209,10 @@ class HPAM1Sampler(object):
         # Sample topics
         self.topics = dict()
         for node in self.g.nodes():
-            self.topics[node] = np.random.dirichlet(self.topic_dirichlet)
+            if self.topic_func is not None:
+                self.topics[node] = self.topic_func(node)
+            else:
+                self.topics[node] = np.random.dirichlet(self.topic_dirichlet)
             if outdegree[node] > 0:
                 self.alphas[node] = self.alpha_func(outdegree[node])
         # Sample documents
@@ -237,12 +251,16 @@ class HPAM1Sampler(object):
         return path
 
 class HPAM2Sampler(object):
-    def __init__(self, g, num_docs, words_per_doc, vocab_size, topic_dirichlet = 1.0, alpha_func = None):
+    def __init__(self, g, num_docs, words_per_doc, vocab_size,
+            topic_dirichlet = 1.0,
+            topic_func = None,
+            alpha_func = None):
         self.g = g
         self.num_docs = num_docs
         self.words_per_doc = words_per_doc
         self.vocab_size = vocab_size
         self.topic_dirichlet = np.broadcast_to(topic_dirichlet, (self.vocab_size,)).astype('float')
+        self.topic_func = topic_func
         if alpha_func is None:
             alpha_func = partial(get_alpha, add_exit_edge = True)
         self.alpha_func = alpha_func
@@ -256,7 +274,10 @@ class HPAM2Sampler(object):
         # Sample topics
         self.topics = dict()
         for node in self.g.nodes():
-            self.topics[node] = np.random.dirichlet(self.topic_dirichlet)
+            if self.topic_func is not None:
+                self.topics[node] = self.topic_func(node)
+            else:
+                self.topics[node] = np.random.dirichlet(self.topic_dirichlet)
             if outdegree[node] > 0:
                 self.alphas[node] = self.alpha_func(outdegree[node])
         # Sample documents
