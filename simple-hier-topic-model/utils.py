@@ -117,3 +117,13 @@ def niceprint_str_graph(g):
 
 def niceprint_graph(g):
     print(niceprint_str_graph(g))
+
+def invert_permutation(p):
+    p = np.asarray(p)
+    result = np.empty(p.shape, dtype='int')
+    result[p] = np.arange(p.size)
+    return result
+
+def permute_square(X, perm):
+    perm = np.reshape(perm, (-1, 1))
+    return X[perm, perm.T]
