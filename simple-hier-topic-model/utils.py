@@ -118,6 +118,17 @@ def niceprint_str_graph(g):
 def niceprint_graph(g):
     print(niceprint_str_graph(g))
 
+def nice_tree_plot(t, ax = None, **kwargs):
+    import matplotlib.pyplot as plt
+    import networkx as nx
+    if ax is None:
+        _, ax = plt.subplots()
+    if t is None:
+        return
+    draw_kwargs = dict(with_labels=True, pos=bfs_layout(t))
+    draw_kwargs.update(kwargs)
+    nx.draw(t, ax = ax, **draw_kwargs)
+
 def invert_permutation(p):
     p = np.asarray(p)
     result = np.empty(p.shape, dtype='int')
