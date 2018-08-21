@@ -122,9 +122,8 @@ def get_constraints(C, threshold=0):
                     constraint = TripletConstraint(i, j, k, strength = s)
                     result.append(constraint)
 
-    if len(result) > 0 and isinstance(result[0], TripletConstraint):
-        # Sort by descending strength, if available
-        result = sorted(result, key = lambda x: -x.strength)
+    # Sort by descending strength
+    result = sorted(result, key = lambda x: -x.strength)
 
     return result
 
