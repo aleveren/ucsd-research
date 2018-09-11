@@ -310,6 +310,22 @@ class HPAM2Sampler(object):
             options = list(self.g.successors(current))
         return current
 
+def topics_griffiths_steyvers(num_topics, dimension = None, topic_sharpness = 20.0):
+    if dimension is None:
+        dimension = int(np.ceil(num_topics / 2.0))
+    assert num_topics <= dimension * 2, \
+        "Too many topics ({}) for dimension {}".format(num_topics, dimension)
+    topics = []
+    for i in range(dimension):
+        topic = np.ones((dimension, dimension))
+        topic[i, :] *= topic_sharpness
+        topic /= topic.sum()
+        topics.append(topic.flatten().copy())
+        topics.append(topic.transpose().flatten().copy())
+    topics = np.array(topics[:num_topics])
+    assert topics.shape == (num_topics, dimension * dimension)
+    return topics
+
 class GriffithsSteyversSampler(object):
     '''
     Samples a corpus of documents according to the square-image scheme of
@@ -322,14 +338,7 @@ class GriffithsSteyversSampler(object):
         self.vocab_size = dimension * dimension
         self.num_topics = dimension * 2
         self.alpha = np.broadcast_to(alpha, (self.num_topics,))
-        self.topics = []
-        for i in range(dimension):
-            topic = np.ones((dimension, dimension))
-            topic[i, :] *= topic_sharpness
-            topic /= topic.sum()
-            self.topics.append(topic.flatten().copy())
-            self.topics.append(topic.transpose().flatten().copy())
-        self.topics = np.array(self.topics)
+        self.topics = topics_griffiths_steyvers(num_topics = self.num_topics, dimension = dimension)
 
     def sample(self):
         from scipy.sparse import dok_matrix, csr_matrix, csc_matrix
