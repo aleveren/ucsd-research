@@ -309,3 +309,63 @@ class HPAM2Sampler(object):
             current = options[choice - 1]
             options = list(self.g.successors(current))
         return current
+
+class GriffithsSteyversSampler(object):
+    '''
+    Samples a corpus of documents according to the square-image scheme of
+    Griffiths & Steyvers (2004), "Finding Scientific Topics"
+    '''
+    def __init__(self, num_docs, words_per_doc, dimension = 5, topic_sharpness = 20, alpha = 1.0):
+        self.num_docs = num_docs
+        self.words_per_doc = words_per_doc
+        self.dimension = dimension
+        self.vocab_size = dimension * dimension
+        self.num_topics = dimension * 2
+        self.alpha = np.broadcast_to(alpha, (self.num_topics,))
+        self.topics = []
+        for i in range(dimension):
+            topic = np.ones((dimension, dimension))
+            topic[i, :] *= topic_sharpness
+            topic /= topic.sum()
+            self.topics.append(topic.flatten().copy())
+            self.topics.append(topic.transpose().flatten().copy())
+        self.topics = np.array(self.topics)
+
+    def sample(self):
+        from scipy.sparse import dok_matrix, csr_matrix, csc_matrix
+        from collections import Counter
+
+        self.doc_topic_mixtures = []
+        self.doc_topic_indicators = []
+        self.docs = []
+
+        self.data = dok_matrix((self.num_docs, self.vocab_size), dtype='int')  # TODO: use this, or transpose??
+
+        counters = []
+
+        for doc_index in tqdm(range(self.num_docs)):
+            topic_mixture = np.random.dirichlet(self.alpha)
+            self.doc_topic_mixtures.append(topic_mixture)
+
+            topic_indicators = np.random.choice(
+                np.arange(self.num_topics),
+                size = self.words_per_doc, p = topic_mixture)
+            self.doc_topic_indicators.append(topic_indicators)
+
+            current_doc = []
+            current_counter = Counter()
+            for word_slot_index in range(self.words_per_doc):
+                w = np.random.choice(
+                    np.arange(self.vocab_size),
+                    p = self.topics[topic_indicators[word_slot_index]])
+                current_doc.append(w)
+                current_counter[w] += 1
+                self.data[doc_index, w] += 1
+            self.docs.append(current_doc)
+            counters.append(current_counter)
+
+        self.data = csr_matrix(self.data)
+
+        self.gensim_corpus = [list(ctr.items()) for ctr in counters]
+
+        return self
