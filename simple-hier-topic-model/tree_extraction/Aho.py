@@ -2,8 +2,9 @@ import numpy as np
 import networkx as nx
 from collections import namedtuple
 
+from sklearn.cluster import SpectralClustering
 
-def extract(m, threshold = 0, apply_ratio = True):
+def extract(m, threshold = 0, apply_ratio = True, strategy = "cutoff"):
     if apply_ratio:
         m = get_ratio_matrix(m)
 
@@ -11,11 +12,14 @@ def extract(m, threshold = 0, apply_ratio = True):
 
     tree = build_tree(
         nodes = list(range(m.shape[0])),
-        constraints = constraints)
+        constraints = constraints,
+        strategy = strategy)
 
     if tree is None:
         # Binary search to find largest set of constraints that
         # yields a non-null tree
+        assert strategy != "weighted", "Found null tree with weighted strategy"
+
         lo = 0
         hi = len(constraints)
         mid = int((lo + hi) / 2)
@@ -24,7 +28,8 @@ def extract(m, threshold = 0, apply_ratio = True):
         while mid != prev_mid:
             mid_tree = build_tree(
                 nodes = list(range(m.shape[0])),
-                constraints = constraints[:mid])
+                constraints = constraints[:mid],
+                strategy = strategy)
 
             if mid_tree is None:
                 hi = mid
@@ -34,13 +39,17 @@ def extract(m, threshold = 0, apply_ratio = True):
             prev_mid = mid
             mid = int((lo + hi) / 2)
 
+    # TODO:
+    # if strategy == "weighted":
+    #     collapse_tree(tree = tree, constraints = constraints, threshold = threshold)
+
     return tree
 
 def get_ratio_matrix(R):
     p_node = R.sum(axis = 0)
     return R / np.outer(p_node, p_node)
 
-def build_tree(nodes, constraints):
+def build_tree(nodes, constraints, strategy = "cutoff"):
     # Use list of triplet constraints of the form ({a,b},c); ie, LCA(a,b) < LCA(a,c)
     # to build a tree via Aho et al's algorithm
     if isinstance(nodes, set):
@@ -58,17 +67,47 @@ def build_tree(nodes, constraints):
     for n in nodes:
         graph.add_node(n)
     for c in constraints:
-        graph.add_edge(c[0], c[1])
+        if strategy == "weighted":
+            assert len(c) >= 4, "Missing weight in constraint: {}".format(c)
+            graph.add_edge(c[0], c[1], weight = c[3])
+        else:
+            graph.add_edge(c[0], c[1])
     components = list(nx.algorithms.connected_components(graph))
     
     if len(components) == 1:
-        return None
+        if strategy == "cutoff":
+            return None
+        elif strategy == "weighted":
+            if len(nodes) == 2:
+                components = [nodes[0], nodes[1]]
+            else:
+                node_to_index = {n: i for i, n in enumerate(nodes)}
+                affinity = np.zeros((len(nodes), len(nodes)))
+                for n1, n2, w in graph.edges(data = 'weight'):
+                    i1 = node_to_index[n1]
+                    i2 = node_to_index[n2]
+                    affinity[i1, i2] = w
+                    affinity[i2, i1] = w
+                max_a = np.max(affinity)
+                for i in range(len(nodes)):
+                    affinity[i, i] = max_a
+                sc = SpectralClustering(n_clusters = 2, affinity = "precomputed").fit(affinity)
+                nodes_0 = []
+                nodes_1 = []
+                for i, n in enumerate(nodes):
+                    if sc.labels_[i] == 0:
+                        nodes_0.append(n)
+                    else:
+                        nodes_1.append(n)
+                components = [nodes_0, nodes_1]
+        else:
+            raise ValueError("Unrecognized strategy: {}".format(strategy))
 
     subtrees = []
     cumulative_internal = 0
     for S in components:
         C = [c for c in constraints if c[0] in S and c[1] in S and c[2] in S]
-        T = build_tree(S, C)
+        T = build_tree(S, C, strategy = strategy)
         if T is None:
             return None
         subtrees.append((T, cumulative_internal))
