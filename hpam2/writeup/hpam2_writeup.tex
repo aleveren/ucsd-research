@@ -129,324 +129,329 @@ TODO
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% \clearpage
-% \section{Defining the HPAM2 Model}
+\clearpage
 
-% In the hierarchical topic model HPAM2 (Hierarchical Pachinko Allocation Modeling, variant 2), we are given a rooted, directed acyclic graph $G$ and a collection of Dirichlet parameters.
-% Specifically, we have a vector $\alpha_\nu$ for each non-terminal node $\nu$, where the dimension of $\alpha_\nu$ is $1 + |\text{children}(\nu)|$.
-% Note that $\alpha_\nu$ is not defined for terminal nodes (i.e., nodes with no outgoing edges).
-% We consider the vector $\alpha_\nu$ to be indexed by the set $\{0\} \cup \text{children}(\nu)$.
-% We also have a vector $\eta$ which is the parameter for a $V$-dimensional Dirichlet, where $V$ is the size of our vocabulary.
+{\bf TODO: generalize the following.} \\
+Recall that the HPAM2 model is a special case of the generalized PAM model.
+(HPAM2 adds the requirement that every internal node either has only leaf-node children or has exactly one leaf-node child.)
 
-% The generative model for sampling a corpus of documents is as follows:
-% For each node $\nu \in G$ (including terminal nodes), sample $\beta_\nu$ according to $\text{Dirichlet}(\eta)$.
-% For each document $d$ and for each non-terminal node $\nu$, sample $\theta_{d,\nu}$ according to $\text{Dirichlet}(\alpha_\nu)$.
-% Next, for each word-slot $n$ in document $d$ and for each non-terminal node $\nu$, sample $z_{d,\nu,n}$ according to $\text{Categorical}(\theta_{d,\nu})$; here, we are choosing whether to exit the DAG early (by selecting $0$), or to continue further down the DAG by selecting a child of $\nu$.
-% Next, we can define, for each document $d$ and each word-slot $n$, a path $\pi_{d,n}$ through $G$ beginning at the root node.
-% Specifically, the first element of $\pi_{d,n}$ is always the root node of $G$, and we repeatedly extend $\pi_{d,n}$ according to the sampled value of $z_{d,\nu,n}$, where $\nu$ represents the previously-selected node.
-% If we ever encounter a selection $z_{d,\nu,n} = 0$, we terminate the path early.
-% Finally, we sample a word from the vocabulary $t_{d,n}$ according to $\text{Dirichlet}(\beta_{\Exit(\pi_{d,n})})$.
-% Here, $\Exit(\pi_{d,n})$ is the node in $G$ at which the path $\pi_{d,n}$ terminates, which may or may not be a terminal node.
+\section{Defining the HPAM2 Model}
 
-% \section{Analysis of Topic Co-occurrence Probabilities in HPAM2}
+In the hierarchical topic model HPAM2 (Hierarchical Pachinko Allocation Modeling, variant 2), we are given a rooted, directed acyclic graph $G$ and a collection of Dirichlet parameters.
+Specifically, we have a vector $\alpha_\nu$ for each non-terminal node $\nu$, where the dimension of $\alpha_\nu$ is $1 + |\text{children}(\nu)|$.
+Note that $\alpha_\nu$ is not defined for terminal nodes (i.e., nodes with no outgoing edges).
+We consider the vector $\alpha_\nu$ to be indexed by the set $\{0\} \cup \text{children}(\nu)$.
+We also have a vector $\eta$ which is the parameter for a $V$-dimensional Dirichlet, where $V$ is the size of our vocabulary.
 
-% Next, we compute topic co-occurrence probabilities for the HPAM2 model.
-% Specifically, we wish to know the probability that a single document contains some pair of topics $\nu_1$ and $\nu_2$:
-% \begin{align}
-% p(\Exit(\pi_{d,1}) = \nu_1,
-%   \Exit(\pi_{d,2}) = \nu_2)
-% &=
-% \sum_{
-%   \substack{
-%     \tilde\pi_1 : \Exit(\tilde\pi_1) = \nu_1
-%     \\
-%     \tilde\pi_2 : \Exit(\tilde\pi_2) = \nu_2
-%   }
-% }
-% p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
-% \end{align}
-% Next, let $\nu \to \nu' \in \tilde\pi_1$ denote the set of transitions $(\nu, \nu')$ appearing in $\tilde\pi_1$.
-% Furthermore, let $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$ denote the set of nodes $\nu$ for which there exists some transition $\nu \to \nu'$ appearing in either $\tilde\pi_1$ or $\tilde\pi_2$.
-% Let $\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}$ denote an iterated integral over $\tilde\theta_\nu$ for each $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$.
-% With this notation, we can write the co-occurrence probability of two paths as follows:
-% \begin{align}
-% p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
-% &=
-% \int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
-%   \left(
-%     \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
-%     p(\theta_{d,\nu} = \tilde\theta_\nu)
-%   \right)
-%   \\ &\phantom{=}\qquad \cdot
-%   \left(
-%     \prod_{\nu \to \nu' \in \tilde\pi_1}
-%     p(z_{d,\nu,1} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
-%   \right)
-%   \\ &\phantom{=}\qquad \cdot
-%   \left(
-%     \prod_{\nu \to \nu' \in \tilde\pi_2}
-%     p(z_{d,\nu,2} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
-%   \right)
-% \\
-% &=
-% \int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
-%   \left(
-%     \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
-%     \Dirichlet(\tilde\theta_\nu | \alpha_\nu)
-%   \right)
-%   %\\ &\phantom{=}\qquad \cdot
-%   \left(
-%     \prod_{\nu \to \nu' \in \tilde\pi_1}
-%     \tilde\theta_{\nu,\nu'}
-%   \right)
-%   %\\ &\phantom{=}\qquad \cdot
-%   \left(
-%     \prod_{\nu \to \nu' \in \tilde\pi_2}
-%     \tilde\theta_{\nu,\nu'}
-%   \right)
-% \end{align}
-% Then, if we define
-% \begin{align}
-% S(\nu) &= \{0\} \cup \text{children}(\nu), \\
-% N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to \nu'$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$}, \\
-% M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to *$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$},
-% \end{align}
-% we have
-% \begin{align}
-% p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
-% &=
-% \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
-% \left[
-% \frac
-%   {
-%     \prod_{\nu' \in S(\nu)}
-%     \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) - 1}
-%     (k + \alpha_{\nu,\nu'})
-%   }
-%   {
-%     \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) - 1}
-%     \left(
-%       k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
-%     \right)
-%   }
-% \right]
-% \label{eqn:pairPathProb}
-% \end{align}
+The generative model for sampling a corpus of documents is as follows:
+For each node $\nu \in G$ (including terminal nodes), sample $\beta_\nu$ according to $\text{Dirichlet}(\eta)$.
+For each document $d$ and for each non-terminal node $\nu$, sample $\theta_{d,\nu}$ according to $\text{Dirichlet}(\alpha_\nu)$.
+Next, for each word-slot $n$ in document $d$ and for each non-terminal node $\nu$, sample $z_{d,\nu,n}$ according to $\text{Categorical}(\theta_{d,\nu})$; here, we are choosing whether to exit the DAG early (by selecting $0$), or to continue further down the DAG by selecting a child of $\nu$.
+Next, we can define, for each document $d$ and each word-slot $n$, a path $\pi_{d,n}$ through $G$ beginning at the root node.
+Specifically, the first element of $\pi_{d,n}$ is always the root node of $G$, and we repeatedly extend $\pi_{d,n}$ according to the sampled value of $z_{d,\nu,n}$, where $\nu$ represents the previously-selected node.
+If we ever encounter a selection $z_{d,\nu,n} = 0$, we terminate the path early.
+Finally, we sample a word from the vocabulary $t_{d,n}$ according to $\text{Dirichlet}(\beta_{\Exit(\pi_{d,n})})$.
+Here, $\Exit(\pi_{d,n})$ is the node in $G$ at which the path $\pi_{d,n}$ terminates, which may or may not be a terminal node.
 
-% Note that this formula easily generalizes beyond pairwise co-occurrences.
-% For example, we can compute $n$-way path co-occurrence probabilities as follows:
-% \begin{align}
-% p(\pi_{d,1} = \tilde\pi_1, \ldots, \pi_{d,n} = \tilde\pi_n)
-% &=
-% \prod_{\nu \to * \in \tilde\pi_1 \cup \ldots \cup \tilde\pi_n}
-% \left[
-% \frac
-%   {
-%     \prod_{\nu' \in S(\nu)}
-%     \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
-%     (k + \alpha_{\nu,\nu'})
-%   }
-%   {
-%     \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
-%     \left(
-%       k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
-%     \right)
-%   }
-% \right]
-% \label{eqn:manyPathProb}
-% \end{align}
-% Furthermore, we can view the formula for single-path probabilities as a special case of the $n$-way co-occurrence formula:
-% \begin{align}
-% p(\pi_{d,1} = \tilde\pi)
-% &=
-% \prod_{\nu \to \nu' \in \tilde\pi}
-% \left[
-% \frac
-%   {
-%     \alpha_{\nu,\nu'}
-%   }
-%   {
-%     \sum_{\nu'' \in S(\nu)}\alpha_{\nu,\nu''}
-%   }
-% \right]
-% %=
-% %\prod_{\nu \to \nu' \in \tilde\pi}
-% %E[\theta_{d,\nu}]_{\nu'}
-% \label{eqn:singlePathProb}
-% \end{align}
+\section{Analysis of Topic Co-occurrence Probabilities in HPAM2}
 
-% \section{Properties of the Co-occurrence Matrix}
+Next, we compute topic co-occurrence probabilities for the HPAM2 model.
+Specifically, we wish to know the probability that a single document contains some pair of topics $\nu_1$ and $\nu_2$:
+\begin{align}
+p(\Exit(\pi_{d,1}) = \nu_1,
+  \Exit(\pi_{d,2}) = \nu_2)
+&=
+\sum_{
+  \substack{
+    \tilde\pi_1 : \Exit(\tilde\pi_1) = \nu_1
+    \\
+    \tilde\pi_2 : \Exit(\tilde\pi_2) = \nu_2
+  }
+}
+p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+\end{align}
+Next, let $\nu \to \nu' \in \tilde\pi_1$ denote the set of transitions $(\nu, \nu')$ appearing in $\tilde\pi_1$.
+Furthermore, let $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$ denote the set of nodes $\nu$ for which there exists some transition $\nu \to \nu'$ appearing in either $\tilde\pi_1$ or $\tilde\pi_2$.
+Let $\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}$ denote an iterated integral over $\tilde\theta_\nu$ for each $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$.
+With this notation, we can write the co-occurrence probability of two paths as follows:
+\begin{align}
+p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+&=
+\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
+  \left(
+    \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+    p(\theta_{d,\nu} = \tilde\theta_\nu)
+  \right)
+  \\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_1}
+    p(z_{d,\nu,1} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
+  \right)
+  \\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_2}
+    p(z_{d,\nu,2} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
+  \right)
+\\
+&=
+\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
+  \left(
+    \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+    \Dirichlet(\tilde\theta_\nu | \alpha_\nu)
+  \right)
+  %\\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_1}
+    \tilde\theta_{\nu,\nu'}
+  \right)
+  %\\ &\phantom{=}\qquad \cdot
+  \left(
+    \prod_{\nu \to \nu' \in \tilde\pi_2}
+    \tilde\theta_{\nu,\nu'}
+  \right)
+\end{align}
+Then, if we define
+\begin{align}
+S(\nu) &= \{0\} \cup \text{children}(\nu), \\
+N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to \nu'$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$}, \\
+M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to *$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$},
+\end{align}
+we have
+\begin{align}
+p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+&=
+\prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+\left[
+\frac
+  {
+    \prod_{\nu' \in S(\nu)}
+    \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) - 1}
+    (k + \alpha_{\nu,\nu'})
+  }
+  {
+    \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) - 1}
+    \left(
+      k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
+    \right)
+  }
+\right]
+\label{eqn:pairPathProb}
+\end{align}
 
-% For an HPAM2 model with a corresponding tree $\mathcal T$, we define a matrix $C$ as follows:
-% \begin{align}
-% C_{i,j} &= \frac{p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)}
-%                 {p(\Exit(\pi_{d,1}) = i) \, p(\Exit(\pi_{d,2}) = j)}
-% \end{align}
-% Here, $i$ and $j$ are indices over the nodes of $\mathcal T$.
+Note that this formula easily generalizes beyond pairwise co-occurrences.
+For example, we can compute $n$-way path co-occurrence probabilities as follows:
+\begin{align}
+p(\pi_{d,1} = \tilde\pi_1, \ldots, \pi_{d,n} = \tilde\pi_n)
+&=
+\prod_{\nu \to * \in \tilde\pi_1 \cup \ldots \cup \tilde\pi_n}
+\left[
+\frac
+  {
+    \prod_{\nu' \in S(\nu)}
+    \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
+    (k + \alpha_{\nu,\nu'})
+  }
+  {
+    \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
+    \left(
+      k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
+    \right)
+  }
+\right]
+\label{eqn:manyPathProb}
+\end{align}
+Furthermore, we can view the formula for single-path probabilities as a special case of the $n$-way co-occurrence formula:
+\begin{align}
+p(\pi_{d,1} = \tilde\pi)
+&=
+\prod_{\nu \to \nu' \in \tilde\pi}
+\left[
+\frac
+  {
+    \alpha_{\nu,\nu'}
+  }
+  {
+    \sum_{\nu'' \in S(\nu)}\alpha_{\nu,\nu''}
+  }
+\right]
+%=
+%\prod_{\nu \to \nu' \in \tilde\pi}
+%E[\theta_{d,\nu}]_{\nu'}
+\label{eqn:singlePathProb}
+\end{align}
 
-% When the DAG underlying the HPAM2 model is a tree, the pairwise probabilities in \eqref{eqn:pairPathProb} can be simplified.
-% In particular, if $i$ and $j$ are arbitrary nodes in $\mathcal T$, we can rewrite the product over edges in \eqref{eqn:pairPathProb} by decomposing it into the edges that lead to the least common ancestor of $i$ and $j$, the edges that occur at the split, and the edges along each of the totally distinct paths following the split:
-% \begin{align}
-% p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)
-% ={}&
-% \phantom{{}\cdot{}} p(\text{edges before split}) \\
-% & \cdot p(\text{edges at split}) \nonumber \\
-% & \cdot p(\text{edges after split on path to $i$}) \nonumber \\
-% & \cdot p(\text{edges after split on path to $j$}) \nonumber
-% \end{align}
+\section{Properties of the Co-occurrence Matrix}
 
-% In the case where $i = j$, the paths never diverge (that is, there is no split), and so only the first factor contributes to the final product.
-% Thus, for the remainder of this analysis, we assume $i \neq j$.
+For an HPAM2 model with a corresponding tree $\mathcal T$, we define a matrix $C$ as follows:
+\begin{align}
+C_{i,j} &= \frac{p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)}
+                {p(\Exit(\pi_{d,1}) = i) \, p(\Exit(\pi_{d,2}) = j)}
+\end{align}
+Here, $i$ and $j$ are indices over the nodes of $\mathcal T$.
 
-% Let the path from the root to $i$ be denoted
-% \begin{align}
-% \nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(1)}_1 \to \cdots \to \nu^{(1)}_{L_1},
-% \end{align}
-% where $\nu^{(1)}_{L_1} = i$ and $\nu_s$ is the least common ancestor of $i$ and $j$.
-% Similarly, let the path from the root to $j$ be denoted
-% \begin{align}
-% \nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(2)}_1 \to \cdots \to \nu^{(2)}_{L_2},
-% \end{align}
-% where $\nu^{(2)}_{L_2} = j$.
-% Note that $\nu_0 \to \nu_1 \to \cdots \to \nu_s$ denotes the ``shared'' portion of the paths to $i$ and $j$.
+When the DAG underlying the HPAM2 model is a tree, the pairwise probabilities in \eqref{eqn:pairPathProb} can be simplified.
+In particular, if $i$ and $j$ are arbitrary nodes in $\mathcal T$, we can rewrite the product over edges in \eqref{eqn:pairPathProb} by decomposing it into the edges that lead to the least common ancestor of $i$ and $j$, the edges that occur at the split, and the edges along each of the totally distinct paths following the split:
+\begin{align}
+p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)
+={}&
+\phantom{{}\cdot{}} p(\text{edges before split}) \\
+& \cdot p(\text{edges at split}) \nonumber \\
+& \cdot p(\text{edges after split on path to $i$}) \nonumber \\
+& \cdot p(\text{edges after split on path to $j$}) \nonumber
+\end{align}
 
-% With this notation, we have
-% \begin{align}
-% p(\text{edges before split})
-% &=
-% \prod_{k=1}^s \frac
-%   {\left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
-%   {\left( 1 + \sum \alpha_{\nu_{k-1}} \right) \sum \alpha_{\nu_{k-1}} }
-% \\
-% p(\text{edges at split})
-% &= \frac
-%   {\alpha_{\nu_s \nu^{(1)}_1} \, \alpha_{\nu_s \nu^{(2)}_1}}
-%   { \left( 1 + \sum \alpha_{\nu_s} \right) \sum \alpha_{\nu_s} }
-% \\
-% p(\text{edges after split on path to $i$})
-% &=
-% \prod_{k=2}^{L_1} \frac
-%   {\alpha_{\nu^{(1)}_{k-1} \nu^{(1)}_k} }
-%   { \sum \alpha_{\nu^{(1)}_{k-1}} }
-% \label{eqn:singleFactorI}
-% \\
-% p(\text{edges after split on path to $j$})
-% &=
-% \prod_{k=2}^{L_2} \frac
-%   {\alpha_{\nu^{(2)}_{k-1} \nu^{(2)}_k} }
-%   { \sum \alpha_{\nu^{(2)}_{k-1}} }
-% \label{eqn:singleFactorJ}
-% \end{align}
+In the case where $i = j$, the paths never diverge (that is, there is no split), and so only the first factor contributes to the final product.
+Thus, for the remainder of this analysis, we assume $i \neq j$.
 
-% We can now derive a closed-form expression for the entries of $C$.
-% When we combine the above results, many factors cancel, yielding
-% \begin{align}
-% C_{i,j}
-% &=
-% \begin{cases}
-% \left(
-%   \prod_{k=1}^s
-%   \frac { 1 + \alpha_{\nu_{k-1} \nu_k} } { \alpha_{\nu_{k-1} \nu_k} }
-% \right)
-% \cdot
-% \left(
-%   \prod_{k=0}^s
-%   \frac { \sum \alpha_{\nu_k} } { 1 + \sum \alpha_{\nu_k} }
-% \right),
-% & i \neq j, \\
-% \prod_{k=1}^s \frac
-%   { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_{k-1}} }
-%   { \left( 1 + \sum \alpha_{\nu_{k-1}} \right) \alpha_{\nu_{k-1} \nu_k} },
-% & i = j.
-% \end{cases}
-% \label{eqn:closedFormC}
-% \end{align}
+Let the path from the root to $i$ be denoted
+\begin{align}
+\nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(1)}_1 \to \cdots \to \nu^{(1)}_{L_1},
+\end{align}
+where $\nu^{(1)}_{L_1} = i$ and $\nu_s$ is the least common ancestor of $i$ and $j$.
+Similarly, let the path from the root to $j$ be denoted
+\begin{align}
+\nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(2)}_1 \to \cdots \to \nu^{(2)}_{L_2},
+\end{align}
+where $\nu^{(2)}_{L_2} = j$.
+Note that $\nu_0 \to \nu_1 \to \cdots \to \nu_s$ denotes the ``shared'' portion of the paths to $i$ and $j$.
 
-% \begin{defn}[Limited-Sparsity Property]
-% Suppose an HPAM2 model based on a tree $\mathcal T$ has a Dirichlet parameter vector $\alpha_\nu$ specified for each internal node $\nu$.
-% We say this model satisfies the \emph{limited-sparsity property} if, for each edge between internal nodes $i \to j$, we have $\sum \alpha_j > \alpha_{ij}$.
-% In other words, the sparsity of the Dirichlet distribution associated with each non-root internal node is limited by the Dirichlet parameter corresponding to its parent.
-% \end{defn}
+With this notation, we have
+\begin{align}
+p(\text{edges before split})
+&=
+\prod_{k=1}^s \frac
+  {\left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
+  {\left( 1 + \sum \alpha_{\nu_{k-1}} \right) \sum \alpha_{\nu_{k-1}} }
+\\
+p(\text{edges at split})
+&= \frac
+  {\alpha_{\nu_s \nu^{(1)}_1} \, \alpha_{\nu_s \nu^{(2)}_1}}
+  { \left( 1 + \sum \alpha_{\nu_s} \right) \sum \alpha_{\nu_s} }
+\\
+p(\text{edges after split on path to $i$})
+&=
+\prod_{k=2}^{L_1} \frac
+  {\alpha_{\nu^{(1)}_{k-1} \nu^{(1)}_k} }
+  { \sum \alpha_{\nu^{(1)}_{k-1}} }
+\label{eqn:singleFactorI}
+\\
+p(\text{edges after split on path to $j$})
+&=
+\prod_{k=2}^{L_2} \frac
+  {\alpha_{\nu^{(2)}_{k-1} \nu^{(2)}_k} }
+  { \sum \alpha_{\nu^{(2)}_{k-1}} }
+\label{eqn:singleFactorJ}
+\end{align}
 
-% \begin{claim}
-% For any HPAM2 model based on a tree in which the Dirichlet parameters satisfy the limited-sparsity property, we have the following:
-% \begin{itemize}
-%   \item[(a)] If $i$ is a leaf node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to either the parent of $i$, a sibling of $i$, or a descendant of a sibling of $i$.
-%   \item[(b)] If $i$ is an internal node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to any descendant of $i$.
-% \end{itemize}
-% \label{claim:CMatrixProperty}
-% \end{claim}
+We can now derive a closed-form expression for the entries of $C$.
+When we combine the above results, many factors cancel, yielding
+\begin{align}
+C_{i,j}
+&=
+\begin{cases}
+\left(
+  \prod_{k=1}^s
+  \frac { 1 + \alpha_{\nu_{k-1} \nu_k} } { \alpha_{\nu_{k-1} \nu_k} }
+\right)
+\cdot
+\left(
+  \prod_{k=0}^s
+  \frac { \sum \alpha_{\nu_k} } { 1 + \sum \alpha_{\nu_k} }
+\right),
+& i \neq j, \\
+\prod_{k=1}^s \frac
+  { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_{k-1}} }
+  { \left( 1 + \sum \alpha_{\nu_{k-1}} \right) \alpha_{\nu_{k-1} \nu_k} },
+& i = j.
+\end{cases}
+\label{eqn:closedFormC}
+\end{align}
 
-% We prove this claim using the following lemmas.
+\begin{defn}[Limited-Sparsity Property]
+Suppose an HPAM2 model based on a tree $\mathcal T$ has a Dirichlet parameter vector $\alpha_\nu$ specified for each internal node $\nu$.
+We say this model satisfies the \emph{limited-sparsity property} if, for each edge between internal nodes $i \to j$, we have $\sum \alpha_j > \alpha_{ij}$.
+In other words, the sparsity of the Dirichlet distribution associated with each non-root internal node is limited by the Dirichlet parameter corresponding to its parent.
+\end{defn}
 
-% \begin{lemma}
-% Suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b) = \text{LCA}(a,c)$.
-% Then $C_{a,b} = C_{a,c}$.
-% \label{lemma:equalLCA}
-% \end{lemma}
+\begin{claim}
+For any HPAM2 model based on a tree in which the Dirichlet parameters satisfy the limited-sparsity property, we have the following:
+\begin{itemize}
+  \item[(a)] If $i$ is a leaf node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to either the parent of $i$, a sibling of $i$, or a descendant of a sibling of $i$.
+  \item[(b)] If $i$ is an internal node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to any descendant of $i$.
+\end{itemize}
+\label{claim:CMatrixProperty}
+\end{claim}
 
-% \begin{proof}
-% This lemma follows from the fact that, as long as $i \neq j$, the expression for $C_{i,j}$ derived in equation~\eqref{eqn:closedFormC} does not depend on any nodes except for those on the path from the root to $\text{LCA}(i,j)$.
-% \end{proof}
+We prove this claim using the following lemmas.
 
-% \begin{lemma}
-% Suppose the premises of Claim~\ref{claim:CMatrixProperty} hold, and suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b)$ is a strict descendant of $\text{LCA}(a,c)$.
-% Then $C_{a,b} > C_{a,c}$.
-% \label{lemma:greaterLCA}
-% \end{lemma}
+\begin{lemma}
+Suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b) = \text{LCA}(a,c)$.
+Then $C_{a,b} = C_{a,c}$.
+\label{lemma:equalLCA}
+\end{lemma}
 
-% \begin{proof}
-% Let $\lambda = \text{LCA}(a,b)$ and let $\mu = \text{LCA}(a,c)$ such that $\lambda$ is a strict descendant of $\mu$.
-% Thus, the path from the root to $\lambda$ includes $\mu$.
-% Let the path from the root to $\lambda$ be denoted by
-% \begin{align}
-% \nu_0 \to \nu_1 \to \cdots \to \nu_{s_1} \to \cdots \to \nu_{s_2},
-% \end{align}
-% where $\nu_{s_1} = \mu$ and $\nu_{s_2} = \lambda$ for $s_1 < s_2$.
+\begin{proof}
+This lemma follows from the fact that, as long as $i \neq j$, the expression for $C_{i,j}$ derived in equation~\eqref{eqn:closedFormC} does not depend on any nodes except for those on the path from the root to $\text{LCA}(i,j)$.
+\end{proof}
 
-% Using equation~\eqref{eqn:closedFormC} and the fact that $a \neq b$ and $a \neq c$, we can compute
-% \begin{align}
-% \frac{C_{a,b}}{C_{a,c}}
-% &=
-% \prod_{k=s_1+1}^{s_2}
-% \frac
-%   { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_k} }
-%   { \left( 1 + \sum \alpha_{\nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
-% \\
-% &=
-% \prod_{k=s_1+1}^{s_2}
-% \frac
-%   { \sum \alpha_{\nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
-%   { \alpha_{\nu_{k-1} \nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
-% \end{align}
-% %
-% Since we assumed that our model satisfies the limited-sparsity property, we know that $\sum \alpha_{\nu_k} > \alpha_{\nu_{k-1} \nu_k}$ for all $k$ such that $s_1 < k \leq s_2$; therefore, each factor in the above product is greater than $1$.
-% Furthermore, since $s_1 < s_2$, we know that the above product contains at least one factor.
-% Thus, we can conclude $C_{a,b} > C_{a,c}$.
-% \end{proof}
+\begin{lemma}
+Suppose the premises of Claim~\ref{claim:CMatrixProperty} hold, and suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b)$ is a strict descendant of $\text{LCA}(a,c)$.
+Then $C_{a,b} > C_{a,c}$.
+\label{lemma:greaterLCA}
+\end{lemma}
 
-% \begin{proof}[Proof of Claim~\ref{claim:CMatrixProperty}]
-% First, suppose $i$ is a leaf node, and let $S$ be the set containing the parent of $i$, the siblings of $i$, and the descendants of all siblings of $i$.
-% If $i$ is a leaf with no parent, then $i$ must be the only node in the tree, and Claim~\ref{claim:CMatrixProperty}(a) is vacuously true.
-% Thus, assume $i$ has a parent.
-% For any $j_1, j_2 \in S$, we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = \text{parent}(i)$.
-% Therefore, we have $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
-% Next, suppose $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$.
-% Then, we know that $\text{LCA}(i,j) = \text{parent}(i)$, which must be a strict descendant of $\text{LCA}(i,k)$.
-% This is because $k \neq i$, $k \notin S$, and $i$ has no descendants of its own.
-% Therefore, $C_{i,j} > C_{i,k}$ using Lemma~\ref{lemma:greaterLCA}.
-% This proves Claim~\ref{claim:CMatrixProperty}(a).
+\begin{proof}
+Let $\lambda = \text{LCA}(a,b)$ and let $\mu = \text{LCA}(a,c)$ such that $\lambda$ is a strict descendant of $\mu$.
+Thus, the path from the root to $\lambda$ includes $\mu$.
+Let the path from the root to $\lambda$ be denoted by
+\begin{align}
+\nu_0 \to \nu_1 \to \cdots \to \nu_{s_1} \to \cdots \to \nu_{s_2},
+\end{align}
+where $\nu_{s_1} = \mu$ and $\nu_{s_2} = \lambda$ for $s_1 < s_2$.
 
-% Second, suppose $i$ is an internal node, and let $S$ be the set of all descendants of $i$ (excluding $i$ itself).
-% Since $i$ is an internal node, $S$ must be nonempty.
-% If $j_1, j_2 \in S$, then we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = i$ and therefore $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
-% Next, if $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$, then we know $\text{LCA}(i,j) = i$ whereas $\text{LCA}(i,k)$ is a strict ancestor of $i$.
-% That is, $\text{LCA}(i,j)$ is a strict descendant of $\text{LCA}(i,k)$.
-% Then we can apply Lemma~\ref{lemma:greaterLCA} to obtain $C_{i,j} > C_{i,k}$.
-% This proves Claim~\ref{claim:CMatrixProperty}(b).
-% \end{proof}
+Using equation~\eqref{eqn:closedFormC} and the fact that $a \neq b$ and $a \neq c$, we can compute
+\begin{align}
+\frac{C_{a,b}}{C_{a,c}}
+&=
+\prod_{k=s_1+1}^{s_2}
+\frac
+  { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_k} }
+  { \left( 1 + \sum \alpha_{\nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
+\\
+&=
+\prod_{k=s_1+1}^{s_2}
+\frac
+  { \sum \alpha_{\nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
+  { \alpha_{\nu_{k-1} \nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
+\end{align}
+%
+Since we assumed that our model satisfies the limited-sparsity property, we know that $\sum \alpha_{\nu_k} > \alpha_{\nu_{k-1} \nu_k}$ for all $k$ such that $s_1 < k \leq s_2$; therefore, each factor in the above product is greater than $1$.
+Furthermore, since $s_1 < s_2$, we know that the above product contains at least one factor.
+Thus, we can conclude $C_{a,b} > C_{a,c}$.
+\end{proof}
 
-% %TODO: Derive an algorithm that can provably extract the correct tree structure given the matrix $C$.
-% %(Try using Aho's algorithm for tree construction based on triplet constraints?)
+\begin{proof}[Proof of Claim~\ref{claim:CMatrixProperty}]
+First, suppose $i$ is a leaf node, and let $S$ be the set containing the parent of $i$, the siblings of $i$, and the descendants of all siblings of $i$.
+If $i$ is a leaf with no parent, then $i$ must be the only node in the tree, and Claim~\ref{claim:CMatrixProperty}(a) is vacuously true.
+Thus, assume $i$ has a parent.
+For any $j_1, j_2 \in S$, we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = \text{parent}(i)$.
+Therefore, we have $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
+Next, suppose $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$.
+Then, we know that $\text{LCA}(i,j) = \text{parent}(i)$, which must be a strict descendant of $\text{LCA}(i,k)$.
+This is because $k \neq i$, $k \notin S$, and $i$ has no descendants of its own.
+Therefore, $C_{i,j} > C_{i,k}$ using Lemma~\ref{lemma:greaterLCA}.
+This proves Claim~\ref{claim:CMatrixProperty}(a).
+
+Second, suppose $i$ is an internal node, and let $S$ be the set of all descendants of $i$ (excluding $i$ itself).
+Since $i$ is an internal node, $S$ must be nonempty.
+If $j_1, j_2 \in S$, then we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = i$ and therefore $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
+Next, if $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$, then we know $\text{LCA}(i,j) = i$ whereas $\text{LCA}(i,k)$ is a strict ancestor of $i$.
+That is, $\text{LCA}(i,j)$ is a strict descendant of $\text{LCA}(i,k)$.
+Then we can apply Lemma~\ref{lemma:greaterLCA} to obtain $C_{i,j} > C_{i,k}$.
+This proves Claim~\ref{claim:CMatrixProperty}(b).
+\end{proof}
+
+%TODO: Derive an algorithm that can provably extract the correct tree structure given the matrix $C$.
+%(Try using Aho's algorithm for tree construction based on triplet constraints?)
 
 \end{document}
