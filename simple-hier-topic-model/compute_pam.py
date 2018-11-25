@@ -1,4 +1,5 @@
 import numpy as np
+import networkx as nx
 from collections import defaultdict, Counter
 import itertools
 
@@ -71,6 +72,48 @@ def compute_combo_tensor(g, combo_size = 2, alpha_func = None, alpha_mode = None
     for combo in itertools.product(gen_all_paths(g), repeat = combo_size):
         coords = tuple(c[-1] for c in combo)
         result[coords] += compute_combo_probability(g, combo, alpha_func = alpha_func, alpha_mode = alpha_mode)
+    return result
+
+def compute_combo_tensor_pam(g, combo_size = 2, alpha_scale = 1.0, return_leaf_paths = False):
+    leaf_paths = []
+    for node, d in dict(g.out_degree).items():
+        if d == 0:
+            path = nx.shortest_path(g, g.graph["root"], node)
+            leaf_paths.append(path)
+    num_leaves = len(leaf_paths)
+    result = np.zeros(tuple(num_leaves for i in range(combo_size)))
+    for combo in itertools.product(range(len(leaf_paths)), repeat = combo_size):
+        path_combo = [leaf_paths[i] for i in combo]
+        result[combo] += compute_combo_probability_pam(
+            g, path_combo, alpha_scale = alpha_scale)
+    if return_leaf_paths:
+        return result, leaf_paths
+    return result
+
+def compute_combo_probability_pam(g, path_combo, alpha_scale = 1.0):
+    def num_children(node):
+        return len(list(g.neighbors(node)))
+    def gen_transitions(r):
+        assert len(r) > 0
+        for i in range(len(r) - 1):
+            yield (r[i], r[i + 1])
+    transitions = defaultdict(Counter)
+
+    for path in path_combo:
+        for src, dest in gen_transitions(path):
+            transitions[src][dest] += 1
+
+    result = 1.0
+    for src, dest_counter in transitions.items():
+        denom = 1.0
+        for i in range(sum(dest_counter.values())):
+            denom *= alpha_scale * num_children(src) + i
+        numer = 1.0
+        for dest, count in dest_counter.items():
+            for i in range(count):
+                numer *= alpha_scale + i
+        result *= numer / denom
+
     return result
 
 def tensor_to_matrix(T):
