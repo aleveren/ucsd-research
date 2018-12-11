@@ -74,7 +74,7 @@ def compute_combo_tensor(g, combo_size = 2, alpha_func = None, alpha_mode = None
         result[coords] += compute_combo_probability(g, combo, alpha_func = alpha_func, alpha_mode = alpha_mode)
     return result
 
-def compute_combo_tensor_pam(g, combo_size = 2, alpha_scale = 1.0, return_leaf_paths = False):
+def compute_combo_tensor_pam(g, combo_size = 2, alpha = 1.0, return_leaf_paths = False):
     leaf_paths = []
     for node, d in dict(g.out_degree).items():
         if d == 0:
@@ -85,12 +85,12 @@ def compute_combo_tensor_pam(g, combo_size = 2, alpha_scale = 1.0, return_leaf_p
     for combo in itertools.product(range(len(leaf_paths)), repeat = combo_size):
         path_combo = [leaf_paths[i] for i in combo]
         result[combo] += compute_combo_probability_pam(
-            g, path_combo, alpha_scale = alpha_scale)
+            g, path_combo, alpha = alpha)
     if return_leaf_paths:
         return result, leaf_paths
     return result
 
-def compute_combo_probability_pam(g, path_combo, alpha_scale = 1.0):
+def compute_combo_probability_pam(g, path_combo, alpha = 1.0):
     def num_children(node):
         return len(list(g.neighbors(node)))
     def gen_transitions(r):
@@ -98,6 +98,7 @@ def compute_combo_probability_pam(g, path_combo, alpha_scale = 1.0):
         for i in range(len(r) - 1):
             yield (r[i], r[i + 1])
     transitions = defaultdict(Counter)
+    alpha = AlphaCalc.create(alpha)
 
     for path in path_combo:
         for src, dest in gen_transitions(path):
@@ -106,15 +107,59 @@ def compute_combo_probability_pam(g, path_combo, alpha_scale = 1.0):
     result = 1.0
     for src, dest_counter in transitions.items():
         denom = 1.0
+        current_alpha = alpha.calc(node_id = src, num_children = num_children(src))
         for i in range(sum(dest_counter.values())):
-            denom *= alpha_scale * num_children(src) + i
+            denom *= np.sum(current_alpha) + i
         numer = 1.0
+        neighbors_to_index = {n: i for i, n in enumerate(list(g.neighbors(src)))}
         for dest, count in dest_counter.items():
+            j = neighbors_to_index[dest]
             for i in range(count):
-                numer *= alpha_scale + i
+                numer *= current_alpha[j] + i
         result *= numer / denom
 
     return result
+
+class AlphaCalc(object):
+    def calc(self, node_id, num_children):
+        raise NotImplementedError("'calc' not implemented")
+
+    @staticmethod
+    def create(x):
+        if isinstance(x, AlphaCalc):
+            return x
+        elif np.isscalar(x):
+            return ConstAlphaCalc(x)
+        elif isinstance(x, dict):
+            return NodeIDAlphaCalc(x)
+        else:
+            raise ValueError("Unrecognized type for AlphaCalc.create")
+
+class ConstAlphaCalc(AlphaCalc):
+    def __init__(self, val):
+        self.val = val
+
+    def calc(self, node_id, num_children):
+        if isinstance(self.val, np.ndarray):
+            assert len(self.val) == num_children
+            return self.val
+        return self.val * np.ones(num_children)
+
+class ConstSumAlphaCalc(AlphaCalc):
+    def __init__(self, val_sum):
+        self.val_sum = val_sum
+
+    def calc(self, node_id, num_children):
+        return self.val_sum * np.ones(num_children) / float(num_children)
+
+class NodeIDAlphaCalc(AlphaCalc):
+    def __init__(self, values):
+        self.values = values
+
+    def calc(self, node_id, num_children):
+        result = self.values[node_id]
+        assert len(result) == num_children
+        return result
 
 def tensor_to_matrix(T):
     if np.ndim(T) < 2:
