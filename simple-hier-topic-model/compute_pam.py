@@ -128,7 +128,7 @@ class AlphaCalc(object):
     def create(x):
         if isinstance(x, AlphaCalc):
             return x
-        elif np.isscalar(x):
+        elif np.isscalar(x) or isinstance(x, np.ndarray):
             return ConstAlphaCalc(x)
         elif isinstance(x, dict):
             return NodeIDAlphaCalc(x)
