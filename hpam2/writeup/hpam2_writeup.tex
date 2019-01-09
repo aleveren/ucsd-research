@@ -82,6 +82,43 @@ This paper defines a new method for deriving a hierarchy of topics which attempt
 Unlike PAM, our model does not require specifying a fixed tree structure \emph{a priori}, but our method is significantly simpler and faster than the inference algorithms currently available for NHDP.
 Moreover, we offer proof that, under certain assumptions on the data-generating process, our method is capable of exactly recovering the ``true'' tree of topics (with high probability given sufficient data).
 
+\section{A Review of LDA, PAM, and NHDP Topic Models}
+
+\subsection{Latent Dirichlet Allocation (LDA)}
+
+TODO: short introduction to LDA model's assumptions and structure (maybe also mention CTM: correlated topic model?)
+
+\subsection{Inference Algorithms for LDA}
+
+TODO: discussion of Gibbs sampling, variational inference
+
+\subsection{Pachinko Allocation Modeling (PAM)}
+
+Pachinko Allocation Modeling (PAM) provides one way to generalize LDA and incorporate nested hierarchies of topics.
+The fully general formulation of PAM consists of a directed acyclic graph $G$ containing a single source node (the ``root''), a Dirichlet distribution over the vocabulary (the ``vocabulary Dirichlet''), and a collection of Dirichlet distributions (one for each internal node), where each node's Dirichlet parameter has a number of components equal to the number of outgoing edges at that node.
+The generative model for the general formulation of PAM functions as follows: First, we use the vocabulary Dirichlet to draw one distribution over the vocabulary for each terminal node in the DAG.
+This defines a mapping from terminal nodes to topics.
+Next, for each document in the corpus, we use the per-node Dirichlet distributions to draw a probability distribution over outgoing edges corresponding to each internal node.
+For each word-slot in each document, we select a terminal node by stochastically building a path from the root to a terminal node, using the current document's outgoing-edge probabilities.
+Then, we draw a word from the vocabulary using the topic (i.e., the distribution over the vocabulary) corresponding to the selected terminal node.
+Similar to LDA, we can infer this model's parameters using standard latent-variable approaches such as Gibbs sampling or variational inference.
+
+The paper which introduced PAM (\TODOcite{}) focused primarily on one particular class of PAM models, which we will refer to as ``4-layer PAM.''
+In this model, the DAG actually contains three layers of nodes, since the authors of the original PAM paper consider the topics themselves---which are distributions over the vocabulary---to be the fourth layer.
+The first layer (containing only the root node) is fully connected to the second layer, and the second layer is fully connected to the third layer.
+Thus, the structure of the DAG is fully specified by indicating the size of the second and third layers of the graph.
+We mention this particular variant because the topic-modeling literature occasionally uses ``PAM'' to refer specifically to the 4-layer PAM.
+However, in this paper, we will use ``PAM'' to refer to the generic PAM model defined above, rather than the more specialized 4-layer model.
+
+Next, we will consider another special case of PAM which we will refer to as ``TreePAM.''
+TreePAM is essentially the same as the generic version of PAM, except the DAG must be a tree (i.e., there is only one path from the root to each node).
+Without loss of generality, we may further assume that there are no nodes with exactly one incoming edge and exactly one outgoing edge; this is because such nodes may be removed from the model without changing the generative distribution it defines.
+This paper will focus primarily on TreePAM, as it naturally reflects the notion of nested hierarchies of topics.
+
+\subsection{Nested Hierarchical Dirichlet Process (NHDP)}
+
+TODO: short introduction to NHDP model, mention variational inference, and ability to view it as special (infinite) case of TreePAM
+
 \section{A Motivating Observation}
 
 The ``anchor words'' algorithm \TODOcite{} is a non-probabilistic alternative to traditional LDA inference algorithms such as Gibbs sampling or variational inference.
@@ -112,16 +149,17 @@ We propose the following algorithm for recovering a hierarchy of topics from a c
   \item Specify a list of triplet constraints such that $(\{i, j\}, k)$ is included iff $\Rbar_{ij} > \Rbar_{jk}$ and $\Rbar_{ij} > \Rbar_{ik}$ (with $i$, $j$, and $k$ representing 3 distinct indices from $1$ to $K$).
   \item For each constraint, define its ``strength'' to be $\Rbar_{ij} - \max(\Rbar_{jk}, \Rbar_{ik})$.
         Sort the list of constraints by descending strength.
+  \item Remove any constraint whose strength is below some fixed constant (TODO: to be defined/derived/justified in a later section?)
   \item Apply Aho's algorithm to the list of constraints to generate a tree in which the leaves correspond to the integers $1$ to $K$.
   \item If the previous step fails (i.e., returns a null tree), perform binary search to find the longest prefix of the constraint list which yields a non-null tree when applying Aho's algorithm.
   \item Return the resulting tree, along with the matrix of topics ($A$).
 \end{itemize}
 
-TODO: also propose a weighted version of Aho's algorithm (weighted by constraint-strength, as opposed to the above ``thresholded'' version)
+%TODO: also propose a weighted version of Aho's algorithm? (weighted by constraint-strength, as opposed to the above ``thresholded'' version?)
 
 \section{Proving Properties of the Algorithm}
 
-TODO (adapt from HPAM2 writeup)
+TODO (adapt from HPAM2 writeup, but now base it on the TreePAM model)
 
 \section{Experimental Results on Simulated Data}
 
