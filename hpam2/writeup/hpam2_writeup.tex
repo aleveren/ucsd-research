@@ -46,6 +46,13 @@
 \newcommand{\Categorical}{\text{Categorical}}
 \newcommand{\Exit}{\textsc{Exit}}
 
+\newcommand{\leaves}{\text{leaves}}
+\newcommand{\nonTerm}{\text{nonTerm}}
+\newcommand{\domain}{\text{domain}}
+
+\newcommand{\tallbracketl}[2]{\left #1 \rule{0ex}{#2} \right.}
+\newcommand{\tallbracketr}[2]{\left. \rule{0ex}{#2} \right #1}
+
 \newcommand{\TODOcite}{[?]}
 
 %\allowdisplaybreaks
@@ -55,6 +62,8 @@
 \author{
   Andrew Leverentz \\
   \texttt{aleveren@eng.ucsd.edu} \\
+  Sanjoy Dasgupta \\
+  \texttt{dasgupta@eng.ucsd.edu}
 }
 
 \date{}
@@ -139,7 +148,7 @@ We propose the following algorithm for recovering a hierarchy of topics from a c
 \newcommand{\Rbar}{\overline{R}}
 
 \begin{itemize}
-  \item Input: A corpus of documents, $X$, and a desired number of topics, $K$.
+  \item Input: A corpus of documents ($X$) and a desired number of topics ($K$).
   \item Estimate $A$, a matrix of topic definitions (for example, this can be done via anchor-words or LDA)
   \item Estimate $R$, the matrix of pairwise topic co-occurrences (again, via anchor-words or LDA)
   \item Compute a ratio matrix according to
@@ -159,164 +168,399 @@ We propose the following algorithm for recovering a hierarchy of topics from a c
 
 \section{Proving Properties of the Algorithm}
 
-TODO (adapt from HPAM2 writeup, but now base it on the TreePAM model)
+In this section, we will assume that we have corpus of data that was sampled according to the TreePAM generative model.
+Then, under this assumption, we will show that the algorithm recovers the true tree with high probability if it is given sufficient data.
+Specifically, with high probability, our empirical estimate of $\Rbar$ will match the true matrix closely enough to yield the exact set of constraints defining the true tree.
+
+(TODO: May need to tweak the above statement?  If we use \emph{anchor words}, it will yield a provably close estimate of $R$, which (presumably???) gives us a way to get a sufficiently close estimate of $\Rbar$.)
+
+\subsection{Formalizing the TreePAM Model}
+
+In the TreePAM model, we are given a rooted directed tree $T$ and a collection of Dirichlet parameters.
+Specifically, we have a vector $\alpha_\nu$ for each non-terminal node $\nu$, where the dimension of $\alpha_\nu$ is $|\text{children}(\nu)|$.
+Note that $\alpha_\nu$ is not defined for leaf nodes.
+We consider the vector $\alpha_\nu$ to be indexed by the set of children of $\nu$.
+We also have a vector $\eta$ which is the parameter for a $V$-dimensional Dirichlet, where $V$ is the size of our vocabulary.
+
+The generative model for sampling a corpus of documents is as follows:
+For each leaf node $\nu \in \leaves(T)$, sample $\beta_\nu$ according to $\Dirichlet(\eta)$.
+For each document $d$ and for each non-terminal node $\nu$, sample $\theta_{d,\nu}$ according to $\Dirichlet(\alpha_\nu)$.
+Next, for each word-slot $n$ in document $d$ and for each non-terminal node $\nu$, sample $z_{d,\nu,n}$ according to $\Categorical(\theta_{d,\nu})$.
+Next, we can define, for each document $d$ and each word-slot $n$, a path through $T$ beginning at the root node.
+Specifically, the first element of this path is always the root node of $T$, and we repeatedly extend it according to the sampled value of $z_{d,\nu,n}$, where $\nu$ represents the previously-selected node.
+This process repeats until we reach a leaf node, which we will denote by $\pi_{d,n}$.
+Finally, we sample a word $t_{d,n}$ from the vocabulary according to $\Categorical(\beta_{\pi_{d,n}})$.
+
+\subsection{Single-Topic Probabilities in TreePAM}
+
+In what follows, it will be useful to compute the per-topic probability distribution $P(\pi_{d,1} = i)$ for each $i \in \leaves(T)$.
+We compute this distribution by integrating over the random variables $\theta_{d,\nu}$.
+
+Let $\Theta_d$ denote the collection of all random vectors $\theta_{d,\nu}$ associated with document $d$; that is,
+\begin{align*}
+\Theta_d = \{\theta_{d,\nu} \, | \, \nu \in \nonTerm(T) \}.
+\end{align*}
+Let $\int_{\tilde \theta_d \in \Theta_d}$ denote an iterated integral over $\tilde \theta_{d,\nu} \in \domain(\theta_{d,\nu})$ for all non-terminal nodes $\nu$ in $T$.
+%When it is clear from the context, we will suppress the subscript $d$ from this notation.
+
+If we denote the path from the root to leaf $i$ as
+\begin{align*}
+\nu_0 \to \nu_1 \to \cdots \to \nu_{s-1} \to \nu_s \ (=i),
+\end{align*}
+then the per-topic probability distribution is given by
+\begin{align*}
+P(\pi_{d,1} = i)
+&=
+\int_{\tilde \theta_d \in \Theta_d}
+  \left(
+  P\left(\pi_{d,1}=i \,|\, \{ \theta_{d,\nu} = \tilde \theta_{d,\nu} \}_{\nu \in \nonTerm(T)}\right)
+  \prod_{\nu \in \nonTerm(T)} P\left(\theta_{d,\nu} = \tilde \theta_{d,\nu}\right)
+  \right)
+\\
+&=
+\int_{\tilde \theta_d \in \Theta_d}
+  \left(
+  \prod_{j=0}^{s-1} \tilde \theta_{d,\nu_j,\nu_{j+1}}
+  \right)
+  \left(
+  \prod_{\nu \in \nonTerm(T)}
+  \frac{1}{B(\vec\alpha_\nu)}
+  \prod_{\nu' \in \text{ch}(\nu)}
+  \tilde \theta_{d,\nu,\nu'}^{\alpha_{\nu,\nu'}-1}
+  \right)
+\\
+&=
+\prod_{j=0}^{s-1}
+  \frac{B(\vec\alpha_{\nu_j} + \vec e_{\nu_{j+1}})}
+       {B(\vec\alpha_{\nu_j})}
+\end{align*}
+where $B$ is the multivariate beta function (i.e., the normalization factor for the Dirichlet distribution) and $\vec e_\ell$ denotes the $\ell\nth$ basis unit vector.
+
+Using properties of the multivariate beta function, we can rewrite this as
+\begin{align*}
+P(\pi_{d,1} = i)
+&=
+\prod_{j=0}^{s-1}
+  \frac{\alpha_{\nu_j,\nu_{j+1}}}
+       {\sum_{k} \alpha_{\nu_j,k}}
+\end{align*}
+
+\subsection{Topic Co-occurrence Probabilities in TreePAM}
+
+Next, we compute topic co-occurrence probabilities for the TreePAM model.
+Specifically, we wish to know $P(\pi_{d,1} = i, \pi_{d,2} = j)$, the probability that a single document contains some pair of topics corresponding to leaf nodes $i, j \in \leaves(T)$.
+
+Let $\nu_0$ denote the root node of $T$, and let $\nu_s$ denote the least common ancestor of $i$ and $j$.
+Let the nodes descended from $\nu_s$ along the path to $i$ be denoted $\nu^{(1)}_1, \ldots, \nu^{(1)}_{L_1}$.
+Similarly, let the nodes descended from $\nu_s$ along the path to $j$ be denoted $\nu^{(2)}_1, \ldots, \nu^{(2)}_{L_2}$.
+Graphically, we can view the rooted paths to $i$ and $j$ as follows:
+\begin{center}
+\begin{tikzpicture}
+\node (nu0) {$\nu_0$};
+\node (nu1) [right of=nu0] {$\nu_1$};
+\node (dots0) [right of=nu1] {$\cdots$};
+\node (nus1) [right of=dots0] {$\nu_{s-1}$};
+\node (nus) [right of=nus1] {$\nu_s$};
+\node (nu11) [above right of=nus] {$\nu^{(1)}_{1}$};
+\node (dots1) [right of=nu11] {$\cdots$};
+\node (nu1L1) [right of=dots1] {$\nu^{(1)}_{L_1}$};
+\node (eq1) [right of=nu1L1] {$(= i)$};
+\node (nu21) [below right of=nus] {$\nu^{(2)}_{1}$};
+\node (dots2) [right of=nu21] {$\cdots$};
+\node (nu2L2) [right of=dots2] {$\nu^{(2)}_{L_2}$};
+\node (eq2) [right of=nu2L2] {$(= j)$};
+%
+\draw [->] (nu0) -- (nu1);
+\draw [->] (nu1) -- (dots0);
+\draw [->] (dots0) -- (nus1);
+\draw [->] (nus1) -- (nus);
+\draw [->] (nus) -- (nu11);
+\draw [->] (nu11) -- (dots1);
+\draw [->] (dots1) -- (nu1L1);
+\draw [->] (nus) -- (nu21);
+\draw [->] (nu21) -- (dots2);
+\draw [->] (dots2) -- (nu2L2);
+\end{tikzpicture}
+\end{center}
+
+With this notation, we can integrate over all the random vectors $\theta_{d,\nu}$ and write
+{
+% TODO: resize / reformat?
+\newcommand{\prefix}{\int_{\tilde \theta_d \in \Theta_d} \tallbracketl{[}{5ex}}
+\begin{align*}
+\MoveEqLeft
+P(\pi_{d,1} = i, \pi_{d,2} = j)
+\\
+={}&
+\prefix
+  P\left(\pi_{d,1}=i \,|\, \{ \theta_{d,\nu} = \tilde \theta_{d,\nu} \}_{\nu \in \nonTerm(T)}\right)
+\\ &\phantom{\prefix}
+  \cdot P\left(\pi_{d,2}=j \,|\, \{ \theta_{d,\nu} = \tilde \theta_{d,\nu} \}_{\nu \in \nonTerm(T)}\right)
+  \left(
+    \prod_{\nu \in \nonTerm(T)} P\left(\theta_{d,\nu} = \tilde \theta_{d,\nu}\right)
+  \right)
+  \tallbracketr{]}{5ex}
+\\
+={}&
+\prefix
+  \left(
+    \prod_{j=0}^{s-1} \tilde \theta_{d,\nu_j,\nu_{j+1}}
+  \right)
+  \tilde \theta_{d,\nu_s,\nu^{(1)}_1}
+  \left(
+    \prod_{j=1}^{L_1-1} \tilde \theta_{d,\nu^{(1)}_{j},\nu^{(1)}_{j+1}}
+  \right)
+\\ &\phantom{\prefix}
+  \cdot
+  \left(
+    \prod_{j=0}^{s-1} \tilde \theta_{d,\nu_j,\nu_{j+1}}
+  \right)
+  \tilde \theta_{d,\nu_s,\nu^{(2)}_1}
+  \left(
+    \prod_{j=1}^{L_2-1} \tilde \theta_{d,\nu^{(2)}_{j},\nu^{(2)}_{j+1}}
+  \right)
+  \left(
+    \prod_{\nu \in \nonTerm(T)}
+    \frac{1}{B(\vec\alpha_\nu)}
+    \prod_{\nu' \in \text{ch}(\nu)}
+    \tilde \theta_{d,\nu,\nu'}^{\alpha_{\nu,\nu'}-1}
+  \right)
+  \tallbracketr{]}{5ex}
+\end{align*}
+}
+
+Next, we have two cases, depending on whether $i = j$.
+If $i \neq j$, then
+\begin{align*}
+\MoveEqLeft
+P(\pi_{d,1} = i, \pi_{d,2} = j) \\
+={}&
+\left(
+  \prod_{j=0}^{s-1}
+  \frac{B(\vec\alpha_{\nu_j} + 2 \vec e_{\nu_{j+1}})}
+       {B(\vec\alpha_{\nu_j})}
+\right)
+\left(
+  \frac{B(\vec\alpha_{\nu_s} + \vec e_{\nu^{(1)}_{1}} + \vec e_{\nu^{(2)}_{1}})}
+       {B(\vec\alpha_{\nu_s})}
+\right)
+\left(
+  \prod_{j=1}^{L_1-1}
+  \frac{B(\vec\alpha_{\nu^{(1)}_{j}} + \vec e_{\nu^{(1)}_{j+1}})}
+       {B(\vec\alpha_{\nu^{(1)}_{j}})}
+\right)
+\left(
+  \prod_{j=1}^{L_2-1}
+  \frac{B(\vec\alpha_{\nu^{(2)}_{j}} + \vec e_{\nu^{(2)}_{j+1}})}
+       {B(\vec\alpha_{\nu^{(2)}_{j}})}
+\right)
+\\
+={}&
+\left(
+  \prod_{j=0}^{s-1}
+  \frac{(1 + \alpha_{\nu_j,\nu_{j+1}}) (\alpha_{\nu_j,\nu_{j+1}})}
+       {(1 + \sum_k \alpha_{\nu_j,k}) (\sum_k \alpha_{\nu_j,k})}
+\right)
+\left(
+  \frac{(\alpha_{\nu_s,\nu^{(1)}_{1}}) (\alpha_{\nu_s,\nu^{(2)}_{1}})}
+       {(1 + \sum_k \alpha_{\nu_s,k}) (\sum_k \alpha_{\nu_s,k})}
+\right)
+%\\ & \cdot
+\left(
+  \prod_{j=1}^{L_1-1}
+  \frac{\alpha_{\nu^{(1)}_{j}, \nu^{(1)}_{j+1}}}
+       {\alpha_{\nu^{(1)}_{j}, k}}
+\right)
+\left(
+  \prod_{j=1}^{L_2-1}
+  \frac{\alpha_{\nu^{(2)}_{j}, \nu^{(2)}_{j+1}}}
+       {\alpha_{\nu^{(2)}_{j}, k}}
+\right)
+\end{align*}
+
+On the other hand, if $i = j$, there are no nodes beyond the split point $\nu_s$, and so
+\begin{align*}
+P(\pi_{d,1} = i, \pi_{d,2} = j)
+&=
+  \prod_{j=0}^{s-1}
+  \frac{B(\vec\alpha_{\nu_j} + 2 \vec e_{\nu_{j+1}})}
+       {B(\vec\alpha_{\nu_j})}
+\\
+&=
+\prod_{j=0}^{s-1}
+\frac{(1 + \alpha_{\nu_j,\nu_{j+1}}) (\alpha_{\nu_j,\nu_{j+1}})}
+     {(1 + \sum_k \alpha_{\nu_j,k}) (\sum_k \alpha_{\nu_j,k})}
+\end{align*}
+
+We can now derive a closed-form expression for the entries of $\Rbar$.
+When we combine the above results, many factors cancel, yielding
+\begin{align}
+\Rbar_{i,j}
+&=
+TODO
+\label{eqn:closedFormRbar}
+\end{align}
+
+\par {\bf TODO: pick up here} \par
+
+
 
 \section{Experimental Results on Simulated Data}
 
-TODO
+{\bf TODO}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \clearpage
+{\bf TODO: generalize the following.} \par
 
-{\bf TODO: generalize the following.} \\
-Recall that the HPAM2 model is a special case of the generalized PAM model.
-(HPAM2 adds the requirement that every internal node either has only leaf-node children or has exactly one leaf-node child.)
+% Recall that the HPAM2 model is a special case of the generalized PAM model.
+% (HPAM2 adds the requirement that every internal node either has only leaf-node children or has exactly one leaf-node child.)
 
-\section{Defining the HPAM2 Model}
+% \section{Defining the HPAM2 Model}
 
-In the hierarchical topic model HPAM2 (Hierarchical Pachinko Allocation Modeling, variant 2), we are given a rooted, directed acyclic graph $G$ and a collection of Dirichlet parameters.
-Specifically, we have a vector $\alpha_\nu$ for each non-terminal node $\nu$, where the dimension of $\alpha_\nu$ is $1 + |\text{children}(\nu)|$.
-Note that $\alpha_\nu$ is not defined for terminal nodes (i.e., nodes with no outgoing edges).
-We consider the vector $\alpha_\nu$ to be indexed by the set $\{0\} \cup \text{children}(\nu)$.
-We also have a vector $\eta$ which is the parameter for a $V$-dimensional Dirichlet, where $V$ is the size of our vocabulary.
+% In the hierarchical topic model HPAM2 (Hierarchical Pachinko Allocation Modeling, variant 2), we are given a rooted, directed acyclic graph $G$ and a collection of Dirichlet parameters.
+% Specifically, we have a vector $\alpha_\nu$ for each non-terminal node $\nu$, where the dimension of $\alpha_\nu$ is $1 + |\text{children}(\nu)|$.
+% Note that $\alpha_\nu$ is not defined for terminal nodes (i.e., nodes with no outgoing edges).
+% We consider the vector $\alpha_\nu$ to be indexed by the set $\{0\} \cup \text{children}(\nu)$.
+% We also have a vector $\eta$ which is the parameter for a $V$-dimensional Dirichlet, where $V$ is the size of our vocabulary.
 
-The generative model for sampling a corpus of documents is as follows:
-For each node $\nu \in G$ (including terminal nodes), sample $\beta_\nu$ according to $\text{Dirichlet}(\eta)$.
-For each document $d$ and for each non-terminal node $\nu$, sample $\theta_{d,\nu}$ according to $\text{Dirichlet}(\alpha_\nu)$.
-Next, for each word-slot $n$ in document $d$ and for each non-terminal node $\nu$, sample $z_{d,\nu,n}$ according to $\text{Categorical}(\theta_{d,\nu})$; here, we are choosing whether to exit the DAG early (by selecting $0$), or to continue further down the DAG by selecting a child of $\nu$.
-Next, we can define, for each document $d$ and each word-slot $n$, a path $\pi_{d,n}$ through $G$ beginning at the root node.
-Specifically, the first element of $\pi_{d,n}$ is always the root node of $G$, and we repeatedly extend $\pi_{d,n}$ according to the sampled value of $z_{d,\nu,n}$, where $\nu$ represents the previously-selected node.
-If we ever encounter a selection $z_{d,\nu,n} = 0$, we terminate the path early.
-Finally, we sample a word from the vocabulary $t_{d,n}$ according to $\text{Dirichlet}(\beta_{\Exit(\pi_{d,n})})$.
-Here, $\Exit(\pi_{d,n})$ is the node in $G$ at which the path $\pi_{d,n}$ terminates, which may or may not be a terminal node.
+% The generative model for sampling a corpus of documents is as follows:
+% For each node $\nu \in G$ (including terminal nodes), sample $\beta_\nu$ according to $\text{Dirichlet}(\eta)$.
+% For each document $d$ and for each non-terminal node $\nu$, sample $\theta_{d,\nu}$ according to $\text{Dirichlet}(\alpha_\nu)$.
+% Next, for each word-slot $n$ in document $d$ and for each non-terminal node $\nu$, sample $z_{d,\nu,n}$ according to $\text{Categorical}(\theta_{d,\nu})$; here, we are choosing whether to exit the DAG early (by selecting $0$), or to continue further down the DAG by selecting a child of $\nu$.
+% Next, we can define, for each document $d$ and each word-slot $n$, a path $\pi_{d,n}$ through $G$ beginning at the root node.
+% Specifically, the first element of $\pi_{d,n}$ is always the root node of $G$, and we repeatedly extend $\pi_{d,n}$ according to the sampled value of $z_{d,\nu,n}$, where $\nu$ represents the previously-selected node.
+% If we ever encounter a selection $z_{d,\nu,n} = 0$, we terminate the path early.
+% Finally, we sample a word from the vocabulary $t_{d,n}$ according to $\text{Dirichlet}(\beta_{\Exit(\pi_{d,n})})$.
+% Here, $\Exit(\pi_{d,n})$ is the node in $G$ at which the path $\pi_{d,n}$ terminates, which may or may not be a terminal node.
 
-\section{Analysis of Topic Co-occurrence Probabilities in HPAM2}
+% \section{Analysis of Topic Co-occurrence Probabilities in HPAM2}
 
-Next, we compute topic co-occurrence probabilities for the HPAM2 model.
-Specifically, we wish to know the probability that a single document contains some pair of topics $\nu_1$ and $\nu_2$:
-\begin{align}
-p(\Exit(\pi_{d,1}) = \nu_1,
-  \Exit(\pi_{d,2}) = \nu_2)
-&=
-\sum_{
-  \substack{
-    \tilde\pi_1 : \Exit(\tilde\pi_1) = \nu_1
-    \\
-    \tilde\pi_2 : \Exit(\tilde\pi_2) = \nu_2
-  }
-}
-p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
-\end{align}
-Next, let $\nu \to \nu' \in \tilde\pi_1$ denote the set of transitions $(\nu, \nu')$ appearing in $\tilde\pi_1$.
-Furthermore, let $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$ denote the set of nodes $\nu$ for which there exists some transition $\nu \to \nu'$ appearing in either $\tilde\pi_1$ or $\tilde\pi_2$.
-Let $\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}$ denote an iterated integral over $\tilde\theta_\nu$ for each $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$.
-With this notation, we can write the co-occurrence probability of two paths as follows:
-\begin{align}
-p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
-&=
-\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
-  \left(
-    \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
-    p(\theta_{d,\nu} = \tilde\theta_\nu)
-  \right)
-  \\ &\phantom{=}\qquad \cdot
-  \left(
-    \prod_{\nu \to \nu' \in \tilde\pi_1}
-    p(z_{d,\nu,1} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
-  \right)
-  \\ &\phantom{=}\qquad \cdot
-  \left(
-    \prod_{\nu \to \nu' \in \tilde\pi_2}
-    p(z_{d,\nu,2} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
-  \right)
-\\
-&=
-\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
-  \left(
-    \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
-    \Dirichlet(\tilde\theta_\nu | \alpha_\nu)
-  \right)
-  %\\ &\phantom{=}\qquad \cdot
-  \left(
-    \prod_{\nu \to \nu' \in \tilde\pi_1}
-    \tilde\theta_{\nu,\nu'}
-  \right)
-  %\\ &\phantom{=}\qquad \cdot
-  \left(
-    \prod_{\nu \to \nu' \in \tilde\pi_2}
-    \tilde\theta_{\nu,\nu'}
-  \right)
-\end{align}
-Then, if we define
-\begin{align}
-S(\nu) &= \{0\} \cup \text{children}(\nu), \\
-N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to \nu'$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$}, \\
-M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to *$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$},
-\end{align}
-we have
-\begin{align}
-p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
-&=
-\prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
-\left[
-\frac
-  {
-    \prod_{\nu' \in S(\nu)}
-    \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) - 1}
-    (k + \alpha_{\nu,\nu'})
-  }
-  {
-    \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) - 1}
-    \left(
-      k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
-    \right)
-  }
-\right]
-\label{eqn:pairPathProb}
-\end{align}
+% Next, we compute topic co-occurrence probabilities for the HPAM2 model.
+% Specifically, we wish to know the probability that a single document contains some pair of topics $\nu_1$ and $\nu_2$:
+% \begin{align}
+% p(\Exit(\pi_{d,1}) = \nu_1,
+%   \Exit(\pi_{d,2}) = \nu_2)
+% &=
+% \sum_{
+%   \substack{
+%     \tilde\pi_1 : \Exit(\tilde\pi_1) = \nu_1
+%     \\
+%     \tilde\pi_2 : \Exit(\tilde\pi_2) = \nu_2
+%   }
+% }
+% p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+% \end{align}
+% Next, let $\nu \to \nu' \in \tilde\pi_1$ denote the set of transitions $(\nu, \nu')$ appearing in $\tilde\pi_1$.
+% Furthermore, let $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$ denote the set of nodes $\nu$ for which there exists some transition $\nu \to \nu'$ appearing in either $\tilde\pi_1$ or $\tilde\pi_2$.
+% Let $\int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}$ denote an iterated integral over $\tilde\theta_\nu$ for each $\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2$.
+% With this notation, we can write the co-occurrence probability of two paths as follows:
+% \begin{align}
+% p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+% &=
+% \int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
+%   \left(
+%     \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+%     p(\theta_{d,\nu} = \tilde\theta_\nu)
+%   \right)
+%   \\ &\phantom{=}\qquad \cdot
+%   \left(
+%     \prod_{\nu \to \nu' \in \tilde\pi_1}
+%     p(z_{d,\nu,1} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
+%   \right)
+%   \\ &\phantom{=}\qquad \cdot
+%   \left(
+%     \prod_{\nu \to \nu' \in \tilde\pi_2}
+%     p(z_{d,\nu,2} = \nu' | \theta_{d,\nu} = \tilde\theta_\nu)
+%   \right)
+% \\
+% &=
+% \int_{\tilde\theta \in \Theta(\tilde\pi_1, \tilde\pi_2)}
+%   \left(
+%     \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+%     \Dirichlet(\tilde\theta_\nu | \alpha_\nu)
+%   \right)
+%   %\\ &\phantom{=}\qquad \cdot
+%   \left(
+%     \prod_{\nu \to \nu' \in \tilde\pi_1}
+%     \tilde\theta_{\nu,\nu'}
+%   \right)
+%   %\\ &\phantom{=}\qquad \cdot
+%   \left(
+%     \prod_{\nu \to \nu' \in \tilde\pi_2}
+%     \tilde\theta_{\nu,\nu'}
+%   \right)
+% \end{align}
+% Then, if we define
+% \begin{align}
+% S(\nu) &= \{0\} \cup \text{children}(\nu), \\
+% N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to \nu'$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$}, \\
+% M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) &= \text{number of times $\nu \to *$ appears in either $\tilde\pi_1$ or $\tilde\pi_2$},
+% \end{align}
+% we have
+% \begin{align}
+% p(\pi_{d,1} = \tilde\pi_1, \pi_{d,2} = \tilde\pi_2)
+% &=
+% \prod_{\nu \to * \in \tilde\pi_1 \cup \tilde\pi_2}
+% \left[
+% \frac
+%   {
+%     \prod_{\nu' \in S(\nu)}
+%     \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\tilde\pi_2\}) - 1}
+%     (k + \alpha_{\nu,\nu'})
+%   }
+%   {
+%     \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\tilde\pi_2\}) - 1}
+%     \left(
+%       k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
+%     \right)
+%   }
+% \right]
+% \label{eqn:pairPathProb}
+% \end{align}
 
-Note that this formula easily generalizes beyond pairwise co-occurrences.
-For example, we can compute $n$-way path co-occurrence probabilities as follows:
-\begin{align}
-p(\pi_{d,1} = \tilde\pi_1, \ldots, \pi_{d,n} = \tilde\pi_n)
-&=
-\prod_{\nu \to * \in \tilde\pi_1 \cup \ldots \cup \tilde\pi_n}
-\left[
-\frac
-  {
-    \prod_{\nu' \in S(\nu)}
-    \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
-    (k + \alpha_{\nu,\nu'})
-  }
-  {
-    \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
-    \left(
-      k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
-    \right)
-  }
-\right]
-\label{eqn:manyPathProb}
-\end{align}
-Furthermore, we can view the formula for single-path probabilities as a special case of the $n$-way co-occurrence formula:
-\begin{align}
-p(\pi_{d,1} = \tilde\pi)
-&=
-\prod_{\nu \to \nu' \in \tilde\pi}
-\left[
-\frac
-  {
-    \alpha_{\nu,\nu'}
-  }
-  {
-    \sum_{\nu'' \in S(\nu)}\alpha_{\nu,\nu''}
-  }
-\right]
-%=
-%\prod_{\nu \to \nu' \in \tilde\pi}
-%E[\theta_{d,\nu}]_{\nu'}
-\label{eqn:singlePathProb}
-\end{align}
+% Note that this formula easily generalizes beyond pairwise co-occurrences.
+% For example, we can compute $n$-way path co-occurrence probabilities as follows:
+% \begin{align}
+% p(\pi_{d,1} = \tilde\pi_1, \ldots, \pi_{d,n} = \tilde\pi_n)
+% &=
+% \prod_{\nu \to * \in \tilde\pi_1 \cup \ldots \cup \tilde\pi_n}
+% \left[
+% \frac
+%   {
+%     \prod_{\nu' \in S(\nu)}
+%     \prod_{k=0}^{N(\nu,\nu',\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
+%     (k + \alpha_{\nu,\nu'})
+%   }
+%   {
+%     \prod_{k=0}^{M(\nu,\{\tilde\pi_1,\ldots,\tilde\pi_n\}) - 1}
+%     \left(
+%       k + \sum_{\nu' \in S(\nu)}\alpha_{\nu,\nu'}
+%     \right)
+%   }
+% \right]
+% \label{eqn:manyPathProb}
+% \end{align}
+% Furthermore, we can view the formula for single-path probabilities as a special case of the $n$-way co-occurrence formula:
+% \begin{align}
+% p(\pi_{d,1} = \tilde\pi)
+% &=
+% \prod_{\nu \to \nu' \in \tilde\pi}
+% \left[
+% \frac
+%   {
+%     \alpha_{\nu,\nu'}
+%   }
+%   {
+%     \sum_{\nu'' \in S(\nu)}\alpha_{\nu,\nu''}
+%   }
+% \right]
+% %=
+% %\prod_{\nu \to \nu' \in \tilde\pi}
+% %E[\theta_{d,\nu}]_{\nu'}
+% \label{eqn:singlePathProb}
+% \end{align}
 
 \section{Properties of the Co-occurrence Matrix}
 
@@ -423,8 +667,7 @@ For any HPAM2 model based on a tree in which the Dirichlet parameters satisfy th
 We prove this claim using the following lemmas.
 
 \begin{lemma}
-Suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b) = \text{LCA}(a,c)$.
-Then $C_{a,b} = C_{a,c}$.
+If $a$, $b$, and $c$ are three distinct nodes, then $\text{LCA}(a,b) = \text{LCA}(a,c)$ implies $C_{a,b} = C_{a,c}$.
 \label{lemma:equalLCA}
 \end{lemma}
 
@@ -491,5 +734,34 @@ This proves Claim~\ref{claim:CMatrixProperty}(b).
 
 %TODO: Derive an algorithm that can provably extract the correct tree structure given the matrix $C$.
 %(Try using Aho's algorithm for tree construction based on triplet constraints?)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\appendix
+\section{Properties of the Multivariate Beta Function}
+
+Property 1:
+\begin{align*}
+\frac{B(\vec x + \vec e_\ell)}{B(\vec x)}
+&= \frac{\Gamma(x_\ell + 1) \, \Gamma(\sum x)}
+        {\Gamma(x_\ell) \, \Gamma(1 + \sum x)}
+= \frac{x_\ell}{\sum x}
+\end{align*}
+
+Property 2:
+\begin{align*}
+\frac{B(\vec x + 2\vec e_\ell)}{B(\vec x)}
+&= \frac{\Gamma(x_\ell + 2) \, \Gamma(\sum x)}
+        {\Gamma(x_\ell) \, \Gamma(2 + \sum x)}
+= \frac{(1 + x_\ell) x_\ell}{(1 + \sum x) (\sum x)}
+\end{align*}
+
+Property 3: If $a \neq b$, then
+\begin{align*}
+\frac{B(\vec x + \vec e_a + \vec e_b)}{B(\vec x)}
+&= \frac{\Gamma(x_a + 1) \, \Gamma(x_b + 1) \, \Gamma(\sum x)}
+        {\Gamma(x_a) \, \Gamma(x_b) \, \Gamma(2 + \sum x)}
+= \frac{x_a \, x_b}{(1 + \sum x) (\sum x)}
+\end{align*}
+
 
 \end{document}
