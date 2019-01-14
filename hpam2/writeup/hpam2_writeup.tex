@@ -153,7 +153,7 @@ We propose the following algorithm for recovering a hierarchy of topics from a c
   \item Estimate $R$, the matrix of pairwise topic co-occurrences (again, via anchor-words or LDA)
   \item Compute a ratio matrix according to
   \begin{align}
-  \Rbar_{ij} = \frac{R_{ij}}{ \bigl( \sum_{i'} R_{i'j} \bigr) \bigl( \sum_{j'} R_{ij'} \bigr) }
+  \Rbar_{ij} = \frac{R_{ij}}{ \bigl( \sum_{j'} R_{ij'} \bigr) \bigl( \sum_{i'} R_{i'j} \bigr) }
   \end{align}
   \item Specify a list of triplet constraints such that $(\{i, j\}, k)$ is included iff $\Rbar_{ij} > \Rbar_{jk}$ and $\Rbar_{ij} > \Rbar_{ik}$ (with $i$, $j$, and $k$ representing 3 distinct indices from $1$ to $K$).
   \item For each constraint, define its ``strength'' to be $\Rbar_{ij} - \max(\Rbar_{jk}, \Rbar_{ik})$.
@@ -220,7 +220,7 @@ P(\pi_{d,1} = i)
 &=
 \int_{\tilde \theta_d \in \Theta_d}
   \left(
-  \prod_{j=0}^{s-1} \tilde \theta_{d,\nu_j,\nu_{j+1}}
+  \prod_{k=0}^{s-1} \tilde \theta_{d,\nu_k,\nu_{k+1}}
   \right)
   \left(
   \prod_{\nu \in \nonTerm(T)}
@@ -230,9 +230,9 @@ P(\pi_{d,1} = i)
   \right)
 \\
 &=
-\prod_{j=0}^{s-1}
-  \frac{B(\vec\alpha_{\nu_j} + \vec e_{\nu_{j+1}})}
-       {B(\vec\alpha_{\nu_j})}
+\prod_{k=0}^{s-1}
+  \frac{B(\vec\alpha_{\nu_k} + \vec e_{\nu_{k+1}})}
+       {B(\vec\alpha_{\nu_k})}
 \end{align*}
 where $B$ is the multivariate beta function (i.e., the normalization factor for the Dirichlet distribution) and $\vec e_\ell$ denotes the $\ell\nth$ basis unit vector.
 
@@ -240,9 +240,9 @@ Using properties of the multivariate beta function, we can rewrite this as
 \begin{align*}
 P(\pi_{d,1} = i)
 &=
-\prod_{j=0}^{s-1}
-  \frac{\alpha_{\nu_j,\nu_{j+1}}}
-       {\sum_{k} \alpha_{\nu_j,k}}
+\prod_{k=0}^{s-1}
+  \frac{\alpha_{\nu_k,\nu_{k+1}}}
+       {\sum_{\nu'} \alpha_{\nu_k,\nu'}}
 \end{align*}
 
 \subsection{Topic Co-occurrence Probabilities in TreePAM}
@@ -304,20 +304,20 @@ P(\pi_{d,1} = i, \pi_{d,2} = j)
 ={}&
 \prefix
   \left(
-    \prod_{j=0}^{s-1} \tilde \theta_{d,\nu_j,\nu_{j+1}}
+    \prod_{k=0}^{s-1} \tilde \theta_{d,\nu_k,\nu_{k+1}}
   \right)
   \tilde \theta_{d,\nu_s,\nu^{(1)}_1}
   \left(
-    \prod_{j=1}^{L_1-1} \tilde \theta_{d,\nu^{(1)}_{j},\nu^{(1)}_{j+1}}
+    \prod_{k=1}^{L_1-1} \tilde \theta_{d,\nu^{(1)}_{k},\nu^{(1)}_{k+1}}
   \right)
 \\ &\phantom{\prefix}
   \cdot
   \left(
-    \prod_{j=0}^{s-1} \tilde \theta_{d,\nu_j,\nu_{j+1}}
+    \prod_{k=0}^{s-1} \tilde \theta_{d,\nu_k,\nu_{k+1}}
   \right)
   \tilde \theta_{d,\nu_s,\nu^{(2)}_1}
   \left(
-    \prod_{j=1}^{L_2-1} \tilde \theta_{d,\nu^{(2)}_{j},\nu^{(2)}_{j+1}}
+    \prod_{k=1}^{L_2-1} \tilde \theta_{d,\nu^{(2)}_{k},\nu^{(2)}_{k+1}}
   \right)
   \left(
     \prod_{\nu \in \nonTerm(T)}
@@ -336,45 +336,45 @@ If $i \neq j$, then
 P(\pi_{d,1} = i, \pi_{d,2} = j) \\
 ={}&
 \left(
-  \prod_{j=0}^{s-1}
-  \frac{B(\vec\alpha_{\nu_j} + 2 \vec e_{\nu_{j+1}})}
-       {B(\vec\alpha_{\nu_j})}
+  \prod_{k=0}^{s-1}
+  \frac{B(\vec\alpha_{\nu_k} + 2 \vec e_{\nu_{k+1}})}
+       {B(\vec\alpha_{\nu_k})}
 \right)
 \left(
   \frac{B(\vec\alpha_{\nu_s} + \vec e_{\nu^{(1)}_{1}} + \vec e_{\nu^{(2)}_{1}})}
        {B(\vec\alpha_{\nu_s})}
 \right)
 \left(
-  \prod_{j=1}^{L_1-1}
-  \frac{B(\vec\alpha_{\nu^{(1)}_{j}} + \vec e_{\nu^{(1)}_{j+1}})}
-       {B(\vec\alpha_{\nu^{(1)}_{j}})}
+  \prod_{k=1}^{L_1-1}
+  \frac{B(\vec\alpha_{\nu^{(1)}_{k}} + \vec e_{\nu^{(1)}_{k+1}})}
+       {B(\vec\alpha_{\nu^{(1)}_{k}})}
 \right)
 \left(
-  \prod_{j=1}^{L_2-1}
-  \frac{B(\vec\alpha_{\nu^{(2)}_{j}} + \vec e_{\nu^{(2)}_{j+1}})}
-       {B(\vec\alpha_{\nu^{(2)}_{j}})}
+  \prod_{k=1}^{L_2-1}
+  \frac{B(\vec\alpha_{\nu^{(2)}_{k}} + \vec e_{\nu^{(2)}_{k+1}})}
+       {B(\vec\alpha_{\nu^{(2)}_{k}})}
 \right)
 \\
 ={}&
 \left(
-  \prod_{j=0}^{s-1}
-  \frac{(1 + \alpha_{\nu_j,\nu_{j+1}}) (\alpha_{\nu_j,\nu_{j+1}})}
-       {(1 + \sum_k \alpha_{\nu_j,k}) (\sum_k \alpha_{\nu_j,k})}
+  \prod_{k=0}^{s-1}
+  \frac{(1 + \alpha_{\nu_k,\nu_{k+1}}) (\alpha_{\nu_k,\nu_{k+1}})}
+       {(1 + \sum_{\nu'} \alpha_{\nu_k,\nu'}) (\sum_{\nu'} \alpha_{\nu_k,\nu'})}
 \right)
 \left(
   \frac{(\alpha_{\nu_s,\nu^{(1)}_{1}}) (\alpha_{\nu_s,\nu^{(2)}_{1}})}
-       {(1 + \sum_k \alpha_{\nu_s,k}) (\sum_k \alpha_{\nu_s,k})}
+       {(1 + \sum_{\nu'} \alpha_{\nu_s,\nu'}) (\sum_{\nu'} \alpha_{\nu_s,\nu'})}
 \right)
 %\\ & \cdot
 \left(
-  \prod_{j=1}^{L_1-1}
-  \frac{\alpha_{\nu^{(1)}_{j}, \nu^{(1)}_{j+1}}}
-       {\alpha_{\nu^{(1)}_{j}, k}}
+  \prod_{k=1}^{L_1-1}
+  \frac{\alpha_{\nu^{(1)}_{k}, \nu^{(1)}_{k+1}}}
+       {\sum_{\nu'} \alpha_{\nu^{(1)}_{k}, \nu'}}
 \right)
 \left(
-  \prod_{j=1}^{L_2-1}
-  \frac{\alpha_{\nu^{(2)}_{j}, \nu^{(2)}_{j+1}}}
-       {\alpha_{\nu^{(2)}_{j}, k}}
+  \prod_{k=1}^{L_2-1}
+  \frac{\alpha_{\nu^{(2)}_{k}, \nu^{(2)}_{k+1}}}
+       {\sum_{\nu'} \alpha_{\nu^{(2)}_{k}, \nu'}}
 \right)
 \end{align*}
 
@@ -382,28 +382,132 @@ On the other hand, if $i = j$, there are no nodes beyond the split point $\nu_s$
 \begin{align*}
 P(\pi_{d,1} = i, \pi_{d,2} = j)
 &=
-  \prod_{j=0}^{s-1}
-  \frac{B(\vec\alpha_{\nu_j} + 2 \vec e_{\nu_{j+1}})}
-       {B(\vec\alpha_{\nu_j})}
+  \prod_{k=0}^{s-1}
+  \frac{B(\vec\alpha_{\nu_k} + 2 \vec e_{\nu_{k+1}})}
+       {B(\vec\alpha_{\nu_k})}
 \\
 &=
-\prod_{j=0}^{s-1}
-\frac{(1 + \alpha_{\nu_j,\nu_{j+1}}) (\alpha_{\nu_j,\nu_{j+1}})}
-     {(1 + \sum_k \alpha_{\nu_j,k}) (\sum_k \alpha_{\nu_j,k})}
+\prod_{k=0}^{s-1}
+\frac{(1 + \alpha_{\nu_k,\nu_{k+1}}) (\alpha_{\nu_k,\nu_{k+1}})}
+     {(1 + \sum_{\nu'} \alpha_{\nu_k,\nu'}) (\sum_{\nu'} \alpha_{\nu_k,\nu'})}
 \end{align*}
 
-We can now derive a closed-form expression for the entries of $\Rbar$.
+Next, we'll derive a closed-form expression for the entries of the co-occurrence ratio matrix $\Rbar$:
+\begin{align*}
+\Rbar_{i,j}
+&=
+\frac{R_{i,j}}{ \bigl( \sum_{j'} R_{i,j'} \bigr) \bigl( \sum_{i'} R_{i',j} \bigr) }
+\\
+&=
+\frac{P(\pi_{d,1} = i, \pi_{d,2} = j)}
+     {P(\pi_{d,1} = i) \, P(\pi_{d,2} = j)}
+\end{align*}
+
 When we combine the above results, many factors cancel, yielding
 \begin{align}
 \Rbar_{i,j}
 &=
-TODO
+\begin{cases}
+\displaystyle
+\prod_{k=0}^{s-1}
+  \frac{ \left( 1 + \alpha_{\nu_k,\nu_{k+1}} \right) \left( \sum_{\nu'} \alpha_{\nu_k, \nu'} \right) }
+       { \left( \alpha_{\nu_k,\nu_{k+1}} \right) \left( 1 + \sum_{\nu'} \alpha_{\nu_k, \nu'} \right) }
+&
+\text{if } i = j,
+\\[4ex]
+\displaystyle
+\left(
+  \prod_{k=0}^{s-1}
+    \frac{ \left( 1 + \alpha_{\nu_k,\nu_{k+1}} \right) \left( \sum_{\nu'} \alpha_{\nu_k, \nu'} \right) }
+         { \left( \alpha_{\nu_k,\nu_{k+1}} \right) \left( 1 + \sum_{\nu'} \alpha_{\nu_k, \nu'} \right) }
+\right)
+\left(
+  \frac{\sum_{\nu'} \alpha_{\nu_s, \nu'}}
+       {1 + \sum_{\nu'} \alpha_{\nu_s, \nu'}}
+\right)
+&
+\text{if } i \neq j,
+\end{cases}
 \label{eqn:closedFormRbar}
 \end{align}
 
+In particular, note that $\Rbar_{i,j}$ can be viewed as a function of the least common ancestor of $i$ and $j$, which we are denoting $\nu_s$.
+
+\subsection{Properties of the Co-occurrence Ratio Matrix}
+
+\begin{defn}[Limited-Sparsity Property]
+Suppose a TreePAM model has a Dirichlet parameter vector $\alpha_\nu$ specified for each internal node $\nu$.
+We say this model satisfies the \emph{limited-sparsity property} if, for each edge between internal nodes $i \to j$, we have $\sum \alpha_j > \alpha_{ij}$.
+In other words, the sparsity of the Dirichlet distribution associated with each non-root internal node is limited by the Dirichlet parameter corresponding to its parent.
+\end{defn}
+
+\begin{claim}
+Suppose we have a TreePAM model in which the Dirichlet parameters satisfy the limited-sparsity property.
+For any leaf node $i$, the maximum value of $\Rbar_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to either a sibling of $i$ or a descendant of a sibling of $i$.
+\label{claim:RbarMatrixProperty}
+\end{claim}
+
+We prove this claim using the following lemmas.
+
+\begin{lemma}
+If $a$, $b$, and $c$ are three distinct leaf nodes, then $\text{LCA}(a,b) = \text{LCA}(a,c)$ implies $\Rbar_{a,b} = \Rbar_{a,c}$.
+\label{lemma:equalLCA}
+\end{lemma}
+
+\begin{proof}
+This lemma follows from the fact that, as long as $i \neq j$, the expression for $\Rbar_{i,j}$ derived in equation~\eqref{eqn:closedFormRbar} does not depend on any nodes except for those on the path from the root to $\text{LCA}(i,j)$.
+\end{proof}
+
+\begin{lemma}
+Suppose the premises of Claim~\ref{claim:RbarMatrixProperty} hold, and suppose we have three distinct leaf nodes $a$, $b$, and $c$, where $\text{LCA}(a,b)$ is a strict descendant of $\text{LCA}(a,c)$.
+Then $\Rbar_{a,b} > \Rbar_{a,c}$.
+\label{lemma:greaterLCA}
+\end{lemma}
+
+\begin{proof}
+Let $\lambda = \text{LCA}(a,b)$ and let $\mu = \text{LCA}(a,c)$ such that $\lambda$ is a strict descendant of $\mu$.
+Thus, the path from the root to $\lambda$ includes $\mu$.
+Let the path from the root to $\lambda$ be denoted by
+\begin{align}
+\nu_0 \to \nu_1 \to \cdots \to \nu_{s_1} \to \cdots \to \nu_{s_2},
+\end{align}
+where $\nu_{s_1} = \mu$ and $\nu_{s_2} = \lambda$ for $s_1 < s_2$.
+
 \par {\bf TODO: pick up here} \par
 
+Using equation~\eqref{eqn:closedFormRbar} and the fact that $a \neq b$ and $a \neq c$, we can compute
+{\bf (TODO: double-check the following equations using updated version of \eqref{eqn:closedFormRbar})}
+\begin{align}
+\frac{\Rbar_{a,b}}{\Rbar_{a,c}}
+&=
+\prod_{k=s_1+1}^{s_2}
+\frac
+  { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_k} }
+  { \left( 1 + \sum \alpha_{\nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
+\\
+&=
+\prod_{k=s_1+1}^{s_2}
+\frac
+  { \sum \alpha_{\nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
+  { \alpha_{\nu_{k-1} \nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
+\end{align}
+%
+Since we assumed that our model satisfies the limited-sparsity property, we know that $\sum \alpha_{\nu_k} > \alpha_{\nu_{k-1} \nu_k}$ for all $k$ such that $s_1 < k \leq s_2$; therefore, each factor in the above product is greater than $1$.
+Furthermore, since $s_1 < s_2$, we know that the above product contains at least one factor.
+Thus, we can conclude $\Rbar_{a,b} > \Rbar_{a,c}$.
+\end{proof}
 
+\begin{proof}[Proof of Claim~\ref{claim:RbarMatrixProperty}]
+First, suppose $i$ is a leaf node, and let $S$ be the set containing the parent of $i$, the siblings of $i$, and the descendants of all siblings of $i$.
+If $i$ is a leaf with no parent, then $i$ must be the only node in the tree, and Claim~\ref{claim:RbarMatrixProperty} is vacuously true.
+Thus, assume $i$ has a parent.
+For any $j_1, j_2 \in S$, we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = \text{parent}(i)$.
+Therefore, we have $\Rbar_{i,j_1} = \Rbar_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
+Next, suppose $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$.
+Then, we know that $\text{LCA}(i,j) = \text{parent}(i)$, which must be a strict descendant of $\text{LCA}(i,k)$.
+This is because $k \neq i$, $k \notin S$, and $i$ has no descendants of its own.
+Therefore, $\Rbar_{i,j} > \Rbar_{i,k}$ using Lemma~\ref{lemma:greaterLCA}.
+\end{proof}
 
 \section{Experimental Results on Simulated Data}
 
@@ -562,175 +666,175 @@ TODO
 % \label{eqn:singlePathProb}
 % \end{align}
 
-\section{Properties of the Co-occurrence Matrix}
+% \section{Properties of the Co-occurrence Matrix}
 
-For an HPAM2 model with a corresponding tree $\mathcal T$, we define a matrix $C$ as follows:
-\begin{align}
-C_{i,j} &= \frac{p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)}
-                {p(\Exit(\pi_{d,1}) = i) \, p(\Exit(\pi_{d,2}) = j)}
-\end{align}
-Here, $i$ and $j$ are indices over the nodes of $\mathcal T$.
+% For an HPAM2 model with a corresponding tree $\mathcal T$, we define a matrix $C$ as follows:
+% \begin{align}
+% C_{i,j} &= \frac{p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)}
+%                 {p(\Exit(\pi_{d,1}) = i) \, p(\Exit(\pi_{d,2}) = j)}
+% \end{align}
+% Here, $i$ and $j$ are indices over the nodes of $\mathcal T$.
 
-When the DAG underlying the HPAM2 model is a tree, the pairwise probabilities in \eqref{eqn:pairPathProb} can be simplified.
-In particular, if $i$ and $j$ are arbitrary nodes in $\mathcal T$, we can rewrite the product over edges in \eqref{eqn:pairPathProb} by decomposing it into the edges that lead to the least common ancestor of $i$ and $j$, the edges that occur at the split, and the edges along each of the totally distinct paths following the split:
-\begin{align}
-p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)
-={}&
-\phantom{{}\cdot{}} p(\text{edges before split}) \\
-& \cdot p(\text{edges at split}) \nonumber \\
-& \cdot p(\text{edges after split on path to $i$}) \nonumber \\
-& \cdot p(\text{edges after split on path to $j$}) \nonumber
-\end{align}
+% When the DAG underlying the HPAM2 model is a tree, the pairwise probabilities in \eqref{eqn:pairPathProb} can be simplified.
+% In particular, if $i$ and $j$ are arbitrary nodes in $\mathcal T$, we can rewrite the product over edges in \eqref{eqn:pairPathProb} by decomposing it into the edges that lead to the least common ancestor of $i$ and $j$, the edges that occur at the split, and the edges along each of the totally distinct paths following the split:
+% \begin{align}
+% p(\Exit(\pi_{d,1}) = i, \Exit(\pi_{d,2}) = j)
+% ={}&
+% \phantom{{}\cdot{}} p(\text{edges before split}) \\
+% & \cdot p(\text{edges at split}) \nonumber \\
+% & \cdot p(\text{edges after split on path to $i$}) \nonumber \\
+% & \cdot p(\text{edges after split on path to $j$}) \nonumber
+% \end{align}
 
-In the case where $i = j$, the paths never diverge (that is, there is no split), and so only the first factor contributes to the final product.
-Thus, for the remainder of this analysis, we assume $i \neq j$.
+% In the case where $i = j$, the paths never diverge (that is, there is no split), and so only the first factor contributes to the final product.
+% Thus, for the remainder of this analysis, we assume $i \neq j$.
 
-Let the path from the root to $i$ be denoted
-\begin{align}
-\nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(1)}_1 \to \cdots \to \nu^{(1)}_{L_1},
-\end{align}
-where $\nu^{(1)}_{L_1} = i$ and $\nu_s$ is the least common ancestor of $i$ and $j$.
-Similarly, let the path from the root to $j$ be denoted
-\begin{align}
-\nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(2)}_1 \to \cdots \to \nu^{(2)}_{L_2},
-\end{align}
-where $\nu^{(2)}_{L_2} = j$.
-Note that $\nu_0 \to \nu_1 \to \cdots \to \nu_s$ denotes the ``shared'' portion of the paths to $i$ and $j$.
+% Let the path from the root to $i$ be denoted
+% \begin{align}
+% \nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(1)}_1 \to \cdots \to \nu^{(1)}_{L_1},
+% \end{align}
+% where $\nu^{(1)}_{L_1} = i$ and $\nu_s$ is the least common ancestor of $i$ and $j$.
+% Similarly, let the path from the root to $j$ be denoted
+% \begin{align}
+% \nu_0 \to \nu_1 \to \cdots \to \nu_s \to \nu^{(2)}_1 \to \cdots \to \nu^{(2)}_{L_2},
+% \end{align}
+% where $\nu^{(2)}_{L_2} = j$.
+% Note that $\nu_0 \to \nu_1 \to \cdots \to \nu_s$ denotes the ``shared'' portion of the paths to $i$ and $j$.
 
-With this notation, we have
-\begin{align}
-p(\text{edges before split})
-&=
-\prod_{k=1}^s \frac
-  {\left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
-  {\left( 1 + \sum \alpha_{\nu_{k-1}} \right) \sum \alpha_{\nu_{k-1}} }
-\\
-p(\text{edges at split})
-&= \frac
-  {\alpha_{\nu_s \nu^{(1)}_1} \, \alpha_{\nu_s \nu^{(2)}_1}}
-  { \left( 1 + \sum \alpha_{\nu_s} \right) \sum \alpha_{\nu_s} }
-\\
-p(\text{edges after split on path to $i$})
-&=
-\prod_{k=2}^{L_1} \frac
-  {\alpha_{\nu^{(1)}_{k-1} \nu^{(1)}_k} }
-  { \sum \alpha_{\nu^{(1)}_{k-1}} }
-\label{eqn:singleFactorI}
-\\
-p(\text{edges after split on path to $j$})
-&=
-\prod_{k=2}^{L_2} \frac
-  {\alpha_{\nu^{(2)}_{k-1} \nu^{(2)}_k} }
-  { \sum \alpha_{\nu^{(2)}_{k-1}} }
-\label{eqn:singleFactorJ}
-\end{align}
+% With this notation, we have
+% \begin{align}
+% p(\text{edges before split})
+% &=
+% \prod_{k=1}^s \frac
+%   {\left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
+%   {\left( 1 + \sum \alpha_{\nu_{k-1}} \right) \sum \alpha_{\nu_{k-1}} }
+% \\
+% p(\text{edges at split})
+% &= \frac
+%   {\alpha_{\nu_s \nu^{(1)}_1} \, \alpha_{\nu_s \nu^{(2)}_1}}
+%   { \left( 1 + \sum \alpha_{\nu_s} \right) \sum \alpha_{\nu_s} }
+% \\
+% p(\text{edges after split on path to $i$})
+% &=
+% \prod_{k=2}^{L_1} \frac
+%   {\alpha_{\nu^{(1)}_{k-1} \nu^{(1)}_k} }
+%   { \sum \alpha_{\nu^{(1)}_{k-1}} }
+% \label{eqn:singleFactorI}
+% \\
+% p(\text{edges after split on path to $j$})
+% &=
+% \prod_{k=2}^{L_2} \frac
+%   {\alpha_{\nu^{(2)}_{k-1} \nu^{(2)}_k} }
+%   { \sum \alpha_{\nu^{(2)}_{k-1}} }
+% \label{eqn:singleFactorJ}
+% \end{align}
 
-We can now derive a closed-form expression for the entries of $C$.
-When we combine the above results, many factors cancel, yielding
-\begin{align}
-C_{i,j}
-&=
-\begin{cases}
-\left(
-  \prod_{k=1}^s
-  \frac { 1 + \alpha_{\nu_{k-1} \nu_k} } { \alpha_{\nu_{k-1} \nu_k} }
-\right)
-\cdot
-\left(
-  \prod_{k=0}^s
-  \frac { \sum \alpha_{\nu_k} } { 1 + \sum \alpha_{\nu_k} }
-\right),
-& i \neq j, \\
-\prod_{k=1}^s \frac
-  { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_{k-1}} }
-  { \left( 1 + \sum \alpha_{\nu_{k-1}} \right) \alpha_{\nu_{k-1} \nu_k} },
-& i = j.
-\end{cases}
-\label{eqn:closedFormC}
-\end{align}
+% We can now derive a closed-form expression for the entries of $C$.
+% When we combine the above results, many factors cancel, yielding
+% \begin{align}
+% C_{i,j}
+% &=
+% \begin{cases}
+% \left(
+%   \prod_{k=1}^s
+%   \frac { 1 + \alpha_{\nu_{k-1} \nu_k} } { \alpha_{\nu_{k-1} \nu_k} }
+% \right)
+% \cdot
+% \left(
+%   \prod_{k=0}^s
+%   \frac { \sum \alpha_{\nu_k} } { 1 + \sum \alpha_{\nu_k} }
+% \right),
+% & i \neq j, \\
+% \prod_{k=1}^s \frac
+%   { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_{k-1}} }
+%   { \left( 1 + \sum \alpha_{\nu_{k-1}} \right) \alpha_{\nu_{k-1} \nu_k} },
+% & i = j.
+% \end{cases}
+% \label{eqn:closedFormC}
+% \end{align}
 
-\begin{defn}[Limited-Sparsity Property]
-Suppose an HPAM2 model based on a tree $\mathcal T$ has a Dirichlet parameter vector $\alpha_\nu$ specified for each internal node $\nu$.
-We say this model satisfies the \emph{limited-sparsity property} if, for each edge between internal nodes $i \to j$, we have $\sum \alpha_j > \alpha_{ij}$.
-In other words, the sparsity of the Dirichlet distribution associated with each non-root internal node is limited by the Dirichlet parameter corresponding to its parent.
-\end{defn}
+% \begin{defn}[Limited-Sparsity Property]
+% Suppose an HPAM2 model based on a tree $\mathcal T$ has a Dirichlet parameter vector $\alpha_\nu$ specified for each internal node $\nu$.
+% We say this model satisfies the \emph{limited-sparsity property} if, for each edge between internal nodes $i \to j$, we have $\sum \alpha_j > \alpha_{ij}$.
+% In other words, the sparsity of the Dirichlet distribution associated with each non-root internal node is limited by the Dirichlet parameter corresponding to its parent.
+% \end{defn}
 
-\begin{claim}
-For any HPAM2 model based on a tree in which the Dirichlet parameters satisfy the limited-sparsity property, we have the following:
-\begin{itemize}
-  \item[(a)] If $i$ is a leaf node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to either the parent of $i$, a sibling of $i$, or a descendant of a sibling of $i$.
-  \item[(b)] If $i$ is an internal node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to any descendant of $i$.
-\end{itemize}
-\label{claim:CMatrixProperty}
-\end{claim}
+% \begin{claim}
+% For any HPAM2 model based on a tree in which the Dirichlet parameters satisfy the limited-sparsity property, we have the following:
+% \begin{itemize}
+%   \item[(a)] If $i$ is a leaf node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to either the parent of $i$, a sibling of $i$, or a descendant of a sibling of $i$.
+%   \item[(b)] If $i$ is an internal node, then the maximum value of $C_{i,j}$ for $j \neq i$ is attained when $j$ corresponds to any descendant of $i$.
+% \end{itemize}
+% \label{claim:CMatrixProperty}
+% \end{claim}
 
-We prove this claim using the following lemmas.
+% We prove this claim using the following lemmas.
 
-\begin{lemma}
-If $a$, $b$, and $c$ are three distinct nodes, then $\text{LCA}(a,b) = \text{LCA}(a,c)$ implies $C_{a,b} = C_{a,c}$.
-\label{lemma:equalLCA}
-\end{lemma}
+% \begin{lemma}
+% If $a$, $b$, and $c$ are three distinct nodes, then $\text{LCA}(a,b) = \text{LCA}(a,c)$ implies $C_{a,b} = C_{a,c}$.
+% \label{lemma:equalLCA}
+% \end{lemma}
 
-\begin{proof}
-This lemma follows from the fact that, as long as $i \neq j$, the expression for $C_{i,j}$ derived in equation~\eqref{eqn:closedFormC} does not depend on any nodes except for those on the path from the root to $\text{LCA}(i,j)$.
-\end{proof}
+% \begin{proof}
+% This lemma follows from the fact that, as long as $i \neq j$, the expression for $C_{i,j}$ derived in equation~\eqref{eqn:closedFormC} does not depend on any nodes except for those on the path from the root to $\text{LCA}(i,j)$.
+% \end{proof}
 
-\begin{lemma}
-Suppose the premises of Claim~\ref{claim:CMatrixProperty} hold, and suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b)$ is a strict descendant of $\text{LCA}(a,c)$.
-Then $C_{a,b} > C_{a,c}$.
-\label{lemma:greaterLCA}
-\end{lemma}
+% \begin{lemma}
+% Suppose the premises of Claim~\ref{claim:CMatrixProperty} hold, and suppose we have three distinct nodes $a$, $b$, and $c$, where $\text{LCA}(a,b)$ is a strict descendant of $\text{LCA}(a,c)$.
+% Then $C_{a,b} > C_{a,c}$.
+% \label{lemma:greaterLCA}
+% \end{lemma}
 
-\begin{proof}
-Let $\lambda = \text{LCA}(a,b)$ and let $\mu = \text{LCA}(a,c)$ such that $\lambda$ is a strict descendant of $\mu$.
-Thus, the path from the root to $\lambda$ includes $\mu$.
-Let the path from the root to $\lambda$ be denoted by
-\begin{align}
-\nu_0 \to \nu_1 \to \cdots \to \nu_{s_1} \to \cdots \to \nu_{s_2},
-\end{align}
-where $\nu_{s_1} = \mu$ and $\nu_{s_2} = \lambda$ for $s_1 < s_2$.
+% \begin{proof}
+% Let $\lambda = \text{LCA}(a,b)$ and let $\mu = \text{LCA}(a,c)$ such that $\lambda$ is a strict descendant of $\mu$.
+% Thus, the path from the root to $\lambda$ includes $\mu$.
+% Let the path from the root to $\lambda$ be denoted by
+% \begin{align}
+% \nu_0 \to \nu_1 \to \cdots \to \nu_{s_1} \to \cdots \to \nu_{s_2},
+% \end{align}
+% where $\nu_{s_1} = \mu$ and $\nu_{s_2} = \lambda$ for $s_1 < s_2$.
 
-Using equation~\eqref{eqn:closedFormC} and the fact that $a \neq b$ and $a \neq c$, we can compute
-\begin{align}
-\frac{C_{a,b}}{C_{a,c}}
-&=
-\prod_{k=s_1+1}^{s_2}
-\frac
-  { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_k} }
-  { \left( 1 + \sum \alpha_{\nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
-\\
-&=
-\prod_{k=s_1+1}^{s_2}
-\frac
-  { \sum \alpha_{\nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
-  { \alpha_{\nu_{k-1} \nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
-\end{align}
-%
-Since we assumed that our model satisfies the limited-sparsity property, we know that $\sum \alpha_{\nu_k} > \alpha_{\nu_{k-1} \nu_k}$ for all $k$ such that $s_1 < k \leq s_2$; therefore, each factor in the above product is greater than $1$.
-Furthermore, since $s_1 < s_2$, we know that the above product contains at least one factor.
-Thus, we can conclude $C_{a,b} > C_{a,c}$.
-\end{proof}
+% Using equation~\eqref{eqn:closedFormC} and the fact that $a \neq b$ and $a \neq c$, we can compute
+% \begin{align}
+% \frac{C_{a,b}}{C_{a,c}}
+% &=
+% \prod_{k=s_1+1}^{s_2}
+% \frac
+%   { \left( 1 + \alpha_{\nu_{k-1} \nu_k} \right) \sum \alpha_{\nu_k} }
+%   { \left( 1 + \sum \alpha_{\nu_k} \right) \alpha_{\nu_{k-1} \nu_k} }
+% \\
+% &=
+% \prod_{k=s_1+1}^{s_2}
+% \frac
+%   { \sum \alpha_{\nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
+%   { \alpha_{\nu_{k-1} \nu_k} + \alpha_{\nu_{k-1} \nu_k} \sum \alpha_{\nu_k} }
+% \end{align}
+% %
+% Since we assumed that our model satisfies the limited-sparsity property, we know that $\sum \alpha_{\nu_k} > \alpha_{\nu_{k-1} \nu_k}$ for all $k$ such that $s_1 < k \leq s_2$; therefore, each factor in the above product is greater than $1$.
+% Furthermore, since $s_1 < s_2$, we know that the above product contains at least one factor.
+% Thus, we can conclude $C_{a,b} > C_{a,c}$.
+% \end{proof}
 
-\begin{proof}[Proof of Claim~\ref{claim:CMatrixProperty}]
-First, suppose $i$ is a leaf node, and let $S$ be the set containing the parent of $i$, the siblings of $i$, and the descendants of all siblings of $i$.
-If $i$ is a leaf with no parent, then $i$ must be the only node in the tree, and Claim~\ref{claim:CMatrixProperty}(a) is vacuously true.
-Thus, assume $i$ has a parent.
-For any $j_1, j_2 \in S$, we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = \text{parent}(i)$.
-Therefore, we have $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
-Next, suppose $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$.
-Then, we know that $\text{LCA}(i,j) = \text{parent}(i)$, which must be a strict descendant of $\text{LCA}(i,k)$.
-This is because $k \neq i$, $k \notin S$, and $i$ has no descendants of its own.
-Therefore, $C_{i,j} > C_{i,k}$ using Lemma~\ref{lemma:greaterLCA}.
-This proves Claim~\ref{claim:CMatrixProperty}(a).
+% \begin{proof}[Proof of Claim~\ref{claim:CMatrixProperty}]
+% First, suppose $i$ is a leaf node, and let $S$ be the set containing the parent of $i$, the siblings of $i$, and the descendants of all siblings of $i$.
+% If $i$ is a leaf with no parent, then $i$ must be the only node in the tree, and Claim~\ref{claim:CMatrixProperty}(a) is vacuously true.
+% Thus, assume $i$ has a parent.
+% For any $j_1, j_2 \in S$, we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = \text{parent}(i)$.
+% Therefore, we have $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
+% Next, suppose $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$.
+% Then, we know that $\text{LCA}(i,j) = \text{parent}(i)$, which must be a strict descendant of $\text{LCA}(i,k)$.
+% This is because $k \neq i$, $k \notin S$, and $i$ has no descendants of its own.
+% Therefore, $C_{i,j} > C_{i,k}$ using Lemma~\ref{lemma:greaterLCA}.
+% This proves Claim~\ref{claim:CMatrixProperty}(a).
 
-Second, suppose $i$ is an internal node, and let $S$ be the set of all descendants of $i$ (excluding $i$ itself).
-Since $i$ is an internal node, $S$ must be nonempty.
-If $j_1, j_2 \in S$, then we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = i$ and therefore $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
-Next, if $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$, then we know $\text{LCA}(i,j) = i$ whereas $\text{LCA}(i,k)$ is a strict ancestor of $i$.
-That is, $\text{LCA}(i,j)$ is a strict descendant of $\text{LCA}(i,k)$.
-Then we can apply Lemma~\ref{lemma:greaterLCA} to obtain $C_{i,j} > C_{i,k}$.
-This proves Claim~\ref{claim:CMatrixProperty}(b).
-\end{proof}
+% Second, suppose $i$ is an internal node, and let $S$ be the set of all descendants of $i$ (excluding $i$ itself).
+% Since $i$ is an internal node, $S$ must be nonempty.
+% If $j_1, j_2 \in S$, then we know that $\text{LCA}(i, j_1) = \text{LCA}(i, j_2) = i$ and therefore $C_{i,j_1} = C_{i,j_2}$ by Lemma~\ref{lemma:equalLCA}.
+% Next, if $j$ is any node in $S$ and $k$ is any node outside of $S$ that is distinct from $i$, then we know $\text{LCA}(i,j) = i$ whereas $\text{LCA}(i,k)$ is a strict ancestor of $i$.
+% That is, $\text{LCA}(i,j)$ is a strict descendant of $\text{LCA}(i,k)$.
+% Then we can apply Lemma~\ref{lemma:greaterLCA} to obtain $C_{i,j} > C_{i,k}$.
+% This proves Claim~\ref{claim:CMatrixProperty}(b).
+% \end{proof}
 
 %TODO: Derive an algorithm that can provably extract the correct tree structure given the matrix $C$.
 %(Try using Aho's algorithm for tree construction based on triplet constraints?)
