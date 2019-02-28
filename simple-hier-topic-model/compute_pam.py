@@ -1,3 +1,5 @@
+from __future__ import division
+
 import numpy as np
 import networkx as nx
 from collections import defaultdict, Counter
@@ -44,7 +46,7 @@ def compute_combo_probability(g, path_combo, alpha_func = None, alpha_mode = Non
         for src, dest in gen_transitions(path):
             transitions[src][dest] += 1
     
-    result = 1.0
+    result = 1
     for src, dest_counter in transitions.items():
         if alpha_mode is None:
             nc = num_children(src)
@@ -54,10 +56,10 @@ def compute_combo_probability(g, path_combo, alpha_func = None, alpha_mode = Non
         else:
             raise ValueError("Unrecognized alpha_mode: {}".format(alpha_mode))
         alpha_exit, alpha_child = alpha[0], alpha[1]
-        denom = 1.0
+        denom = 1
         for i in range(sum(dest_counter.values())):
             denom *= alpha.sum() + i
-        numer = 1.0
+        numer = 1
         for dest, count in dest_counter.items():
             a = alpha_exit if dest is None else alpha_child
             for i in range(count):
@@ -74,14 +76,16 @@ def compute_combo_tensor(g, combo_size = 2, alpha_func = None, alpha_mode = None
         result[coords] += compute_combo_probability(g, combo, alpha_func = alpha_func, alpha_mode = alpha_mode)
     return result
 
-def compute_combo_tensor_pam(g, combo_size = 2, alpha = 1.0, return_leaf_paths = False):
+def compute_combo_tensor_pam(g, combo_size = 2, alpha = 1.0, return_leaf_paths = False, ndarray_kwargs = None):
+    if ndarray_kwargs is None:
+        ndarray_kwargs = dict()
     leaf_paths = []
     for node, d in dict(g.out_degree).items():
         if d == 0:
             path = nx.shortest_path(g, g.graph["root"], node)
             leaf_paths.append(path)
     num_leaves = len(leaf_paths)
-    result = np.zeros(tuple(num_leaves for i in range(combo_size)))
+    result = np.zeros(tuple(num_leaves for i in range(combo_size)), **ndarray_kwargs)
     for combo in itertools.product(range(len(leaf_paths)), repeat = combo_size):
         path_combo = [leaf_paths[i] for i in combo]
         result[combo] += compute_combo_probability_pam(
@@ -104,13 +108,13 @@ def compute_combo_probability_pam(g, path_combo, alpha = 1.0):
         for src, dest in gen_transitions(path):
             transitions[src][dest] += 1
 
-    result = 1.0
+    result = 1
     for src, dest_counter in transitions.items():
-        denom = 1.0
+        denom = 1
         current_alpha = alpha.calc(node_id = src, num_children = num_children(src))
         for i in range(sum(dest_counter.values())):
             denom *= np.sum(current_alpha) + i
-        numer = 1.0
+        numer = 1
         neighbors_to_index = {n: i for i, n in enumerate(list(g.neighbors(src)))}
         for dest, count in dest_counter.items():
             j = neighbors_to_index[dest]
