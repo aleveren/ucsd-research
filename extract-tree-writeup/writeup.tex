@@ -253,11 +253,11 @@ P(\pi_{d,1} = i)
 \subsection{Topic Co-occurrence Probabilities in TreePAM}
 
 Next, we compute topic co-occurrence probabilities for the TreePAM model.
-Specifically, we wish to know $P(\pi_{d,1} = i, \pi_{d,2} = j)$, the probability that a single document contains some pair of topics corresponding to leaf nodes $i, j \in \leaves(T)$.
+Specifically, we wish to know $R_{i,j} = P(\pi_{d,1} = i, \pi_{d,2} = j)$, the probability that a single document contains some pair of topics corresponding to leaf nodes $i, j \in \leaves(T)$.
 
 Let $\nu_0$ denote the root node of $T$, and let $\nu_s$ denote the least common ancestor of $i$ and $j$.
-Let the nodes descended from $\nu_s$ along the path to $i$ be denoted $\nu^{(1)}_1, \ldots, \nu^{(1)}_{L_1}$.
-Similarly, let the nodes descended from $\nu_s$ along the path to $j$ be denoted $\nu^{(2)}_1, \ldots, \nu^{(2)}_{L_2}$.
+Let the nodes descended from $\nu_s$ along the path to $i$ be denoted $\nu^{(1)}_{s+1}, \ldots, \nu^{(1)}_{L_1}$.
+Similarly, let the nodes descended from $\nu_s$ along the path to $j$ be denoted $\nu^{(2)}_{s+1}, \ldots, \nu^{(2)}_{L_2}$.
 Graphically, we can view the rooted paths to $i$ and $j$ as follows:
 \begin{center}
 \begin{tikzpicture}
@@ -266,11 +266,11 @@ Graphically, we can view the rooted paths to $i$ and $j$ as follows:
 \node (dots0) [right of=nu1] {$\cdots$};
 \node (nus1) [right of=dots0] {$\nu_{s-1}$};
 \node (nus) [right of=nus1] {$\nu_s$};
-\node (nu11) [above right of=nus] {$\nu^{(1)}_{1}$};
+\node (nu11) [above right of=nus] {$\nu^{(1)}_{s+1}$};
 \node (dots1) [right of=nu11] {$\cdots$};
 \node (nu1L1) [right of=dots1] {$\nu^{(1)}_{L_1}$};
 \node (eq1) [right of=nu1L1] {$(= i)$};
-\node (nu21) [below right of=nus] {$\nu^{(2)}_{1}$};
+\node (nu21) [below right of=nus] {$\nu^{(2)}_{s+1}$};
 \node (dots2) [right of=nu21] {$\cdots$};
 \node (nu2L2) [right of=dots2] {$\nu^{(2)}_{L_2}$};
 \node (eq2) [right of=nu2L2] {$(= j)$};
@@ -293,8 +293,9 @@ With this notation, we can integrate over all the random vectors $\theta_{d,\nu}
 % TODO: resize / reformat?
 \newcommand{\prefix}{\int_{\tilde \theta_d \in \Theta_d} \tallbracketl{[}{5ex}}
 \begin{align*}
-\MoveEqLeft
-P(\pi_{d,1} = i, \pi_{d,2} = j)
+%\MoveEqLeft
+R_{i,j}
+={}&P(\pi_{d,1} = i, \pi_{d,2} = j)
 \\
 ={}&
 \prefix
@@ -313,7 +314,7 @@ P(\pi_{d,1} = i, \pi_{d,2} = j)
   \right)
   \tilde \theta_{d,\nu_s,\nu^{(1)}_1}
   \left(
-    \prod_{k=1}^{L_1-1} \tilde \theta_{d,\nu^{(1)}_{k},\nu^{(1)}_{k+1}}
+    \prod_{k=s+1}^{L_1-1} \tilde \theta_{d,\nu^{(1)}_{k},\nu^{(1)}_{k+1}}
   \right)
 \\ &\phantom{\prefix}
   \cdot
@@ -322,7 +323,7 @@ P(\pi_{d,1} = i, \pi_{d,2} = j)
   \right)
   \tilde \theta_{d,\nu_s,\nu^{(2)}_1}
   \left(
-    \prod_{k=1}^{L_2-1} \tilde \theta_{d,\nu^{(2)}_{k},\nu^{(2)}_{k+1}}
+    \prod_{k=s+1}^{L_2-1} \tilde \theta_{d,\nu^{(2)}_{k},\nu^{(2)}_{k+1}}
   \right)
   \left(
     \prod_{\nu \in \nonTerm(T)}
@@ -334,11 +335,14 @@ P(\pi_{d,1} = i, \pi_{d,2} = j)
 \end{align*}
 }
 
-Next, we have two cases, depending on whether $i = j$.
+Next, we have two cases, depending on whether or not $i$ and $j$ are distinct.
 If $i \neq j$, then
-\begin{align*}
-\MoveEqLeft
-P(\pi_{d,1} = i, \pi_{d,2} = j) \\
+\begin{align}
+%\MoveEqLeft
+R_{i,j}
+={}&P(\pi_{d,1} = i, \pi_{d,2} = j)
+\nonumber
+\\
 ={}&
 \left(
   \prod_{k=0}^{s-1}
@@ -349,16 +353,19 @@ P(\pi_{d,1} = i, \pi_{d,2} = j) \\
   \frac{B(\vec\alpha_{\nu_s} + \vec e_{\nu^{(1)}_{1}} + \vec e_{\nu^{(2)}_{1}})}
        {B(\vec\alpha_{\nu_s})}
 \right)
+\nonumber
+\\ & \cdot
 \left(
-  \prod_{k=1}^{L_1-1}
+  \prod_{k=s+1}^{L_1-1}
   \frac{B(\vec\alpha_{\nu^{(1)}_{k}} + \vec e_{\nu^{(1)}_{k+1}})}
        {B(\vec\alpha_{\nu^{(1)}_{k}})}
 \right)
 \left(
-  \prod_{k=1}^{L_2-1}
+  \prod_{k=s+1}^{L_2-1}
   \frac{B(\vec\alpha_{\nu^{(2)}_{k}} + \vec e_{\nu^{(2)}_{k+1}})}
        {B(\vec\alpha_{\nu^{(2)}_{k}})}
 \right)
+\nonumber
 \\
 ={}&
 \left(
@@ -370,32 +377,40 @@ P(\pi_{d,1} = i, \pi_{d,2} = j) \\
   \frac{(\alpha_{\nu_s,\nu^{(1)}_{1}}) (\alpha_{\nu_s,\nu^{(2)}_{1}})}
        {(1 + \sum_{\nu'} \alpha_{\nu_s,\nu'}) (\sum_{\nu'} \alpha_{\nu_s,\nu'})}
 \right)
-%\\ & \cdot
+\nonumber
+\\ & \cdot
 \left(
-  \prod_{k=1}^{L_1-1}
+  \prod_{k=s+1}^{L_1-1}
   \frac{\alpha_{\nu^{(1)}_{k}, \nu^{(1)}_{k+1}}}
        {\sum_{\nu'} \alpha_{\nu^{(1)}_{k}, \nu'}}
 \right)
 \left(
-  \prod_{k=1}^{L_2-1}
+  \prod_{k=s+1}^{L_2-1}
   \frac{\alpha_{\nu^{(2)}_{k}, \nu^{(2)}_{k+1}}}
        {\sum_{\nu'} \alpha_{\nu^{(2)}_{k}, \nu'}}
 \right)
-\end{align*}
+\label{eqn:cooccurDistinct}
+\end{align}
 
-On the other hand, if $i = j$, there are no nodes beyond the split point $\nu_s$, and so
-\begin{align*}
-P(\pi_{d,1} = i, \pi_{d,2} = j)
+On the other hand, if $i = j$, there are no nodes beyond the split point $\nu_s$, which means $L_1 = L_2 = s$.
+Therefore,
+\begin{align}
+R_{i,i}
+&= P(\pi_{d,1} = i, \pi_{d,2} = i)
+\nonumber
+\\
 &=
   \prod_{k=0}^{s-1}
   \frac{B(\vec\alpha_{\nu_k} + 2 \vec e_{\nu_{k+1}})}
        {B(\vec\alpha_{\nu_k})}
+\nonumber
 \\
 &=
 \prod_{k=0}^{s-1}
 \frac{(1 + \alpha_{\nu_k,\nu_{k+1}}) (\alpha_{\nu_k,\nu_{k+1}})}
      {(1 + \sum_{\nu'} \alpha_{\nu_k,\nu'}) (\sum_{\nu'} \alpha_{\nu_k,\nu'})}
-\end{align*}
+\label{eqn:cooccurSame}
+\end{align}
 
 Next, we'll derive a closed-form expression for the entries of the co-occurrence ratio matrix $\Rbar$:
 \begin{align*}
@@ -442,7 +457,7 @@ In particular, note that $\Rbar_{i,j}$ can be viewed as a function of the least 
 
 \begin{defn}[Limited-Sparsity Property]
 Suppose a TreePAM model has a Dirichlet parameter vector $\alpha_\nu$ specified for each internal node $\nu$.
-We say this model satisfies the \emph{limited-sparsity property} if, for each edge between internal nodes $i \to j$, we have $\sum \alpha_j > \alpha_{ij}$.
+We say this model satisfies the \emph{limited-sparsity property} if, for each edge between internal nodes $i \to j$, we have $\sum_k \alpha_{j,k} > \alpha_{i,j}$.
 In other words, the sparsity of the Dirichlet distribution associated with each non-root internal node is limited by the Dirichlet parameter corresponding to its parent.
 \end{defn}
 
@@ -473,9 +488,9 @@ Then $\Rbar_{a,b} > \Rbar_{a,c}$.
 Let $\lambda = \text{LCA}(a,b)$ and let $\mu = \text{LCA}(a,c)$ such that $\lambda$ is a strict descendant of $\mu$.
 Thus, the path from the root to $\lambda$ includes $\mu$.
 Let the path from the root to $\lambda$ be denoted by
-\begin{align}
+\begin{align*}
 \nu_0 \to \nu_1 \to \cdots \to \nu_{s_1} \to \cdots \to \nu_{s_2},
-\end{align}
+\end{align*}
 where $\nu_{s_1} = \mu$ and $\nu_{s_2} = \lambda$ for $s_1 < s_2$.
 
 Using equation~\eqref{eqn:closedFormRbar} and the fact that $a \neq b$ and $a \neq c$, we can compute
@@ -563,15 +578,21 @@ In our proposed algorithm, a triplet constraint $(\{a,b\},c)$ will be passed to 
 This will occur if and only if $\RbarEst_{a,b} > \RbarEst_{a,c} + \tau$ and $\RbarEst_{a,b} > \RbarEst_{b,c} + \tau$, which completes our proof that $C_T$ is the set of constraints that we will pass to Aho's algorithm.
 \end{proof}
 
-\begin{itemize}
-\item Let us say that a rooted, directed tree is \emph{admissible} if it has no nodes with exactly one child.
-If $T$ is any tree, then $T$ satisfies the set of triplet constraints $C_T$ defined above.
+{\bf TODO: Pick up here}
+
+\paragraph{Tree recovery}
+Let us say that a rooted, directed tree is \emph{admissible} if it has no nodes with exactly one child.
+If $T$ is any tree, then $T$ satisfies exactly the set of triplet constraints $C_T$ defined above.
+That is, $T$ satisfies every triplet constraint in $C_T$ but does not satisfy any other triplet constraints.
 (This fact comes directly from the definition of triplet constraints.)
 Furthermore, if $T$ is admissible, then it is the only admissible tree to do so.
 ({\bf TODO: proof})
 Thus, Aho's algorithm will output $T$ when given the set of constraints $C_T$.
-%
-\item Suppose the TreePAM model's parameters $\alpha_{\nu,\nu'}$ are bounded above by $\alphaMax$.
+
+%%%%%%%%%%
+
+\paragraph{Bound on minimum spacing for ratio-matrix entries}
+Suppose the TreePAM model's parameters $\alpha_{\nu,\nu'}$ are bounded above by $\alphaMax$.
 Suppose also that they satisfy the limited-sparsity property with a margin of at least $\deltaMin$; that is, for every edge $i \to j$ between internal nodes,
 \begin{align*}
 \sum_{\nu'} \alpha_{j,\nu'} > \alpha_{i,j} + \deltaMin.
@@ -582,27 +603,30 @@ Then we can use
 \end{align*}
 as a lower bound for $\min |\Rbar_{a,b} - \Rbar_{a,c}|$.
 Consequently, if we can estimate $\Rbar$ with additive error upper-bounded by $\epsilon \leq \phi/4$, and if we set our constraint-strength threshold $\tau = 2\epsilon$, our proposed algorithm will exactly recover the true tree $T$.
-\par
+
 {\bf TODO: Proof}
-%
-\item TODO: Can we also recover all of the Dirichlet parameters $\alpha_{\nu,\nu'}$ with some bounded level of accuracy?
-(Need an algorithm to do so?)
-%
-\item Setting $\deltaMin$ and $\alphaMax$ effectively corresponds to selecting a restricted hypothesis class of TreePAM models.
+
+%%%%%%%%%%%%
+
+\paragraph{Restricted hypothesis class}
+Setting $\deltaMin$ and $\alphaMax$ effectively corresponds to selecting a restricted hypothesis class of TreePAM models.
 Once a hypothesis class has been selected, we can then compute $\phi$, and from that we can determine the maximum error tolerance $\epsilon = \phi/4$ and the constraint-strength cutoff $\tau = \phi/2$.
 Let's consider some examples of $\phi$ calculations corresponding to concrete settings for $\deltaMin$ and $\alphaMax$.
-\par
+
 Example: if $\deltaMin = 1$ and $\alphaMax = 8$, then we can set $\phi = 1/90$, which means we need to be able to estimate $\Rbar$ with additive noise less than $1/(90 \cdot 4) = 1/360$.
 We can use a constraint-strength cutoff of $\tau = 1/(90 \cdot 2) = 1/180$.
-\par
+
 Example: if $\deltaMin = 1/100$ and $\alphaMax = 100$, then we can set $\phi \approx 9.8 \times 10^{-7}$, which means we need to be able to estimate $\Rbar$ with additive noise less than $\phi/4 \approx 2.45 \times 10^{-7}$.
 We can use a constraint-strength cutoff of $\tau = \phi/2 \approx 4.9 \times 10^{-7}$.
-\par
+
 These examples illustrate a key tradeoff: a broader hypothesis class requires us to more accurately estimate the $\Rbar$ matrix.
-%
-\item Next, we'll show that both of the bounds $\alphaMax$ and $\deltaMin$ are necessary to prevent $\phi$ from becoming arbitrarily small.
+
+%%%%%%%%%%%
+
+\paragraph{Necessity of both bounds}
+Next, we'll show that both of the bounds $\alphaMax$ and $\deltaMin$ are necessary to prevent $\phi$ from becoming arbitrarily small.
 Without one or the other, we can force $\phi$ to be arbitrarily close to zero.
-\par
+
 Specifically, consider 4-leaf binary tree where the root has $\vec\alpha = (x,x)$ and the two children below the root each have $\vec\alpha = (y,y)$.
 If we number the leaves left-to-right as $1$ through $4$, the minimum nonzero difference in $\Rbar$ occurs between
 \begin{align*}
@@ -612,7 +636,42 @@ If we number the leaves left-to-right as $1$ through $4$, the minimum nonzero di
 corresponding to the triplet constraint $(\{1,2\},3)$.
 Then, if we violate the $\alphaMax$ bound, by letting $x = y$ as $x,y \to \infty$, we see that $|\Rbar_{1,2} - \Rbar_{1,3}| \to 0$.
 Similarly, this difference can get arbitrarily close to $0$ if we violate the $\deltaMin$ bound, by holding $x$ fixed and letting $y = (x+t) / 2$ as $t \to 0$.
-\end{itemize}
+
+%%%%%%%%%%
+
+\paragraph{Recovering Dirichlet parameters}
+In addition to recovering the tree $T$ associated with an unknown TreePAM model, we also wish to recover all of the model's Dirichlet parameters $\alpha_{\nu,\nu'}$.
+In this section, we derive an algorithm for doing so.
+
+Suppose $i$ and $j$ are distinct leaves in $T$.
+Combining equations \eqref{eqn:cooccurDistinct} and \eqref{eqn:cooccurSame}, and reusing the same indexing notation, we have
+\begin{align*}
+\frac{R_{i,j}}{R_{i,i}}
+&=
+\frac
+  { \alpha_{ \nu_s, \nu_{s+1}^{(2)} } }
+  { 1 + \alpha_{ \nu_s, \nu_{s+1}^{(1)} } }
+\left(
+  \prod_{k=s+1}^{L_1-1}
+    \frac
+      { 1 + \alpha_{ \nu_k^{(1)}, \nu_{k+1}^{(1)} } }
+      { 1 + \sum_{\nu'} \alpha_{ \nu_k^{(1)}, \nu' } }
+\right)
+\left(
+  \prod_{k=s+1}^{L_2-1}
+    \frac
+      { \alpha_{ \nu_k^{(2)}, \nu_{k+1}^{(2)} } }
+      { \sum_{\nu'} \alpha_{ \nu_k^{(2)}, \nu' } }
+\right)
+\end{align*}
+When the leaves $i$ and $j$ share the same parent $p$, we know that $L_1 = L_2 = s+1$, and the above formula reduces to
+\begin{align*}
+\frac{R_{i,j}}{R_{i,i}}
+&=
+\frac
+  { \alpha_{ p, j } }
+  { 1 + \alpha_{ p, i } }
+\end{align*}
 
 \section{Experimental Results on Simulated Data}
 
