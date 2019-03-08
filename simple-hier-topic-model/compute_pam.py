@@ -165,6 +165,17 @@ class NodeIDAlphaCalc(AlphaCalc):
         assert len(result) == num_children
         return result
 
+class IndividualNodeAlphaCalc(AlphaCalc):
+    def __init__(self, tree, values):
+        self.tree = tree
+        self.values = values
+
+    def calc(self, node_id, num_children):
+        children = list(self.tree.neighbors(node_id))
+        assert len(children) == num_children
+        alphas = np.array([self.values[c] for c in children])
+        return alphas
+
 def tensor_to_matrix(T):
     if np.ndim(T) < 2:
         T = np.atleast_2d(T)
