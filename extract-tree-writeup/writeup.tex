@@ -640,7 +640,7 @@ Similarly, this difference can get arbitrarily close to $0$ if we violate the $\
 %%%%%%%%%%
 
 \paragraph{Recovering Dirichlet parameters}
-In addition to recovering the tree $T$ associated with an unknown TreePAM model, we also wish to recover all of the model's Dirichlet parameters $\alpha_{\nu,\nu'}$.
+In addition to recovering the tree $T$ associated with an unknown TreePAM model, we also wish to recover the Dirichlet parameters $\alpha_{\nu,\nu'}$ associated with the edges of the tree.
 In this section, we derive an algorithm for doing so.
 
 Suppose $i$ and $j$ are distinct leaves in $T$.
@@ -654,8 +654,8 @@ Combining equations \eqref{eqn:cooccurDistinct} and \eqref{eqn:cooccurSame}, and
 \left(
   \prod_{k=s+1}^{L_1-1}
     \frac
-      { 1 + \alpha_{ \nu_k^{(1)}, \nu_{k+1}^{(1)} } }
       { 1 + \sum_{\nu'} \alpha_{ \nu_k^{(1)}, \nu' } }
+      { 1 + \alpha_{ \nu_k^{(1)}, \nu_{k+1}^{(1)} } }
 \right)
 \left(
   \prod_{k=s+1}^{L_2-1}
@@ -671,6 +671,53 @@ When the leaves $i$ and $j$ share the same parent $p$, we know that $L_1 = L_2 =
 \frac
   { \alpha_{ p, j } }
   { 1 + \alpha_{ p, i } }
+\end{align*}
+
+These formulas suggest that we can first solve for Dirichlet parameters towards the bottom of the tree (specifically, the outgoing edges from nodes that have only leaf nodes as children).
+Then, we can repeatedly substitute these values into equation (*TODO) and solve for Dirichlet parameters at the next highest edges in the tree.
+
+**General formula:
+At node $p$, with children $c_1, \ldots, c_k$, the parameters $\alpha_{p,c_i}$ can be found using the following formula:
+\newcommand{\leaf}{\text{leaf}}
+\begin{align*}
+\alpha_{p,c_i}
+&=
+\frac
+  { \displaystyle
+    \sum_{n=0}^{k-1}
+    \left(
+      \prod_{m=0}^{n-1} R^*_{w(c_i,m), w(c_i,m)}
+    \right)
+    \left(
+      \prod_{m=n}^{k-1} R^*_{w(c_i,m), w(c_i,m+1)}
+    \right)
+  }
+  {
+    \displaystyle
+    \prod_{j=1}^k R^*_{c_j,c_j} - \prod_{j=1}^k R^*_{c_j,w(c_j,1)}
+  }
+\shortintertext{where}
+w(c_i,m)
+&= c_{(i+m) \text{ mod } k},
+\\
+R^*_{c_a,c_b}
+&= \frac{ R_{\leaf(c_a),\leaf(c_b)} }{ f(c_a, c_b) },
+\\
+f(c_a, c_b)
+&=
+\left(
+  \prod_{k=s+1}^{L_1-1}
+    \frac
+      { 1 + \sum_{\nu'} \alpha_{ \nu_k^{(1)}, \nu' } }
+      { 1 + \alpha_{ \nu_k^{(1)}, \nu_{k+1}^{(1)} } }
+\right)
+\left(
+  \prod_{k=s+1}^{L_2-1}
+    \frac
+      { \alpha_{ \nu_k^{(2)}, \nu_{k+1}^{(2)} } }
+      { \sum_{\nu'} \alpha_{ \nu_k^{(2)}, \nu' } }
+\right)
+% TODO: fix this notation
 \end{align*}
 
 \section{Experimental Results on Simulated Data}
