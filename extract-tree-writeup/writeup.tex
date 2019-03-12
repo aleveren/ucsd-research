@@ -687,7 +687,7 @@ In fact, when two distinct nodes $c_a$ and $c_b$ are siblings that share a paren
 where
 \begin{align*}
 R^*_{c_a,c_b}
-&= R_{\leaf(c_a),\leaf(c_b)} \cdot \frac{ f_1(c_b, \ldots, \leaf(c_b)) }{ f_0(c_a, \ldots, \leaf(c_a)) },
+&= R_{\leaf(c_a),\leaf(c_b)} \cdot \frac{ f_1(c_a, \ldots, \leaf(c_a)) }{ f_0(c_b, \ldots, \leaf(c_b)) },
 \\
 f_t(\nu_{1}, \ldots, \nu_L)
 &=
@@ -748,8 +748,8 @@ The solution to this system can be found using the following formula:
 w(c_i,m)
 &=
 \begin{cases}
-c_{i+1}, & \text{if } i < k, \\
-c_1, & \text{if } i = k.
+c_{i+m}, & \text{if } i + m \leq k, \\
+c_{i+m-k}, & \text{if } i + m > k.
 \end{cases}
 \nonumber
 \end{align}
