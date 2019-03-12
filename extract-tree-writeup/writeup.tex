@@ -57,6 +57,7 @@
 \newcommand{\alphaMax}{\alpha_{\text{max}}}
 \newcommand{\LCA}{\text{LCA}}
 \newcommand{\RbarEst}{\Rbar^\text{(est)}}
+\newcommand{\leaf}{\text{leaf}}
 
 \newcommand{\TODOcite}{[?]}
 
@@ -645,7 +646,7 @@ In this section, we derive an algorithm for doing so.
 
 Suppose $i$ and $j$ are distinct leaves in $T$.
 Combining equations \eqref{eqn:cooccurDistinct} and \eqref{eqn:cooccurSame}, and reusing the same indexing notation, we have
-\begin{align*}
+\begin{align}
 \frac{R_{i,j}}{R_{i,i}}
 &=
 \frac
@@ -663,23 +664,69 @@ Combining equations \eqref{eqn:cooccurDistinct} and \eqref{eqn:cooccurSame}, and
       { \alpha_{ \nu_k^{(2)}, \nu_{k+1}^{(2)} } }
       { \sum_{\nu'} \alpha_{ \nu_k^{(2)}, \nu' } }
 \right)
-\end{align*}
+\label{eqn:extractAlphaRecursive}
+\end{align}
 When the leaves $i$ and $j$ share the same parent $p$, we know that $L_1 = L_2 = s+1$, and the above formula reduces to
-\begin{align*}
+\begin{align}
 \frac{R_{i,j}}{R_{i,i}}
 &=
 \frac
   { \alpha_{ p, j } }
   { 1 + \alpha_{ p, i } }
-\end{align*}
-
-These formulas suggest that we can first solve for Dirichlet parameters towards the bottom of the tree (specifically, the outgoing edges from nodes that have only leaf nodes as children).
-Then, we can repeatedly substitute these values into equation (*TODO) and solve for Dirichlet parameters at the next highest edges in the tree.
-
-**General formula:
-At node $p$, with children $c_1, \ldots, c_k$, the parameters $\alpha_{p,c_i}$ can be found using the following formula:
-\newcommand{\leaf}{\text{leaf}}
+\label{eqn:extractAlphaBaseCase}
+\end{align}
+In fact, when two distinct nodes $c_a$ and $c_b$ are siblings that share a parent $p$, we can rewrite equation~\eqref{eqn:extractAlphaRecursive} as
+\begin{align}
+\frac{R^*_{c_a,c_b}}{R^*_{c_a,c_a}}
+&=
+\frac
+  { \alpha_{ p, c_b } }
+  { 1 + \alpha_{ p, c_a } },
+\label{eqn:extractAlphaSimple}
+\end{align}
+where
 \begin{align*}
+R^*_{c_a,c_b}
+&= R_{\leaf(c_a),\leaf(c_b)} \cdot \frac{ f_1(c_b, \ldots, \leaf(c_b)) }{ f_0(c_a, \ldots, \leaf(c_a)) },
+\\
+f_t(\nu_{1}, \ldots, \nu_L)
+&=
+  \prod_{k=1}^{L-1}
+    \frac
+      { t + \alpha_{ \nu_k, \nu_{k+1} } }
+      { t + \sum_{\nu'} \alpha_{ \nu_k, \nu' } }.
+\end{align*}
+% \begin{align*}
+% R^*_{c_a,c_b}
+% &= \frac{ R_{\leaf(c_a),\leaf(c_b)} }{ f(\leaf(c_a), \leaf(c_b)) },
+% \\
+% f(i, j)
+% &=
+% \left(
+%   \prod_{k=s+1}^{L_1-1}
+%     \frac
+%       { 1 + \sum_{\nu'} \alpha_{ \nu_k^{(1)}, \nu' } }
+%       { 1 + \alpha_{ \nu_k^{(1)}, \nu_{k+1}^{(1)} } }
+% \right)
+% \left(
+%   \prod_{k=s+1}^{L_2-1}
+%     \frac
+%       { \alpha_{ \nu_k^{(2)}, \nu_{k+1}^{(2)} } }
+%       { \sum_{\nu'} \alpha_{ \nu_k^{(2)}, \nu' } }
+% \right).
+% % TODO: fix this notation
+% \end{align*}
+The function $\leaf(x)$ can be any deterministic mapping from node $x$ to a leaf descended from (or equal to) $x$.
+For example, $\leaf(x)$ might always return the leftmost leaf descendant of $x$.
+
+These formulas suggest an algorithm for extracting the Dirichlet parameters for a TreePAM model.
+Using equation~\eqref{eqn:extractAlphaBaseCase} we can first solve for the Dirichlet parameters at the bottom of the tree (specifically, the outgoing edges from nodes that have only leaf nodes as children).
+Then, we can repeatedly substitute these values into equation~\eqref{eqn:extractAlphaSimple} and solve for the Dirichlet parameters at the next highest edges in the tree.
+
+If $p$ is a node with children $c_1, \ldots, c_k$, equation~\eqref{eqn:extractAlphaSimple} can be applied to the parameters $\alpha_{p,c_i}$ to yield a linear system of at least $k$ equations with $k$ unknowns.
+This system may be overdetermined; therefore, without loss of generality, we can choose the $k-1$ equations involving neighboring siblings (with $c_a = c_i$ and $c_b = c_{i+1}$), plus one additional equation where $c_a = c_k$ and $c_b = c_1$.
+The solution to this system can be found using the following formula:
+\begin{align}
 \alpha_{p,c_i}
 &=
 \frac
@@ -696,28 +743,54 @@ At node $p$, with children $c_1, \ldots, c_k$, the parameters $\alpha_{p,c_i}$ c
     \displaystyle
     \prod_{j=1}^k R^*_{c_j,c_j} - \prod_{j=1}^k R^*_{c_j,w(c_j,1)}
   }
+\label{eqn:extractAlphaExplicit}
 \shortintertext{where}
 w(c_i,m)
-&= c_{(i+m) \text{ mod } k},
-\\
-R^*_{c_a,c_b}
-&= \frac{ R_{\leaf(c_a),\leaf(c_b)} }{ f(c_a, c_b) },
-\\
-f(c_a, c_b)
 &=
-\left(
-  \prod_{k=s+1}^{L_1-1}
-    \frac
-      { 1 + \sum_{\nu'} \alpha_{ \nu_k^{(1)}, \nu' } }
-      { 1 + \alpha_{ \nu_k^{(1)}, \nu_{k+1}^{(1)} } }
-\right)
-\left(
-  \prod_{k=s+1}^{L_2-1}
-    \frac
-      { \alpha_{ \nu_k^{(2)}, \nu_{k+1}^{(2)} } }
-      { \sum_{\nu'} \alpha_{ \nu_k^{(2)}, \nu' } }
-\right)
-% TODO: fix this notation
+\begin{cases}
+c_{i+1}, & \text{if } i < k, \\
+c_1, & \text{if } i = k.
+\end{cases}
+\nonumber
+\end{align}
+
+Note that the parameters at each layer of the tree can be solved for in terms of parameters from lower layers in the tree.
+We can therefore extract all of the Dirichlet parameters $\alpha_{\nu,\nu'}$ by applying equation~\eqref{eqn:extractAlphaExplicit} during a recursive postorder traversal of the tree.
+
+To make this more concrete, consider a $4$-leaf tree with branching structure $(2,2)$, and suppose we are given the $4 \times 4$ matrix $R$, which has rows and columns indexed by the leaves $3$ through $6$.
+The parameters extracted from this algorithm are then
+\begin{align*}
+\alpha_{13}
+&= \frac{ R_{33}R_{43} + R_{34}R_{43} }{ R_{33}R_{44} - R_{34}R_{43} }
+&
+\alpha_{25}
+&= \frac{ R_{55}R_{65} + R_{56}R_{65} }{ R_{55}R_{66} - R_{56}R_{65} }
+\\
+\alpha_{14}
+&= \frac{ R_{44}R_{34} + R_{43}R_{34} }{ R_{33}R_{44} - R_{34}R_{43} }
+&
+\alpha_{26}
+&= \frac{ R_{66}R_{56} + R_{65}R_{56} }{ R_{55}R_{66} - R_{56}R_{65} }
+\\
+\alpha_{01}
+&= \frac{ R^*_{11}R^*_{21} + R^*_{12}R^*_{21} }{ R^*_{11}R^*_{22} - R^*_{12}R^*_{21} }
+&
+\alpha_{02}
+&= \frac{ R^*_{22}R^*_{12} + R^*_{21}R^*_{12} }{ R^*_{11}R^*_{22} - R^*_{12}R^*_{21} }
+\shortintertext{where}
+R^*_{11}
+&= R_{33}
+&
+R^*_{22}
+&= R_{55}
+\\
+R^*_{12}
+&= R_{35} \frac{ (1 + \alpha_{25}) (\alpha_{13} + \alpha_{14}) }
+               { (1 + \alpha_{25} + \alpha_{26}) (\alpha_{13}) }
+&
+R^*_{21}
+&= R_{53} \frac{ (1 + \alpha_{13}) (\alpha_{25} + \alpha_{26}) }
+               { (1 + \alpha_{13} + \alpha_{14}) (\alpha_{25}) }
 \end{align*}
 
 \section{Experimental Results on Simulated Data}
