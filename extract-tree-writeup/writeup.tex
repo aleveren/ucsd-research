@@ -59,7 +59,7 @@
 \newcommand{\RbarEst}{\Rbar^\text{(est)}}
 \newcommand{\leaf}{\text{leaf}}
 
-\newcommand{\TODOcite}{[?]}
+\newcommand{\tocite}{[?]}
 
 %\allowdisplaybreaks
 
@@ -82,14 +82,14 @@
 
 \section{Introduction}
 
-Traditional probabilistic topic models, such as Latent Dirichlet Allocation (LDA) \TODOcite{}, treat observed documents as mixtures of latent topics, which are in turn viewed as probability distributions over a vocabulary of words.
+Traditional probabilistic topic models, such as Latent Dirichlet Allocation (LDA) \tocite{}, treat observed documents as mixtures of latent topics, which are in turn viewed as probability distributions over a vocabulary of words.
 In LDA, the topics themselves are assumed to co-occur with each other within documents by drawing topic proportions from a symmetric Dirichlet.
 However, one may wish to view topics as being members of a hierarchy, in which topics can have varying levels of specificity or generality, and in which sub-topics are more likely to occur with super-topics (corresponding to ancestors in the hierarchy) than they are to occur with non-ancestors.
 
 Several models exist which generalize the ``flat'' collections of topics produced by LDA into hierarchies.
 In one class of models, we specify \emph{a priori} a fixed tree (or, more generally, a fixed DAG), and we infer a topic to associate with each leaf node.
 In a second class of models, neither the topics nor the tree structure are fixed prior to inference, and Bayesian non-parametric techniques are used to discover a tree of potentially unbounded size.
-Here, we will consider Pachinko Allocation Modeling (PAM) \TODOcite{} as a representative of the first type, and the Nested Hierarchical Dirichlet Process (NHDP) \TODOcite{} as a representative of the second type.
+Here, we will consider Pachinko Allocation Modeling (PAM) \tocite{} as a representative of the first type, and the Nested Hierarchical Dirichlet Process (NHDP) \tocite{} as a representative of the second type.
 NHDP has the advantage of not requiring knowledge of the true structure of the topic hierarchy prior to inference;
 however, because its underlying probabilistic model is significantly more complex than PAM, inference for NHDP is relatively cumbersome.
 
@@ -118,7 +118,7 @@ For each word-slot in each document, we select a terminal node by stochastically
 Then, we draw a word from the vocabulary using the topic (i.e., the distribution over the vocabulary) corresponding to the selected terminal node.
 Similar to LDA, we can infer this model's parameters using standard latent-variable approaches such as Gibbs sampling or variational inference.
 
-The paper which introduced PAM (\TODOcite{}) focused primarily on one particular class of PAM models, which we will refer to as ``4-layer PAM.''
+The paper which introduced PAM (\tocite{}) focused primarily on one particular class of PAM models, which we will refer to as ``4-layer PAM.''
 In this model, the DAG actually contains three layers of nodes, since the authors of the original PAM paper consider the topics themselves---which are distributions over the vocabulary---to be the fourth layer.
 The first layer (containing only the root node) is fully connected to the second layer, and the second layer is fully connected to the third layer.
 Thus, the structure of the DAG is fully specified by indicating the size of the second and third layers of the graph.
@@ -136,7 +136,7 @@ TODO: short introduction to NHDP model, mention variational inference, and abili
 
 \section{A Motivating Observation}
 
-The ``anchor words'' algorithm \TODOcite{} is a non-probabilistic alternative to traditional LDA inference algorithms such as Gibbs sampling or variational inference.
+The ``anchor words'' algorithm \tocite{} is a non-probabilistic alternative to traditional LDA inference algorithms such as Gibbs sampling or variational inference.
 Its main appeals are (1) its relatively fast runtime, (2) provable guarantees on its ability to recover the topics with which a given dataset was generated, and (3) its ability to handle non-trivial co-occurrence patterns.
 The anchor-words algorithm produces a matrix $A$ representing the topics appearing in the corpus (each row of $A$ corresponds to a probability distribution over the vocabulary).
 In addition, it produces a matrix $R$ representing the probabilities of pairs of topics co-occurring within a single document.
@@ -170,15 +170,11 @@ We propose the following algorithm for recovering a hierarchy of topics from a c
   \item Return the resulting tree, along with the matrix of topics ($A$).
 \end{itemize}
 
-%TODO: also propose a weighted version of Aho's algorithm? (weighted by constraint-strength, as opposed to the above ``thresholded'' version?)
-
 \section{Proving Properties of the Algorithm}
 
 In this section, we will assume that we have corpus of data that was sampled according to the TreePAM generative model.
 Then, under this assumption, we will show that the algorithm recovers the true tree with high probability if it is given sufficient data.
 Specifically, with high probability, our empirical estimate of $\Rbar$ will match the true matrix closely enough to yield the exact set of constraints defining the true tree.
-
-(TODO: May need to tweak the above statement?  If we use \emph{anchor words}, it will yield a provably close estimate of $R$, which (presumably???) gives us a way to get a sufficiently close estimate of $\Rbar$.)
 
 \subsection{Formalizing the TreePAM Model}
 
@@ -291,7 +287,6 @@ Graphically, we can view the rooted paths to $i$ and $j$ as follows:
 
 With this notation, we can integrate over all the random vectors $\theta_{d,\nu}$ and write
 {
-% TODO: resize / reformat?
 \newcommand{\prefix}{\int_{\tilde \theta_d \in \Theta_d} \tallbracketl{[}{5ex}}
 \begin{align*}
 %\MoveEqLeft
@@ -536,7 +531,7 @@ That is,
 \begin{align*}
 \phi \leq \min |\Rbar_{a,b} - \Rbar_{a,c}|,
 \end{align*}
-where the above minimum is taken with respect to all triplets of leaves $a, b, c \in T$ such that $a \neq b$, $a \neq c$, $b \neq c$, and $\LCA(a,b) \neq \LCA(a,c)$.
+where the above minimum is taken with respect to all triplets of distinct leaves $a, b, c \in T$ such that $\LCA(a,b) \neq \LCA(a,c)$.
 Suppose also that we use our dataset to estimate $\Rbar$ with additive error upper-bounded by $\epsilon$, and that $\epsilon \leq \phi/4$.
 Then, if we apply our proposed algorithm with a constraint-strength cutoff of $\tau = 2\epsilon \leq \phi/2$, we will pass the following set of constraints to Aho's algorithm:
 \begin{align*}
@@ -579,33 +574,142 @@ In our proposed algorithm, a triplet constraint $(\{a,b\},c)$ will be passed to 
 This will occur if and only if $\RbarEst_{a,b} > \RbarEst_{a,c} + \tau$ and $\RbarEst_{a,b} > \RbarEst_{b,c} + \tau$, which completes our proof that $C_T$ is the set of constraints that we will pass to Aho's algorithm.
 \end{proof}
 
-{\bf TODO: Pick up here}
-
 \paragraph{Tree recovery}
 Let us say that a rooted, directed tree is \emph{admissible} if it has no nodes with exactly one child.
 If $T$ is any tree, then $T$ satisfies exactly the set of triplet constraints $C_T$ defined above.
 That is, $T$ satisfies every triplet constraint in $C_T$ but does not satisfy any other triplet constraints.
 (This fact comes directly from the definition of triplet constraints.)
 Furthermore, if $T$ is admissible, then it is the only admissible tree to do so.
-({\bf TODO: proof})
+({\bf TODO: proof - Pick up here})
 Thus, Aho's algorithm will output $T$ when given the set of constraints $C_T$.
 
 %%%%%%%%%%
 
 \paragraph{Bound on minimum spacing for ratio-matrix entries}
-Suppose the TreePAM model's parameters $\alpha_{\nu,\nu'}$ are bounded above by $\alphaMax$.
-Suppose also that they satisfy the limited-sparsity property with a margin of at least $\deltaMin$; that is, for every edge $i \to j$ between internal nodes,
+Suppose the TreePAM model's parameters $\alpha_{\nu,\nu'}$ are bounded above by $\alphaMax > 0$.
+Suppose also that they satisfy the limited-sparsity property with a margin of at least $\deltaMin > 0$; that is, for every edge $i \to j$ between internal nodes,
 \begin{align*}
-\sum_{\nu'} \alpha_{j,\nu'} > \alpha_{i,j} + \deltaMin.
+\sum_{\nu'} \alpha_{j,\nu'} \geq \alpha_{i,j} + \deltaMin.
 \end{align*}
 Then we can use
 \begin{align*}
 \phi = \frac{\deltaMin}{(1+\alphaMax)(1+\alphaMax+\deltaMin)}
 \end{align*}
 as a lower bound for $\min |\Rbar_{a,b} - \Rbar_{a,c}|$.
-Consequently, if we can estimate $\Rbar$ with additive error upper-bounded by $\epsilon \leq \phi/4$, and if we set our constraint-strength threshold $\tau = 2\epsilon$, our proposed algorithm will exactly recover the true tree $T$.
+As before, this minimum is taken with respect to all triplets of distinct leaves $a, b, c$ such that $\LCA(a,b) \neq \LCA(a,c)$.
 
-{\bf TODO: Proof}
+\begin{proof}
+First, consider an arbitrary TreePAM model $(T, \alpha)$, where $T$ is an admissible tree and $\alpha$ is a collection of Dirichlet parameters corresponding to the edges of $T$.
+Assume that the parameters $\alpha$ obey the constraints involving $\alphaMax$ and $\deltaMin$ mentioned above.
+Let $a, b, c$ be a triplet of distinct leaves such that $\LCA(a,b) \neq \LCA(a,c)$.
+Without loss of generality, assume that $\LCA(a,b)$ is a strict descendant of $\LCA(a,c)$.
+This corresponds to the diagram shown in Figure~\ref{fig:general-min-diff-setup}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{figures/general-min-diff-setup.pdf}
+    \caption{General setup for computing differences in the ratio matrix $\Rbar$}
+    \label{fig:general-min-diff-setup}
+\end{figure}
+
+Using equation~\eqref{eqn:closedFormRbar}, we can write
+\begin{align*}
+\left\lvert \Rbar_{a,b} - \Rbar_{a,c} \right\rvert
+% &=
+% f_0
+% \prod_{k=1}^{s_1} \frac{f_k}{g_{k-1}}
+% \left(
+%   \prod_{k=s_1+1}^{s_2} \frac{f_k}{g_{k-1}}
+%   - 1
+% \right)
+% \\
+&=
+f_{s_1}
+\prod_{k=0}^{s_1-1} \frac{f_k}{g_k}
+\left(
+  \prod_{k=s_1+1}^{s_2} \frac{f_k}{g_{k-1}}
+  - 1
+\right),
+\end{align*}
+where
+\begin{align*}
+f_k &= \frac{ \sum_{\nu'} \alpha_{\nu_k,\nu'} }
+            { 1 + \sum_{\nu'} \alpha_{\nu_k,\nu'} },
+\\
+g_k &= \frac{ \alpha_{\nu_k,\nu_{k+1}} }
+            { 1 + \alpha_{\nu_k,\nu_{k+1}} }.
+\end{align*}
+
+Next, note that
+\begin{align*}
+\alpha_{\nu_k,\nu_{k+1}} &\leq \sum_{\nu'} \alpha_{\nu_k,\nu'} \text{ and} \\
+\alpha_{\nu_{k-1},\nu_{k}} &\leq \sum_{\nu'} \alpha_{\nu_k,\nu'},
+\end{align*}
+where the second inequality is due to the limited sparsity condition.
+Therefore, we have
+\begin{align*}
+\frac{f_k}{g_k}
+&=
+\frac{ \sum_{\nu'} \alpha_{\nu_k,\nu'} + \alpha_{\nu_k,\nu_{k+1}} \sum_{\nu'} \alpha_{\nu_k,\nu'} }
+     { \alpha_{\nu_k,\nu_{k+1}} + \alpha_{\nu_k,\nu_{k+1}} \sum_{\nu'} \alpha_{\nu_k,\nu'} }
+\geq 1, \text{ and}
+\\
+\frac{f_k}{g_{k-1}}
+&=
+\frac{ \sum_{\nu'} \alpha_{\nu_k,\nu'} + \alpha_{\nu_{k-1},\nu_{k}} \sum_{\nu'} \alpha_{\nu_k,\nu'} }
+     { \alpha_{\nu_{k-1},\nu_{k}} + \alpha_{\nu_{k-1},\nu_{k}} \sum_{\nu'} \alpha_{\nu_k,\nu'} }
+\geq 1.
+\end{align*}
+
+From this, we can conclude
+\begin{align*}
+\left\lvert \Rbar_{a,b} - \Rbar_{a,c} \right\rvert
+&\geq
+f_{s_1}
+\cdot
+\left(
+  \frac{f_{s_1 + 1}}{g_{s_1}}
+  - 1
+\right)
+\\
+&=
+\frac{ \sum_{\nu'} \alpha_{\nu_{s_1},\nu'}
+       \left(
+         \sum_{\nu'} \alpha_{\nu_{s_1+1},\nu'}
+         -
+         \alpha_{\nu_{s_1},\nu_{s_1+1}}
+       \right)
+     }
+     { \left( 1 + \sum_{\nu'} \alpha_{\nu_{s_1},\nu'} \right)
+       \left( 1 + \sum_{\nu'} \alpha_{\nu_{s_1+1},\nu'} \right)
+       \alpha_{\nu_{s_1},\nu_{s_1+1}}
+     }
+\end{align*}
+Note that this can be rewritten as
+\begin{align*}
+\left\lvert \Rbar_{a,b} - \Rbar_{a,c} \right\rvert
+&\geq \frac{y(z-x)}{x(1+y)(1+z)} \\
+x &= \alpha_{\nu_{s_1},\nu_{s_1+1}} \\
+y &= \sum_{\nu'} \alpha_{\nu_{s_1},\nu'}\\
+z &= \sum_{\nu'} \alpha_{\nu_{s_1+1},\nu'}
+\end{align*}
+
+To make this bound as general as possible, we can set $x$ to its maximum allowable value, and then set $y$ and $z$ to their minimum allowable values.
+That is, we can set
+\begin{align*}
+x &= \alpha_{\nu_{s_1},\nu_{s_1+1}} = \alphaMax \\
+y &= \sum_{\nu'} \alpha_{\nu_{s_1},\nu'} = \alphaMax \\
+z &= \sum_{\nu'} \alpha_{\nu_{s_1+1},\nu'} = \alphaMax + \deltaMin
+\end{align*}
+With these settings, we have
+\begin{align*}
+\left\lvert \Rbar_{a,b} - \Rbar_{a,c} \right\rvert
+&\geq \frac{\deltaMin}{(1 + \alphaMax) (1 + \alphaMax + \deltaMin)},
+\end{align*}
+which justifies our choice of $\phi$ above.
+\end{proof}
+
+As a consequence of this result, if we can estimate $\Rbar$ with additive error upper-bounded by $\epsilon \leq \phi/4$, and if we set our constraint-strength threshold $\tau = 2\epsilon$, our proposed algorithm will exactly recover the true tree $T$.
 
 %%%%%%%%%%%%
 
@@ -614,10 +718,10 @@ Setting $\deltaMin$ and $\alphaMax$ effectively corresponds to selecting a restr
 Once a hypothesis class has been selected, we can then compute $\phi$, and from that we can determine the maximum error tolerance $\epsilon = \phi/4$ and the constraint-strength cutoff $\tau = \phi/2$.
 Let's consider some examples of $\phi$ calculations corresponding to concrete settings for $\deltaMin$ and $\alphaMax$.
 
-Example: if $\deltaMin = 1$ and $\alphaMax = 8$, then we can set $\phi = 1/90$, which means we need to be able to estimate $\Rbar$ with additive noise less than $1/(90 \cdot 4) = 1/360$.
-We can use a constraint-strength cutoff of $\tau = 1/(90 \cdot 2) = 1/180$.
+Example: if $\deltaMin = 1$ and $\alphaMax = 8$, then we can set $\phi = 1/90$, which means we need to be able to estimate $\Rbar$ with additive noise less than $\epsilon = \phi/4 = 1/360$.
+We can use a constraint-strength cutoff of $\tau = \phi/2 = 1/180$.
 
-Example: if $\deltaMin = 1/100$ and $\alphaMax = 100$, then we can set $\phi \approx 9.8 \times 10^{-7}$, which means we need to be able to estimate $\Rbar$ with additive noise less than $\phi/4 \approx 2.45 \times 10^{-7}$.
+Example: if $\deltaMin = 1/100$ and $\alphaMax = 100$, then we can set $\phi \approx 9.8 \times 10^{-7}$, which means we need to be able to estimate $\Rbar$ with additive noise less than $\epsilon = \phi/4 \approx 2.45 \times 10^{-7}$.
 We can use a constraint-strength cutoff of $\tau = \phi/2 \approx 4.9 \times 10^{-7}$.
 
 These examples illustrate a key tradeoff: a broader hypothesis class requires us to more accurately estimate the $\Rbar$ matrix.
@@ -628,15 +732,19 @@ These examples illustrate a key tradeoff: a broader hypothesis class requires us
 Next, we'll show that both of the bounds $\alphaMax$ and $\deltaMin$ are necessary to prevent $\phi$ from becoming arbitrarily small.
 Without one or the other, we can force $\phi$ to be arbitrarily close to zero.
 
-Specifically, consider 4-leaf binary tree where the root has $\vec\alpha = (x,x)$ and the two children below the root each have $\vec\alpha = (y,y)$.
-If we number the leaves left-to-right as $1$ through $4$, the minimum nonzero difference in $\Rbar$ occurs between
+Specifically, consider a balanced 4-leaf binary tree where the root has $\vec\alpha = (u,v)$ and the two children below the root each have $\vec\alpha = (w/2,w/2)$.
+If we number the leaves left-to-right as $1$ through $4$, the minimum nonzero difference in $\Rbar$ occurs between $\Rbar_{1,2}$ and $\Rbar_{1,3}$, corresponding to the triplet constraint $(\{1,2\},3)$:
 \begin{align*}
-\Rbar_{1,2} &= \frac{4(1+x)y}{(1+2x)(1+2y)} \quad \text{and} \\
-\Rbar_{1,3} &= \frac{2x}{1+2x},
+\left\lvert \Rbar_{1,2} - \Rbar_{1,3} \right\rvert
+&=
+\frac{ (u + v) (w-u) }{ (1 + u + v) (1 + w) u }.
 \end{align*}
-corresponding to the triplet constraint $(\{1,2\},3)$.
-Then, if we violate the $\alphaMax$ bound, by letting $x = y$ as $x,y \to \infty$, we see that $|\Rbar_{1,2} - \Rbar_{1,3}| \to 0$.
-Similarly, this difference can get arbitrarily close to $0$ if we violate the $\deltaMin$ bound, by holding $x$ fixed and letting $y = (x+t) / 2$ as $t \to 0$.
+Then, if we violate the $\alphaMax$ bound, by letting $v$ be fixed and setting $w = u + \deltaMin$ as $u \to \infty$, we see that this difference approaches $0$.
+Similarly, this difference can get arbitrarily close to $0$ if we violate the $\deltaMin$ bound, by holding $u$ and $v$ fixed while $w$ approaches $u$ from above.
+% Then, if we violate the $\alphaMax$ bound, by letting $x = y$ as $x,y \to \infty$, we see that $|\Rbar_{1,2} - \Rbar_{1,3}| \to 0$.
+% Similarly, this difference can get arbitrarily close to $0$ if we violate the $\deltaMin$ bound, by holding $x$ fixed and letting $y$ approach $x/2$ from above.
+
+Lastly, if we set $u = \alphaMax$ and $w = \alphaMax + \deltaMin$ while letting $v \to 0$, we see that this difference approaches $\phi$, which means that this bound is as tight as possible.
 
 %%%%%%%%%%
 
@@ -696,26 +804,6 @@ f_t(\nu_{1}, \ldots, \nu_L)
       { t + \alpha_{ \nu_k, \nu_{k+1} } }
       { t + \sum_{\nu'} \alpha_{ \nu_k, \nu' } }.
 \end{align*}
-% \begin{align*}
-% R^*_{c_a,c_b}
-% &= \frac{ R_{\leaf(c_a),\leaf(c_b)} }{ f(\leaf(c_a), \leaf(c_b)) },
-% \\
-% f(i, j)
-% &=
-% \left(
-%   \prod_{k=s+1}^{L_1-1}
-%     \frac
-%       { 1 + \sum_{\nu'} \alpha_{ \nu_k^{(1)}, \nu' } }
-%       { 1 + \alpha_{ \nu_k^{(1)}, \nu_{k+1}^{(1)} } }
-% \right)
-% \left(
-%   \prod_{k=s+1}^{L_2-1}
-%     \frac
-%       { \alpha_{ \nu_k^{(2)}, \nu_{k+1}^{(2)} } }
-%       { \sum_{\nu'} \alpha_{ \nu_k^{(2)}, \nu' } }
-% \right).
-% % TODO: fix this notation
-% \end{align*}
 The function $\leaf(x)$ can be any deterministic mapping from node $x$ to a leaf descended from (or equal to) $x$.
 For example, $\leaf(x)$ might always return the leftmost leaf descendant of $x$.
 
@@ -758,7 +846,8 @@ Note that the parameters at each layer of the tree can be solved for in terms of
 We can therefore extract all of the Dirichlet parameters $\alpha_{\nu,\nu'}$ by applying equation~\eqref{eqn:extractAlphaExplicit} during a recursive postorder traversal of the tree.
 
 To make this more concrete, consider a $4$-leaf tree with branching structure $(2,2)$, and suppose we are given the $4 \times 4$ matrix $R$, which has rows and columns indexed by the leaves $3$ through $6$.
-The parameters extracted from this algorithm are then
+The parameters extracted from this algorithm are as follows.
+The parameters at the bottom layer of the tree are:
 \begin{align*}
 \alpha_{13}
 &= \frac{ R_{33}R_{43} + R_{34}R_{43} }{ R_{33}R_{44} - R_{34}R_{43} }
@@ -771,7 +860,9 @@ The parameters extracted from this algorithm are then
 &
 \alpha_{26}
 &= \frac{ R_{66}R_{56} + R_{65}R_{56} }{ R_{55}R_{66} - R_{56}R_{65} }
-\\
+\end{align*}
+Then, we can find the parameters at the top layer of the tree (namely, $\alpha_{01}$ and $\alpha_{02}$) using the parameters at the bottom layer:
+\begin{align*}
 \alpha_{01}
 &= \frac{ R^*_{11}R^*_{21} + R^*_{12}R^*_{21} }{ R^*_{11}R^*_{22} - R^*_{12}R^*_{21} }
 &
