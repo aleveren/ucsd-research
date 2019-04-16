@@ -577,7 +577,7 @@ This will occur if and only if $\RbarEst_{a,b} > \RbarEst_{a,c} + \tau$ and $\Rb
 \paragraph{Tree recovery}
 Let us say that a rooted, directed tree is \emph{admissible} if it has no nodes with exactly one child.
 If $T$ is any tree, then $T$ satisfies exactly the set of triplet constraints $C_T$ defined above.
-That is, $T$ satisfies every triplet constraint in $C_T$ but does not satisfy any other triplet constraints.
+That is, $T$ satisfies every triplet constraint in $C_T$, but $T$ does not satisfy any other triplet constraints.
 (This fact comes directly from the definition of triplet constraints.)
 Furthermore, if $T$ is admissible, then it is the only admissible tree to do so.
 ({\bf TODO: proof - Pick up here})
@@ -680,9 +680,10 @@ f_{s_1}
          \alpha_{\nu_{s_1},\nu_{s_1+1}}
        \right)
      }
-     { \left( 1 + \sum_{\nu'} \alpha_{\nu_{s_1},\nu'} \right)
-       \left( 1 + \sum_{\nu'} \alpha_{\nu_{s_1+1},\nu'} \right)
+     {
        \alpha_{\nu_{s_1},\nu_{s_1+1}}
+       \left( 1 + \sum_{\nu'} \alpha_{\nu_{s_1},\nu'} \right)
+       \left( 1 + \sum_{\nu'} \alpha_{\nu_{s_1+1},\nu'} \right)
      }
 \end{align*}
 Note that this can be rewritten as
