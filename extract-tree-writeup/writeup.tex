@@ -576,12 +576,70 @@ This will occur if and only if $\RbarEst_{a,b} > \RbarEst_{a,c} + \tau$ and $\Rb
 
 \paragraph{Tree recovery}
 Let us say that a rooted, directed tree is \emph{admissible} if it has no nodes with exactly one child.
-If $T$ is any tree, then $T$ satisfies exactly the set of triplet constraints $C_T$ defined above.
-That is, $T$ satisfies every triplet constraint in $C_T$, but $T$ does not satisfy any other triplet constraints.
+If $T$ is any tree, then the set of triplet constraints satisfied by $T$ is exactly the set $C_T$ defined above.
 (This fact comes directly from the definition of triplet constraints.)
-Furthermore, if $T$ is admissible, then it is the only admissible tree to do so.
-({\bf TODO: proof - Pick up here})
-Thus, Aho's algorithm will output $T$ when given the set of constraints $C_T$.
+Furthermore, we make the following claim:
+\begin{claim}
+If $T$ is admissible, then it is the \emph{only} admissible tree such that the set of satisfied triplet constraints is exactly $C_T$.
+In other words, if admissible trees $T$ and $T'$ both satisfy the same set of triplet constraints, then $T = T'$ (in a sense defined below).
+\end{claim}
+
+\newcommand{\NestedSet}{\mathrm{NestedSet}}
+\newcommand{\Root}{\mathrm{Root}}
+\newcommand{\Children}{\mathrm{Children}}
+
+\begin{proof}
+To prove this, we first must define a notion of ``equality'' for admissible trees.
+We say that two admissible trees $T_1$ and $T_2$ are equal if
+\begin{align*}
+\NestedSet(\Root(T_1)) &= \NestedSet(\Root(T_2)),
+\end{align*}
+where
+\begin{align*}
+\NestedSet(X)
+&=
+\begin{cases}
+\{ X \} & \text{if $X$ is a leaf node}, \\
+\{ \NestedSet(c) \, | \, c \in \Children(X) \} & \text{if $X$ is an internal node.}
+\end{cases}
+\end{align*}
+
+In other words, $T_1$ and $T_2$ are equal if, for every non-leaf node $X \in T_1$, the partition of the leaf nodes of $T_1$ induced by the outgoing edges of $X$ is the same as the corresponding partition in $T_2$.
+
+Now suppose that we have an admissible tree $T$ for which the set of all satisfied triplet constraints is denoted $C_T$.
+Let $T'$ be any tree that shares the same leaves as $T$ and also satisfies exactly the same set of triplet constraints, $C_T$.
+We want to show that the trees $T$ and $T'$ must be equal in the aforementioned sense.
+
+Suppose for the sake of contradiction that $T' \neq T$.
+That is, suppose $\NestedSet(\Root(T')) \neq \NestedSet(\Root(T))$.
+
+If the nested-set representations are unequal, then it will be possible to use the following procedure to identify a node $X \in T$ and a corresponding node $X' \in T'$ which encompass the same set of leaves but which partition those leaves differently.
+
+\begin{itemize}
+\item We begin by setting $X = \Root(T)$ and $X' = \Root(T')$.
+\item Let $\pi(X)$ denote the partition (of the leaves of $T$ descended from $X$) induced by the outgoing edges of $X$, and let $\pi'$ denote the partition (of the leaves of $T'$ descended from $X'$) induced by the outgoing edges of $X'$.
+\item We note that the set of leaves of $T$ descended from $X$ is initially the same as the set of leaves of $T'$ descended from $X'$, and we will maintain this as an invariant throughout the rest of this procedure.
+\item At each step, there are two cases: either $\pi(X) = \pi'(X')$ or $\pi(X) \neq \pi'(X')$.  If $\pi(X) \neq \pi'(X')$, we terminate and use the current values of $X$ and $X'$.
+\item Otherwise, if $\pi(X) = \pi'(X')$, there must be some $c \in \Children(X)$ and some $c' \in \Children(X')$ such that the same set of leaves are descended from $c$ and from $c'$, but for which $\NestedSet(c) \neq \NestedSet(c')$.  We then set $X = c$ and $X' = c'$ and return to the previous step.
+\end{itemize}
+
+This procedure will identify some $X$ and $X'$ encompassing the same set of leaves, but for which $\pi(X) \neq \pi'(X')$.
+In particular, there must be two leaves $\ell_1$ and $\ell_2$ such that either:
+\begin{itemize}
+  \item $\ell_1$ and $\ell_2$ are grouped together by $\pi(X)$ but not by $\pi'(X')$, or
+  \item $\ell_1$ and $\ell_2$ are grouped together by $\pi'(X')$ but not by $\pi(X)$.
+\end{itemize}
+
+In the first case, there must be some leaf $\ell_3$ under $X$ such that $\pi(X)$ does not group $\ell_1$, $\ell_2$, and $\ell_3$ together.
+(This is because the admissibility condition implies that each node induces a non-trivial partition; that is, each partition consists of at least two non-empty sets of leaves.)
+Therefore, the triplet constraint $(\{\ell_1, \ell_2\}, \ell_3)$ will be satisfied by $T$ but not by $T'$.
+
+In the second case, a similar argument implies that there is a triplet constraint $(\{\ell_1, \ell_2\}, \ell_3)$ that is satisfied by $T'$ but not by $T$.
+
+Therefore, we have proved that $T \neq T'$ implies that $T$ and $T'$ satisfy different sets of triplet constraints, which is the contrapositive of the above claim.
+\end{proof}
+
+The above results guarantee that Aho's algorithm is guaranteed to output the tree $T$ when given the set of constraints $C_T$.
 
 %%%%%%%%%%
 
