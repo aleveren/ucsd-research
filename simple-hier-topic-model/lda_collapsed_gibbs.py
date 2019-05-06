@@ -1,7 +1,11 @@
 import numpy as np
 from collections import defaultdict
 import copy
-from tqdm import tqdm, tnrange, tqdm_notebook
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
 
 class CollapsedGibbs(object):
     def fit(self,
@@ -47,21 +51,32 @@ class CollapsedGibbs(object):
             for x in [A, B, C, D]:
                 x[topic_new] += 1                
         
-        for di, doc in enumerate(tqdm_notebook(corpus, desc = "Initializing")):
+        for di, doc in enumerate(tqdm(corpus, desc = "Initializing")):
             for v, c in doc:
                 for pi in range(c):
                     sample_once(doc_index = di, vocab_index = v, topic_old = None)
         del di, doc, v, c, pi
         
+        num_iters = burn_in + lag * num_samples
+        doc_increment = 1.0 / len(corpus)
+        if tqdm is not None:
+            pbar_train = tqdm(
+                total = float(num_iters),
+                desc = "Training",
+                bar_format='{l_bar}{bar}| {n:.5g}/{total:.0f} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
+            )
+        else:
+            pbar_train = None
         self.samples = []
-        for i in tnrange(burn_in + lag * num_samples, desc = "Training"):
-            corpus_iter = tqdm_notebook(corpus, desc = "Current iteration", leave = False) if len(corpus) >= 500 else corpus
-            for di, doc in enumerate(corpus_iter):
+        for i in range(num_iters):
+            for di, doc in enumerate(corpus):
                 for v, vc in doc:
                     current_counts = topic_counts["by_doc_vocab"][di, v].copy()
                     for t, tc in enumerate(current_counts):
                         for j in range(tc):
                             sample_once(doc_index = di, vocab_index = v, topic_old = t)
+                if pbar_train is not None:
+                    pbar_train.update(n = doc_increment)
             update_alpha = (update_alpha_every > 0) and (i % update_alpha_every == 0)
             if update_alpha:
                 # Compute moments of observed probabilities, and estimate new alpha
@@ -83,6 +98,9 @@ class CollapsedGibbs(object):
                 sample = copy.deepcopy(topic_counts)
                 sample["alpha"] = alpha.copy()
                 self.samples.append(sample)
+
+        if pbar_train is not None:
+            pbar_train.close()
 
         self.corpus = copy.deepcopy(corpus)
         self.num_topics = num_topics

@@ -1,5 +1,8 @@
 import numpy as np
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = lambda *args, **kwargs: args[0]
 from functools import partial
 
 from simple_hierarchical_topic_model import explore_branching_factors
