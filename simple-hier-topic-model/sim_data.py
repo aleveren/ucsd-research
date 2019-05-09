@@ -381,3 +381,40 @@ class GriffithsSteyversSampler(object):
         self.gensim_corpus = [list(ctr.items()) for ctr in counters]
 
         return self
+
+def ensure_anchor_words(topics, sequence = None):
+    '''Tries to ensure that at least one anchor word exists in each topic'''
+    num_topics, vocab_size = topics.shape
+    assert vocab_size >= num_topics
+    new_topics = topics.copy()
+    if sequence is None:
+        dimension = np.sqrt(vocab_size)
+        if int(dimension) - dimension == 0:
+            sequence = make_anchor_words_sequence(num_topics = num_topics, dimension = int(dimension))
+        else:
+            sequence = np.arange(num_topics)
+    assert len(set(sequence)) == len(sequence)
+    assert len(sequence) == num_topics
+
+    baseline = np.min(topics)
+
+    for topic_index, vocab_index in enumerate(sequence):
+        for i in range(num_topics):
+            if i != topic_index:
+                new_topics[i, vocab_index] = baseline
+
+    new_topics /= new_topics.sum(axis=1, keepdims=True)
+
+    return new_topics
+
+def make_anchor_words_sequence(num_topics, dimension):
+    '''Constructs a sequence of anchor-word indices corresponding to Griffiths-Steyvers simulated topics'''
+    sequence = []
+    curr_index = 0
+    for topic_index in range(num_topics):
+        sequence.append(curr_index)
+        if topic_index % 2 == 0:
+            curr_index += dimension
+        else:
+            curr_index += 1
+    return sequence
