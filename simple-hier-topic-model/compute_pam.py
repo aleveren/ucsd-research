@@ -95,8 +95,6 @@ def compute_combo_tensor_pam(g, combo_size = 2, alpha = 1.0, return_leaf_paths =
     return result
 
 def compute_combo_probability_pam(g, path_combo, alpha = 1.0):
-    def num_children(node):
-        return len(list(g.neighbors(node)))
     def gen_transitions(r):
         assert len(r) > 0
         for i in range(len(r) - 1):
@@ -111,31 +109,29 @@ def compute_combo_probability_pam(g, path_combo, alpha = 1.0):
     result = 1
     for src, dest_counter in transitions.items():
         denom = 1
-        current_alpha = alpha.calc(node_id = src, num_children = num_children(src))
+        sum_alphas = np.sum([alpha.calc(node_id = nbr) for nbr in g.neighbors(src)])
         for i in range(sum(dest_counter.values())):
-            denom *= np.sum(current_alpha) + i
+            denom *= sum_alphas + i
         numer = 1
-        neighbors_to_index = {n: i for i, n in enumerate(list(g.neighbors(src)))}
         for dest, count in dest_counter.items():
-            j = neighbors_to_index[dest]
             for i in range(count):
-                numer *= current_alpha[j] + i
+                numer *= alpha.calc(node_id = dest) + i
         result *= numer / denom
 
     return result
 
 class AlphaCalc(object):
-    def calc(self, node_id, num_children):
+    def calc(self, node_id):
         raise NotImplementedError("'calc' not implemented")
 
     @staticmethod
     def create(x):
         if isinstance(x, AlphaCalc):
             return x
-        elif np.isscalar(x) or isinstance(x, np.ndarray):
+        elif np.isscalar(x):
             return ConstAlphaCalc(x)
         elif isinstance(x, dict):
-            return NodeIDAlphaCalc(x)
+            return IndividualNodeAlphaCalc(x)
         else:
             raise ValueError("Unrecognized type for AlphaCalc.create")
 
@@ -143,38 +139,15 @@ class ConstAlphaCalc(AlphaCalc):
     def __init__(self, val):
         self.val = val
 
-    def calc(self, node_id, num_children):
-        if isinstance(self.val, np.ndarray):
-            assert len(self.val) == num_children
-            return self.val
-        return self.val * np.ones(num_children)
+    def calc(self, node_id):
+        return self.val
 
-class ConstSumAlphaCalc(AlphaCalc):
-    def __init__(self, val_sum):
-        self.val_sum = val_sum
-
-    def calc(self, node_id, num_children):
-        return self.val_sum * np.ones(num_children) / float(num_children)
-
-class NodeIDAlphaCalc(AlphaCalc):
+class IndividualNodeAlphaCalc(AlphaCalc):
     def __init__(self, values):
         self.values = values
 
-    def calc(self, node_id, num_children):
-        result = self.values[node_id]
-        assert len(result) == num_children
-        return result
-
-class IndividualNodeAlphaCalc(AlphaCalc):
-    def __init__(self, tree, values):
-        self.tree = tree
-        self.values = values
-
-    def calc(self, node_id, num_children):
-        children = list(self.tree.neighbors(node_id))
-        assert len(children) == num_children
-        alphas = np.array([self.values[c] for c in children])
-        return alphas
+    def calc(self, node_id):
+        return self.values[node_id]
 
 def tensor_to_matrix(T):
     if np.ndim(T) < 2:

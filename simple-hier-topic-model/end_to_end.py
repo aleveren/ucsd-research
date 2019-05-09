@@ -56,7 +56,7 @@ class Analysis(object):
         self.threshold = self.delta_min / ((1 + self.alpha_max) * (1 + self.alpha_max + self.delta_min))
     
     def run(self):
-        self.alpha_calc = IndividualNodeAlphaCalc(tree = self.true_tree, values = self.true_alphas)
+        self.alpha_calc = IndividualNodeAlphaCalc(values = self.true_alphas)
         self.true_cooccur = compute_combo_tensor_pam(g = self.true_tree, alpha = self.alpha_calc)
         
         # Generate data
