@@ -230,7 +230,7 @@ def compute_empirical_topics(sampler, leaf_to_index):
     result = np.zeros((K, V), dtype='float')
     for coords, count in counter.items():
         result[coords] += count
-    result /= result.sum(axis = 0, keepdims = True)
+    result /= result.sum(axis = 1, keepdims = True)
 
     return result
 
