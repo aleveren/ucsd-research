@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 from collections import namedtuple
+import itertools
 
 from sklearn.cluster import SpectralClustering
 
@@ -164,6 +165,37 @@ def get_constraints(C, threshold=0):
     # Sort by descending strength
     result = sorted(result, key = lambda x: -x.strength)
 
+    return result
+
+def constraints_from_tree(tree, root = None):
+    if root is None:
+        root = tree.graph["root"]
+
+    shortest_paths = nx.single_source_shortest_path(tree, root)
+    out_degree = dict(tree.out_degree)
+    leaves = set(n for n in out_degree if out_degree[n] == 0)
+    leaf_descendants = dict()
+    for node in tree.nodes():
+        desc = nx.descendants(tree, node)
+        leaf_descendants[node] = desc.intersection(leaves)
+
+    result = []
+    for low_node in tree.nodes():
+        if out_degree[low_node] == 0:
+            continue  # Skip leaves
+        path = shortest_paths[low_node]
+        if len(path) == 1:
+            continue  # Skip root
+        for high_node in path[:-1]:
+            a_desc = leaf_descendants[low_node]
+            c_desc = leaf_descendants[high_node] - a_desc
+            for a in sorted(list(a_desc)):
+                child_to_avoid = shortest_paths[a][len(path)]
+                b_desc = a_desc - leaf_descendants[child_to_avoid]
+                for b in sorted(list(b_desc)):
+                    for c in sorted(list(c_desc)):
+                        t = (min(a, b), max(a, b), c)
+                        result.append(TripletConstraint(*t, strength = 1.0))
     return result
 
 def test():
