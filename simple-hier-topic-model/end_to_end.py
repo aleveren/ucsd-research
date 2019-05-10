@@ -65,8 +65,8 @@ class Analysis(object):
             num_docs = self.num_docs,
             words_per_doc = self.words_per_doc,
             vocab_size = self.vocab_size,
-            alpha_func = make_alpha_func(self.true_tree, self.true_alphas),
-            topic_func = make_topic_func(self.true_topics, self.leaf_to_index),
+            alpha_calc = self.true_alphas,
+            topic_dict = make_topic_dict(self.true_topics, self.leaf_to_index),
         )
         self.sampler.sample()
         self.corpus = make_short_corpus(self.sampler.docs)
@@ -158,8 +158,6 @@ class Analysis(object):
         # Prune some un-pickle-able objects
         if to_prune == "DEFAULT":
             to_prune = [
-                ["sampler", "topic_func"],
-                ["sampler", "alpha_func"],
                 ["collapsed_gibbs"],
                 ["anchor_analysis"],
             ]
@@ -234,14 +232,10 @@ def compute_empirical_topics(sampler, leaf_to_index):
 
     return result
 
-def make_alpha_func(g, alpha_dict):
-    child_mapper = {n: [np.array(alpha_dict[c]) for c in g.neighbors(n)]
-                    for n in g.nodes() if g.out_degree(n) > 0}
-    def f(node):
-        return child_mapper[node]
-    return f
-
-def make_topic_func(true_topics, leaf_to_index):
-    def topic_func(node):
-        return true_topics[leaf_to_index[node], :]
-    return topic_func
+def make_topic_dict(topics, leaf_to_index):
+    if isinstance(topics, dict):
+        return topics
+    result = dict()
+    for leaf, index in leaf_to_index.items():
+        result[leaf] = topics[index, :]
+    return result

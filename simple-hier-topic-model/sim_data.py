@@ -6,7 +6,7 @@ except ImportError:
 from functools import partial
 
 from simple_hierarchical_topic_model import explore_branching_factors
-from compute_pam import get_alpha
+from compute_pam import get_alpha, AlphaCalc
 
 class SHTMSampler(object):
     '''Generate a simulated dataset'''
@@ -133,41 +133,48 @@ class SHTMSampler(object):
 class PAMSampler(object):
     def __init__(self, g, num_docs, words_per_doc, vocab_size,
             topic_dirichlet = 1.0,
-            topic_func = None,
-            alpha_func = None):
+            topic_dict = None,
+            alpha_calc = 1.0):
         self.g = g
         self.num_docs = num_docs
         self.words_per_doc = words_per_doc
         self.vocab_size = vocab_size
         self.topic_dirichlet = np.broadcast_to(topic_dirichlet, (self.vocab_size,)).astype('float')
-        self.topic_func = topic_func
-        if alpha_func is None:
-            alpha_func = partial(get_alpha, add_exit_edge = False)
-        self.alpha_func = alpha_func
+        self.topic_dict = topic_dict
+        self.alpha_calc = AlphaCalc.create(alpha_calc)
 
     def sample(self):
         self.thetas_by_doc = []
         self.docs = []
         self.doc_nodes = []
-        self.alphas = dict()
+        self.neighbors = dict()
+        self.alpha_vectors = dict()
         outdegree = self.g.out_degree()
         # Sample topics
         self.topics = dict()
         for node in self.g.nodes():
+            self.neighbors[node] = list(self.g.neighbors(node))
             if outdegree[node] == 0:
-                if self.topic_func is not None:
-                    self.topics[node] = self.topic_func(node)
+                # Leaf nodes get assigned topics
+                if self.topic_dict is not None:
+                    self.topics[node] = self.topic_dict[node]
                 else:
                     self.topics[node] = np.random.dirichlet(self.topic_dirichlet)
             else:
-                self.alphas[node] = self.alpha_func(outdegree[node])
+                # Internal nodes get assigned alpha vectors (dirichlet params)
+                self.alpha_vectors[node] = np.array(
+                    [self.alpha_calc.calc(nbr) for nbr in self.neighbors[node]],
+                    dtype='float')
         # Sample documents
         for i in tqdm(range(self.num_docs)):
+            # First sample per-doc distribution over topics
+            # by sampling a distribution over outgoing edges for each internal node
             thetas = dict()
             for node in self.g.nodes():
                 if outdegree[node] > 0:
-                    thetas[node] = np.random.dirichlet(self.alphas[node])
+                    thetas[node] = np.random.dirichlet(self.alpha_vectors[node])
             self.thetas_by_doc.append(thetas)
+            # Sample individual words within the document
             current_doc = []
             current_doc_nodes = []
             for j in range(self.words_per_doc):
@@ -181,10 +188,10 @@ class PAMSampler(object):
 
     def sample_leaf(self, thetas):
         current = self.g.graph["root"]
-        options = list(self.g.successors(current))
+        options = self.neighbors[current]
         while len(options) > 0:
             current = options[np.random.choice(len(options), p=thetas[current])]
-            options = list(self.g.successors(current))
+            options = list(self.neighbors[current])
         return current
 
 class HPAM1Sampler(object):
