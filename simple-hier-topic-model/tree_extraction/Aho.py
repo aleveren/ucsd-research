@@ -188,12 +188,15 @@ def constraints_from_tree(tree, root = None):
         path = shortest_paths[low_node]
         if len(path) == 1:
             continue  # Skip root
-        for high_node in path[:-1]:
-            a_desc = leaf_descendants[low_node]
-            c_desc = leaf_descendants[high_node] - a_desc
+        a_desc = leaf_descendants[low_node]
+        for subpath_len in range(1, len(path)):
+            subpath = path[:subpath_len]
+            high_node = path[subpath_len - 1]
+            high_child_to_avoid = path[subpath_len]
+            c_desc = leaf_descendants[high_node] - a_desc - leaf_descendants[high_child_to_avoid]
             for a in sorted(list(a_desc)):
-                child_to_avoid = shortest_paths[a][len(path)]
-                b_desc = a_desc - leaf_descendants[child_to_avoid]
+                low_child_to_avoid = shortest_paths[a][len(path)]
+                b_desc = a_desc - leaf_descendants[low_child_to_avoid]
                 for b in sorted(list(b_desc)):
                     for c in sorted(list(c_desc)):
                         t = (min(a, b), max(a, b), c)
