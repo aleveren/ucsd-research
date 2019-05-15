@@ -179,6 +179,8 @@ def constraints_from_tree(tree, root = None):
         desc = nx.descendants(tree, node)
         leaf_descendants[node] = desc.intersection(leaves)
 
+    triplets_seen = set()
+
     result = []
     for low_node in tree.nodes():
         if out_degree[low_node] == 0:
@@ -195,7 +197,11 @@ def constraints_from_tree(tree, root = None):
                 for b in sorted(list(b_desc)):
                     for c in sorted(list(c_desc)):
                         t = (min(a, b), max(a, b), c)
-                        result.append(TripletConstraint(*t, strength = 1.0))
+                        if t not in triplets_seen:
+                            result.append(TripletConstraint(*t, strength = 1.0))
+                            triplets_seen.add(t)
+
+    result.sort()
     return result
 
 def test():
