@@ -141,10 +141,10 @@ Its main appeals are (1) its relatively fast runtime, (2) provable guarantees on
 The anchor-words algorithm produces a matrix $A$ representing the topics appearing in the corpus (each row of $A$ corresponds to a probability distribution over the vocabulary).
 In addition, it produces a matrix $R$ representing the probabilities of pairs of topics co-occurring within a single document.
 One of the observations that motivated this paper was that, when a corpus is generated according to a hierarchical topic model such as PAM, the $R$ matrix recovered by the anchor-words algorithm appears to contain significant information about the structure of the underlying hierarchy.
-(TODO: include a figure demonstrating the structure that is visible in the $R$ matrix.)
+%TODO: include a figure demonstrating the structure that is visible in the $R$ matrix?
 Thus, a natural question to ask is, can we recover the structure of a hierarchy of topics based purely on observations of pairwise topic co-occurrence probabilities?
 
-It is important to note that the motivating example obtains $R$ via the anchor-words algorithm, but there are other methods of estimating the $R$ matrix of topic co-occurrences.
+It is important to note that this motivating example obtains $R$ via the anchor-words algorithm, but there are other methods of estimating the $R$ matrix of topic co-occurrences.
 For example, we could run a Gibbs sampler or variational inference for LDA, and then measure the empirical rates of topic co-occurrence.
 
 \section{A Proposed Algorithm}
@@ -154,21 +154,25 @@ We propose the following algorithm for recovering a hierarchy of topics from a c
 \newcommand{\Rbar}{\overline{R}}
 
 \begin{itemize}
-  \item Input: A corpus of documents ($X$) and a desired number of topics ($K$).
-  \item Estimate $A$, a matrix of topic definitions (for example, this can be done via anchor-words or LDA)
-  \item Estimate $R$, the matrix of pairwise topic co-occurrences (again, via anchor-words or LDA)
+  \item Input: $X$, a corpus of documents (with a vocabulary of size $V$), and $K$, the desired number of topics.
+  \item Use the corpus of documents to estimate $A$, a matrix of topic definitions, and $R$, a matrix of pairwise topic co-occurrence probabilities (for example, this can be done via anchor-words or LDA inference).
   \item Compute a ratio matrix according to
   \begin{align}
   \Rbar_{ij} = \frac{R_{ij}}{ \bigl( \sum_{j'} R_{ij'} \bigr) \bigl( \sum_{i'} R_{i'j} \bigr) }
+  \label{eqn:ratioFromCooccur}
   \end{align}
   \item Specify a list of triplet constraints such that $(\{i, j\}, k)$ is included iff $\Rbar_{ij} > \Rbar_{jk}$ and $\Rbar_{ij} > \Rbar_{ik}$ (with $i$, $j$, and $k$ representing 3 distinct indices from $1$ to $K$).
   \item For each constraint, define its ``strength'' to be $\Rbar_{ij} - \max(\Rbar_{jk}, \Rbar_{ik})$.
         Sort the list of constraints by descending strength.
   \item Remove any constraint whose strength is below some fixed constant $\tau$ (which will be defined and justified in a later section).
-  \item Apply Aho's algorithm to the list of constraints to generate a tree in which the leaves correspond to the integers $1$ to $K$.
-  \item If the previous step fails (i.e., returns a null tree), perform binary search to find the longest prefix of the constraint list which yields a non-null tree when applying Aho's algorithm.
-  \item Return the resulting tree, along with the matrix of topics ($A$).
+  \item Apply Aho's tree-building algorithm \tocite{} to the list of constraints to generate a tree in which the leaves correspond to the integers $1$ to $K$.
+  \item If the previous step fails (i.e., returns a null result), perform binary search to find the longest prefix of the constraint list for which Aho's algorithm yields a non-null result.
+  \item Let $T$ denote the resulting tree.
+  Apply the recursive algorithm described in section~\ref{sec:recover-dirichlet} to $R$ and $T$ to extract a set of Dirichlet parameters $\alpha$.
+  \item Return the tree $T$, the matrix of topics $A$, and the Dirichlet parameters $\alpha$.
 \end{itemize}
+
+% TODO: probably need to discuss Aho's algorithm and triplet constraints somewhere in more detail
 
 \section{Proving Properties of the Algorithm}
 
@@ -193,7 +197,18 @@ Specifically, the first element of this path is always the root node of $T$, and
 This process repeats until we reach a leaf node, which we will denote by $\pi_{d,n}$.
 Finally, we sample a word $t_{d,n}$ from the vocabulary according to $\Categorical(\beta_{\pi_{d,n}})$.
 
+\begin{figure}[hbt]
+    \centering
+    \includegraphics[width=\textwidth]{figures/treepam-diagram.pdf}
+    \caption{Example of a TreePAM model}
+    \label{fig:treepam-diagram}
+\end{figure}
+
+An example of this type of model is shown in Figure~\ref{fig:treepam-diagram}.
+The structure of the tree $T$ is indicated by the arrangement of circular nodes, the Dirichlet parameters $\alpha$ appear as labels on the edges of the tree, and the topics $\beta$ correspond to distributions over words associated with leaves at the bottom of the tree.
+
 \subsection{Single-Topic Probabilities in TreePAM}
+\label{sec:single-topic-probabilities}
 
 In what follows, it will be useful to compute the per-topic probability distribution $P(\pi_{d,1} = i)$ for each $i \in \leaves(T)$.
 We compute this distribution by integrating over the random variables $\theta_{d,\nu}$.
@@ -248,6 +263,7 @@ P(\pi_{d,1} = i)
 \end{align*}
 
 \subsection{Topic Co-occurrence Probabilities in TreePAM}
+\label{sec:topic-cooccurrence-probabilities}
 
 Next, we compute topic co-occurrence probabilities for the TreePAM model.
 Specifically, we wish to know $R_{i,j} = P(\pi_{d,1} = i, \pi_{d,2} = j)$, the probability that a single document contains some pair of topics corresponding to leaf nodes $i, j \in \leaves(T)$.
@@ -574,7 +590,7 @@ In our proposed algorithm, a triplet constraint $(\{a,b\},c)$ will be passed to 
 This will occur if and only if $\RbarEst_{a,b} > \RbarEst_{a,c} + \tau$ and $\RbarEst_{a,b} > \RbarEst_{b,c} + \tau$, which completes our proof that $C_T$ is the set of constraints that we will pass to Aho's algorithm.
 \end{proof}
 
-\paragraph{Tree recovery}
+\subsection{Tree recovery}
 Let us say that a rooted, directed tree is \emph{admissible} if it has no nodes with exactly one child.
 If $T$ is any tree, then the set of triplet constraints satisfied by $T$ is exactly the set $C_T$ defined above.
 (This fact comes directly from the definition of triplet constraints.)
@@ -643,7 +659,8 @@ The above results guarantee that Aho's algorithm is guaranteed to output the tre
 
 %%%%%%%%%%
 
-\paragraph{Bound on minimum spacing for ratio-matrix entries}
+\subsection{Bound on minimum spacing for ratio-matrix entries}
+\label{sec:minimum-spacing}
 Suppose the TreePAM model's parameters $\alpha_{\nu,\nu'}$ are bounded above by $\alphaMax > 0$.
 Suppose also that they satisfy the limited-sparsity property with a margin of at least $\deltaMin > 0$; that is, for every edge $i \to j$ between internal nodes,
 \begin{align*}
@@ -772,7 +789,7 @@ As a consequence of this result, if we can estimate $\Rbar$ with additive error 
 
 %%%%%%%%%%%%
 
-\paragraph{Restricted hypothesis class}
+\subsubsection{Restricted hypothesis class}
 Setting $\deltaMin$ and $\alphaMax$ effectively corresponds to selecting a restricted hypothesis class of TreePAM models.
 Once a hypothesis class has been selected, we can then compute $\phi$, and from that we can determine the maximum error tolerance $\epsilon = \phi/4$ and the constraint-strength cutoff $\tau = \phi/2$.
 Let's consider some examples of $\phi$ calculations corresponding to concrete settings for $\deltaMin$ and $\alphaMax$.
@@ -787,7 +804,7 @@ These examples illustrate a key tradeoff: a broader hypothesis class requires us
 
 %%%%%%%%%%%
 
-\paragraph{Necessity of both bounds}
+\subsubsection{Necessity of both bounds}
 Next, we'll show that both of the bounds $\alphaMax$ and $\deltaMin$ are necessary to prevent $\phi$ from becoming arbitrarily small.
 Without one or the other, we can force $\phi$ to be arbitrarily close to zero.
 
@@ -807,7 +824,8 @@ Lastly, if we set $u = \alphaMax$ and $w = \alphaMax + \deltaMin$ while letting 
 
 %%%%%%%%%%
 
-\paragraph{Recovering Dirichlet parameters}
+\subsection{Recovering Dirichlet parameters}
+\label{sec:recover-dirichlet}
 In addition to recovering the tree $T$ associated with an unknown TreePAM model, we also wish to recover the Dirichlet parameters $\alpha_{\nu,\nu'}$ associated with the edges of the tree.
 In this section, we derive an algorithm for doing so.
 
@@ -945,14 +963,67 @@ R^*_{21}
 
 \section{Experimental Results on Simulated Data}
 
-{\bf TODO}
+\begin{figure}[hbt]
+    \centering
+    \includegraphics[width=\textwidth]{figures/experiment-flowchart.pdf}
+    \caption{Flowchart for expiremental results}
+    \label{fig:experiment-flowchart}
+\end{figure}
+
+In this section, we describe experimental results that are designed to test the ability of our proposed algorithm to extract a known model from simulated data.
+Figure~\ref{fig:experiment-flowchart} is a flowchart describing the main artifacts produced during this process.
+The rows represent different types of artifacts associated with our model, and the columns represent different paths to arrive at these artifacts.
+
+These experiments are all based on data that has been generated by a TreePAM model satisfying the limited-sparsity property.
+The true TreePAM model (shown in Column 1) consists of a known tree structure, a known set of topics corresponding to the leaves, and a known set of Dirichlet parameters corresponding to the outgoing edges of the internal nodes.
+The true model is directly or indirectly used to generate all of the other artifacts in Figure~\ref{fig:experiment-flowchart}.
+Note that in these experiments we are assuming that the true number of topics, $K$, is fixed and known.
+Further work may be able to relax this assumption -- for example, by treating $K$ as a trainable parameter.
+
+Our particular experiments used a balanced binary tree with branching structure $[2,2,2]$, Dirichlet parameters $\alpha = 1$ for all edges, and topics deterministically generated by a process analogous to the one used in the Griffiths-Steyvers paper ``Finding Scientific Topics'' \tocite{}.
+
+Column 3 begins with the true co-occurrence matrix $R$, which can be computed using equations~\eqref{eqn:cooccurDistinct} and~\eqref{eqn:cooccurSame}.
+From there, we compute the ratio matrix $\Rbar$ using equation~\eqref{eqn:ratioFromCooccur}.
+We derive a corresponding set of triplet constraints by comparing $\Rbar_{i,j}$, $\Rbar_{i,k}$, and $\Rbar_{j,k}$ for all distinct triplets $i,j,k \in \{1, \ldots, K\}$.
+We also compute the strength of each constraint and filter out any constraints whose strength is less than $\tau$, as defined in section~\ref{sec:minimum-spacing}.
+For these experiments, we used $\alphaMax = 10$ and $\deltaMin = 1/10$, leading to a constraint-strength threshold of $\tau = \phi/2 = 1/2442 \approx 0.0004$.
+Next, we apply Aho's algorithm to this set of triplet constraints to obtain a tree in which the indices $1, \ldots, K$ are assigned to the leaves.
+Lastly, we use the method of section~\ref{sec:recover-dirichlet} to extract the $\alpha$ Dirichlet parameters, based on the tree from cell 3.f and the cooccurrence matrix from cell 3.c.
+
+At this point, even before generating simulated data, there are several comparisons that we can make to sanity-check our results.
+We can compare the $\alpha$ Dirichlet parameters to their true values (3.g versus 1.g), the tree to its true structure (3.f versus 1.f), and the triplet constraints to their true values (3.e versus 2.e).%
+\footnote{%
+Note that the true triplet constraints in 2.e can be derived from the true tree in 1.f via the following process.
+For each pair of distinct internal nodes in an ancestor-descendant relationship, let $d$ denote the ``lower'' node, and let $e$ denote the ``higher'' node (i.e., closer to the root).
+For each leaf $a$ descended from $d$, identify the child $a'$ of $d$ from which $a$ is descended, and iterate over each leaf node $b$ that is descended from $d$ but not from $a'$.
+Then, iterate over each leaf node $c$ that is descended from $e$ but not from $d$.
+For each of these combinations, add the triplet constraint $(\{a,b\}, c)$.
+This yields the set of all triplets of leaves $a,b,c$ such that $d=\LCA(a,b)$ is a strict descendant of $e=\LCA(a,c)$.}
+We found that the tree structure and the set of constraints agree exactly, and the $\alpha$ values agree to within the limits of 64-bit floating-point arithmetic.
+This confirms our theoretical result that if we know the exact co-occurrence matrix of a TreePAM model, we can derive the tree structure and $\alpha$ parameters from it.
+
+Next, we turn to Column~4 of Figure~\ref{fig:experiment-flowchart}.
+From the true model of Column~1, we can generate a synthetic dataset (4.b) in which each word-slot in each document is labeled with the true topic from which it was drawn.
+Comparing these results to Column~3 allows us to assess the impact of sampling noise.
+We will refer to the results in this column as ``empirical'' results.
+From 4.b, we can then obtain an empirical estimate of the topics (4.a) and an empirical estimate of the co-occurrence probabilities (4.c).
+Beyond this point, the remaining results in Column~4 are obtained via the same process as in Column~3: we compute the ratio matrix (4.d), derive constraints from it (4.e), construct a tree (4.f), and infer $\alpha$ values (4.g).
+
+{\bf TODO: discuss comparisons for Column 4}
+
+Finally, Column~5 of Figure~\ref{fig:experiment-flowchart} contains the steps of the model-estimation algorithm as it would be applied to real data.
+We start by removing the topic-labeling information from the synthetic dataset to create an unlabeled corpus of text, taking us from 4.b to 5.b.
+Applying anchor-words, LDA inference, or similar methods, we obtain estimates of the topics (5.a) and of the co-occurrence matrix (5.c).
+Next, similar to the previous two columns, we compute the ratio matrix (5.d), derive triplet constraints (5.e), construct a tree (5.f), and infer $\alpha$ values (5.g).
+
+{\bf TODO: discuss comparisons for Column 5}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \clearpage
 \appendix
 \section{Properties of the Multivariate Beta Function}
 
-The multivariate beta function has the following useful properties:
+The multivariate beta function has the following properties, which are useful for the derivations in sections~\ref{sec:single-topic-probabilities} and~\ref{sec:topic-cooccurrence-probabilities}.
 
 \begin{itemize}
 
