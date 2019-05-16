@@ -6,6 +6,7 @@ from scipy.sparse import csc_matrix, dok_matrix
 from collections import Counter
 import sys
 import datetime
+import copy
 import pickle
 
 from utils import nice_tree_plot, niceprint, permute_square, invert_permutation, without_diag
@@ -133,25 +134,36 @@ class Analysis(object):
             raise ValueError("Unrecognized strategy: '{}'".format(topic_extraction_strategy))
         
         # Extract tree & other parameters from data
-        self.est_results = self.cooccur_to_tree_and_alphas(self.est_cooccur, self.threshold)
-        self.emp_results = self.cooccur_to_tree_and_alphas(self.emp_cooccur, self.threshold)
-        self.true_c_results = self.cooccur_to_tree_and_alphas(self.true_cooccur, self.threshold)
-        
+        self.est_results = self.cooccur_to_tree_and_alphas(self.est_cooccur, self.threshold, self.est_topics)
+        self.emp_results = self.cooccur_to_tree_and_alphas(self.emp_cooccur, self.threshold, self.emp_topics)
+        self.true_c_results = self.cooccur_to_tree_and_alphas(self.true_cooccur, self.threshold, self.true_topics)
+
+        self.true_results = copy.deepcopy(self.true_c_results)
+        self.true_results["tree"] = copy.deepcopy(self.true_tree)
+        self.true_results["alphas"] = copy.deepcopy(self.true_alphas)
+        self.true_results["topics"] = copy.deepcopy(self.true_topics)
+
         self.est_alphas, self.est_tree = [self.est_results[x] for x in ["alphas", "tree"]]
         self.emp_alphas, self.emp_tree = [self.emp_results[x] for x in ["alphas", "tree"]]
         self.true_c_alphas, self.true_c_tree = [self.true_c_results[x] for x in ["alphas", "tree"]]
+
+        perm = find_flat_permutation(true_topics = self.true_c_results["topics"], est_topics = self.est_results["topics"])
+        self.est_results_permuted = self.cooccur_to_tree_and_alphas(
+            cooccur = permute_square(X = self.est_results["cooccur"], perm = perm),
+            threshold = self.threshold,
+            topics = self.est_results["topics"][perm, :])
         
         return self.est_topics, self.est_tree, self.est_alphas
         
-    def cooccur_to_tree_and_alphas(self, cooccur, threshold):
+    def cooccur_to_tree_and_alphas(self, cooccur, threshold, topics):
         result = dict()
-
+        result["cooccur"] = cooccur.copy()
+        result["topics"] = topics.copy()
         result["ratio_matrix"] = get_ratio_matrix(cooccur)
         result["constraints"] = Aho.get_constraints(result["ratio_matrix"], threshold = threshold)
         result["tree"] = Aho.extract(m = result["ratio_matrix"], apply_ratio = False, threshold = threshold)
         result["alpha_extract"] = AlphaExtract(g = result["tree"], R = cooccur)
         result["alphas"] = result["alpha_extract"].extract()
-        
         return result
 
     def save(self, filename, to_prune = "DEFAULT", add_timestamp = True):
