@@ -988,7 +988,7 @@ We derive a corresponding set of triplet constraints by comparing $\Rbar_{i,j}$,
 We also compute the strength of each constraint and filter out any constraints whose strength is less than $\tau$, as defined in section~\ref{sec:minimum-spacing}.
 For these experiments, we used $\alphaMax = 10$ and $\deltaMin = 1/10$, leading to a constraint-strength threshold of $\tau = \phi/2 = 1/2442 \approx 0.0004$.
 Next, we apply Aho's algorithm to this set of triplet constraints to obtain a tree in which the indices $1, \ldots, K$ are assigned to the leaves.
-Lastly, we use the method of section~\ref{sec:recover-dirichlet} to extract the $\alpha$ Dirichlet parameters, based on the tree from cell 3.f and the cooccurrence matrix from cell 3.c.
+Lastly, we use the method of section~\ref{sec:recover-dirichlet} to extract the $\alpha$ Dirichlet parameters, based on the tree from 3.f and the cooccurrence matrix from 3.c.
 
 At this point, even before generating simulated data, there are several comparisons that we can make to sanity-check our results.
 We can compare the $\alpha$ Dirichlet parameters to their true values (3.g versus 1.g), the tree to its true structure (3.f versus 1.f), and the triplet constraints to their true values (3.e versus 2.e).%
@@ -996,7 +996,7 @@ We can compare the $\alpha$ Dirichlet parameters to their true values (3.g versu
 Note that the true triplet constraints in 2.e can be derived from the true tree in 1.f via the following process.
 For each pair of distinct internal nodes in an ancestor-descendant relationship, let $d$ denote the ``lower'' node, and let $e$ denote the ``higher'' node (i.e., closer to the root).
 For each leaf $a$ descended from $d$, identify the child $a'$ of $d$ from which $a$ is descended, and iterate over each leaf node $b$ that is descended from $d$ but not from $a'$.
-Then, iterate over each leaf node $c$ that is descended from $e$ but not from $d$.
+Then, let $d'$ denote the child of $e$ from which $d$ is descended, and iterate over each leaf node $c$ that is descended from $e$ but not from $d'$.
 For each of these combinations, add the triplet constraint $(\{a,b\}, c)$.
 This yields the set of all triplets of leaves $a,b,c$ such that $d=\LCA(a,b)$ is a strict descendant of $e=\LCA(a,c)$.}
 We found that the tree structure and the set of constraints agree exactly, and the $\alpha$ values agree to within the limits of 64-bit floating-point arithmetic.
@@ -1009,14 +1009,49 @@ We will refer to the results in this column as ``empirical'' results.
 From 4.b, we can then obtain an empirical estimate of the topics (4.a) and an empirical estimate of the co-occurrence probabilities (4.c).
 Beyond this point, the remaining results in Column~4 are obtained via the same process as in Column~3: we compute the ratio matrix (4.d), derive constraints from it (4.e), construct a tree (4.f), and infer $\alpha$ values (4.g).
 
-{\bf TODO: discuss comparisons for Column 4}
-
 Finally, Column~5 of Figure~\ref{fig:experiment-flowchart} contains the steps of the model-estimation algorithm as it would be applied to real data.
 We start by removing the topic-labeling information from the synthetic dataset to create an unlabeled corpus of text, taking us from 4.b to 5.b.
 Applying anchor-words, LDA inference, or similar methods, we obtain estimates of the topics (5.a) and of the co-occurrence matrix (5.c).
 Next, similar to the previous two columns, we compute the ratio matrix (5.d), derive triplet constraints (5.e), construct a tree (5.f), and infer $\alpha$ values (5.g).
 
-{\bf TODO: discuss comparisons for Column 5}
+Results for these experiments based on synthetic data (with 10,000 documents, 500 words per document, and a vocabulary of size 100) are shown in Figures~\ref{fig:True-vs-Empirical-vs-Estimated-topics} through~\ref{fig:True-vs-Empirical-vs-Estimated-alphas}.
+These results illustrate the capacity of this algorithm to recover the true model, under the assumption that the dataset has been generated according to a TreePAM model.
+Wherever appropriate, we have permuted the topic names to allow for easier side-by-side comparison; for example, the topics produced by anchor words are not guaranteed to appear in any particular order, but we have reordered them to match the expected ordering.
+
+\begin{figure}[hpbt]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/True-vs-Empirical-vs-Estimated-topics.pdf}
+    \caption{Experimental results: topics.  (These correspond to cells 1.a, 4.a, and 5.a in Figure~\ref{fig:experiment-flowchart})}
+    \label{fig:True-vs-Empirical-vs-Estimated-topics}
+\end{figure}
+
+\begin{figure}[hpbt]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/True-vs-Empirical-vs-Estimated-cooccur.pdf}
+    \caption{Experimental results: co-occurrence probabilities.  (These correspond to cells 3.c, 4.c, and 5.c in Figure~\ref{fig:experiment-flowchart})}
+    \label{fig:True-vs-Empirical-vs-Estimated-cooccur}
+\end{figure}
+
+\begin{figure}[hpbt]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/True-vs-Empirical-vs-Estimated-ratio_matrix.pdf}
+    \caption{Experimental results: ratio matrix.  (These correspond to cells 3.d, 4.d, and 5.d in Figure~\ref{fig:experiment-flowchart})}
+    \label{fig:True-vs-Empirical-vs-Estimated-ratio_matrix}
+\end{figure}
+
+\begin{figure}[hpbt]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/True-vs-Empirical-vs-Estimated-tree.pdf}
+    \caption{Experimental results: tree structure.  (These correspond to cells 3.f, 4.f, and 5.f in Figure~\ref{fig:experiment-flowchart})}
+    \label{fig:True-vs-Empirical-vs-Estimated-tree}
+\end{figure}
+
+\begin{figure}[hpbt]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/True-vs-Empirical-vs-Estimated-alphas.pdf}
+    \caption{Experimental results: Dirichlet parameters $\alpha$.  (These correspond to cells 3.g, 4.g, and 5.g in Figure~\ref{fig:experiment-flowchart})}
+    \label{fig:True-vs-Empirical-vs-Estimated-alphas}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \clearpage
